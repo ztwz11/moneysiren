@@ -1,0 +1,43 @@
+{
+  "project_name": "stackspend",
+  "commands": {
+    "install": "pnpm install",
+    "dev": "pnpm --filter @stackspend/web dev",
+    "build": "pnpm build",
+    "test": "pnpm test",
+    "lint": "pnpm lint",
+    "typecheck": "pnpm typecheck",
+    "docs": "git diff --check"
+  },
+  "important_paths": {
+    "src": "apps packages",
+    "tests": "packages apps",
+    "docs": "docs",
+    "config": "package.json"
+  },
+  "active_plan": {
+    "dossier": "PROJECT_DOSSIER.md",
+    "execution_plan": "EXECUTION_PLAN.md",
+    "current_milestone": "M1",
+    "current_slice": "S1-monorepo-bootstrap"
+  },
+  "quality_gates": [
+    "docs/review-gate-template.md",
+    "docs/security.md",
+    "AGENTS.md"
+  ],
+  "evidence_paths": {
+    "plans": "docs/product",
+    "reviews": "docs/reviews",
+    "artifacts": ".stackspend/artifacts"
+  },
+  "template": {
+    "family": "local-first-typescript-monorepo",
+    "variant": "cli-sqlite-nextjs"
+  },
+  "notes": [
+    "Commands are the approved post-M1 validation commands; package.json is created during M1/S1.",
+    "Do not run external provider API calls during M1/S1.",
+    "Do not create .env; use .env.example only."
+  ]
+}

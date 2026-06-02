@@ -55,6 +55,12 @@ Logs must not include:
 - billing profile payloads
 - unmasked identifiers
 
+## Slack Report Delivery
+
+Slack delivery is disabled unless the CLI run explicitly requests `report daily --lang ko --send slack`.
+`SLACK_WEBHOOK_URL` is read from the process environment for that run only. Tests must use an injected transport and must not call live Slack.
+Slack delivery status may be persisted in `report_runs`, but webhook URLs and response payloads must not be persisted.
+
 ## Telemetry
 
 Telemetry is disabled by default. If telemetry is added later, it must be opt-in only and documented clearly.

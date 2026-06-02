@@ -2,6 +2,7 @@ import { runDoctorCommand } from "./commands/doctor.js";
 import { runInitCommand } from "./commands/init.js";
 import { runReportCommand } from "./commands/report.js";
 import { runSyncCommand } from "./commands/sync.js";
+import type { SlackReportTransport } from "../../../packages/report/src/index.js";
 
 export const CLI_VERSION = "0.1.0-alpha.0";
 
@@ -15,7 +16,7 @@ Usage:
   stackspend init
   stackspend doctor
   stackspend sync --provider <mock|aws|openai|supabase|cloudflare>
-  stackspend report daily --lang ko
+  stackspend report daily --lang ko [--send slack]
 `;
 
 export interface CliRuntime {
@@ -26,6 +27,7 @@ export interface CliRuntime {
   stderr?: (line: string) => void;
   stdoutBuffer?: string[];
   stderrBuffer?: string[];
+  slackTransport?: SlackReportTransport;
 }
 
 export interface CliExecutionContext {
@@ -34,6 +36,7 @@ export interface CliExecutionContext {
   now: () => Date;
   stdout(line: string): void;
   stderr(line: string): void;
+  slackTransport?: SlackReportTransport;
 }
 
 export interface CliResult {
@@ -75,6 +78,10 @@ export async function runCli(args: readonly string[], runtime: CliRuntime = {}):
       runtime.stderr(line);
     },
   };
+
+  if (runtime.slackTransport !== undefined) {
+    context.slackTransport = runtime.slackTransport;
+  }
 
   try {
     return {

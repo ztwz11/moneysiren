@@ -33,6 +33,20 @@ pnpm --filter @stackspend/cli dev -- --help
 pnpm --filter @stackspend/cli dev -- --version
 ```
 
+Daily report dry run:
+
+```bash
+pnpm --filter @stackspend/cli dev -- report daily --lang ko
+```
+
+Slack delivery is opt-in per run and requires `SLACK_WEBHOOK_URL` in the process environment:
+
+```bash
+pnpm --filter @stackspend/cli dev -- report daily --lang ko --send slack
+```
+
+Do not write webhook URLs into `.env`, docs, test fixtures, or committed files.
+
 ## Security Posture
 
 StackSpend should never persist raw provider payloads or secrets. Provider data must be normalized and redacted before storage.

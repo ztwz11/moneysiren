@@ -4,16 +4,26 @@ import {
   recordLocalReportRun,
   type LocalStore,
 } from "../../../../packages/db/src/index.js";
-import { renderDailyReport, type DailyProviderSummary, type DailyReportInput } from "../../../../packages/report/src/index.js";
+import {
+  renderDailyReport,
+  sendSlackReport,
+  type DailyProviderSummary,
+  type DailyReportInput,
+} from "../../../../packages/report/src/index.js";
 import type { CliExecutionContext } from "../cli.js";
-import { loadCliConfig, readFlag, resolveDbPath } from "./shared.js";
+import { loadCliConfig, resolveDbPath } from "./shared.js";
+
+type ReportDeliveryTarget = "stdout" | "slack";
+
+interface ParsedDailyReportArgs {
+  deliveryTarget: ReportDeliveryTarget;
+}
 
 export async function runReportCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
-  const [reportKind, ...rest] = args;
-  const langFlag = readFlag(rest, "--lang");
+  const parsedArgs = parseDailyReportArgs(args);
 
-  if (reportKind !== "daily" || langFlag.remainingArgs.length > 0 || langFlag.value !== "ko") {
-    context.stderr("Usage: stackspend report daily --lang ko");
+  if (parsedArgs === undefined) {
+    context.stderr("Usage: stackspend report daily --lang ko [--send slack]");
     return 1;
   }
 
@@ -30,8 +40,19 @@ export async function runReportCommand(args: readonly string[], context: CliExec
     reportDate,
     generatedAt,
     providerSummaries: buildProviderSummaries(store),
-    reportRunStatus: "rendered",
+    reportRunStatus: parsedArgs.deliveryTarget === "slack" ? "sent" : "rendered",
   };
+
+  if (parsedArgs.deliveryTarget === "slack") {
+    return sendDailyReportToSlack({
+      context,
+      dbPath,
+      reportDate,
+      generatedAt,
+      reportInput,
+      webhookEnvKey: config.slack.requiredEnvKey,
+    });
+  }
 
   await recordLocalReportRun({
     dbPath,
@@ -45,6 +66,130 @@ export async function runReportCommand(args: readonly string[], context: CliExec
   context.stdout(renderDailyReport(reportInput, { lang: "ko" }));
   context.stdout("Report run recorded: stdout");
   return 0;
+}
+
+function parseDailyReportArgs(args: readonly string[]): ParsedDailyReportArgs | undefined {
+  const [reportKind, ...rest] = args;
+
+  if (reportKind !== "daily") {
+    return undefined;
+  }
+
+  let lang: string | undefined;
+  let deliveryTarget: ReportDeliveryTarget = "stdout";
+
+  for (let index = 0; index < rest.length; index += 1) {
+    const arg = rest[index];
+
+    if (arg === "--lang") {
+      const value = rest[index + 1];
+
+      if (value === undefined) {
+        return undefined;
+      }
+
+      lang = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg?.startsWith("--lang=")) {
+      lang = arg.slice("--lang=".length);
+      continue;
+    }
+
+    if (arg === "--send") {
+      const value = rest[index + 1];
+
+      if (value !== "slack") {
+        return undefined;
+      }
+
+      deliveryTarget = "slack";
+      index += 1;
+      continue;
+    }
+
+    if (arg?.startsWith("--send=")) {
+      const value = arg.slice("--send=".length);
+
+      if (value !== "slack") {
+        return undefined;
+      }
+
+      deliveryTarget = "slack";
+      continue;
+    }
+
+    return undefined;
+  }
+
+  if (lang !== "ko") {
+    return undefined;
+  }
+
+  return {
+    deliveryTarget,
+  };
+}
+
+async function sendDailyReportToSlack(input: {
+  context: CliExecutionContext;
+  dbPath: string;
+  reportDate: string;
+  generatedAt: string;
+  reportInput: DailyReportInput;
+  webhookEnvKey: "SLACK_WEBHOOK_URL";
+}): Promise<number> {
+  const webhookUrl = input.context.env[input.webhookEnvKey]?.trim();
+
+  if (webhookUrl === undefined || webhookUrl.length === 0) {
+    await recordSlackReportRun(input, "error");
+    input.context.stderr(`${input.webhookEnvKey} is required for Slack delivery.`);
+    return 1;
+  }
+
+  const text = renderDailyReport(input.reportInput, { lang: "ko" });
+
+  try {
+    const options = input.context.slackTransport === undefined
+      ? {
+          webhookUrl,
+          text,
+        }
+      : {
+          webhookUrl,
+          text,
+          transport: input.context.slackTransport,
+        };
+
+    await sendSlackReport(options);
+    await recordSlackReportRun(input, "sent");
+    input.context.stdout("Slack report sent: slack");
+    return 0;
+  } catch (error) {
+    await recordSlackReportRun(input, "error");
+    input.context.stderr(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
+}
+
+async function recordSlackReportRun(
+  input: {
+    dbPath: string;
+    reportDate: string;
+    generatedAt: string;
+  },
+  status: "sent" | "error",
+): Promise<void> {
+  await recordLocalReportRun({
+    dbPath: input.dbPath,
+    createdAt: input.generatedAt,
+    reportDate: input.reportDate,
+    language: "ko",
+    deliveryTarget: "slack",
+    status,
+  });
 }
 
 function buildProviderSummaries(store: LocalStore): DailyProviderSummary[] {

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import type { SlackReportTransportRequest } from "../../../packages/report/src/slack.js";
 import { runCli } from "./cli.js";
 
 const FIXED_NOW = "2026-06-02T09:00:00.000Z";
@@ -23,6 +24,7 @@ const CLOUDFLARE_FIXTURE_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../../tests/fixtures/providers/cloudflare/billing-usage.json",
 );
+const TEST_SLACK_WEBHOOK_URL = "fake-stackspend-slack-webhook-secret";
 const FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN =
   /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b|FAKE_CLOUDFLARE|fake-zone\.invalid|card_|payment_/i;
 
@@ -82,7 +84,8 @@ describe("StackSpend CLI", () => {
     expect(reportResult.exitCode).toBe(0);
     expect(reportText).toContain("StackSpend 일일 리포트");
     expect(reportText).toContain("Mock Provider");
-    expect(reportText).toContain("예상 비용: USD 15.00");
+    expect(reportText).toContain("- 예상 비용 USD 15.00");
+    expect(reportText).not.toContain("예상 비용: USD 15.00");
 
     const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
     const counts = querySqlite<{
@@ -119,6 +122,83 @@ describe("StackSpend CLI", () => {
     });
     expect(persistedText).not.toContain("sqlite-placeholder-v1");
     expect(persistedText).not.toMatch(/rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@/i);
+  });
+
+  it("sends the Korean daily report to Slack with an injected transport and records delivery status", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const slackRequests: SlackReportTransportRequest[] = [];
+
+    const syncResult = await runCli(["sync", "--provider", "mock"], testContext(cwd));
+    expect(syncResult.exitCode).toBe(0);
+
+    const reportResult = await runCli(
+      ["report", "daily", "--lang", "ko", "--send", "slack"],
+      {
+        ...testContext(cwd, {
+          SLACK_WEBHOOK_URL: TEST_SLACK_WEBHOOK_URL,
+        }),
+        slackTransport: async (request) => {
+          slackRequests.push(request);
+          return {
+            ok: true,
+            status: 200,
+            body: "ok",
+          };
+        },
+      },
+    );
+    const stdout = reportResult.stdout.join("\n");
+
+    expect(reportResult.exitCode).toBe(0);
+    expect(stdout).toContain("Slack report sent");
+    expect(stdout).not.toContain(TEST_SLACK_WEBHOOK_URL);
+    expect(slackRequests).toHaveLength(1);
+    expect(slackRequests[0]?.payload.text).toContain("*StackSpend 일일 리포트*");
+    expect(slackRequests[0]?.payload.text).toContain("---");
+    expect(slackRequests[0]?.payload.text).toContain("- 예상 비용 USD 15.00");
+    expect(slackRequests[0]?.payload.text).not.toContain("동기화 상태:");
+
+    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const reportRuns = querySqlite<{ delivery_target: string; status: string }>(
+      dbPath,
+      "SELECT delivery_target, status FROM report_runs ORDER BY created_at, id;",
+    );
+    const persistedText = dumpSqlite(dbPath);
+
+    expect(reportRuns).toEqual([
+      {
+        delivery_target: "slack",
+        status: "sent",
+      },
+    ]);
+    expect(persistedText).not.toContain(TEST_SLACK_WEBHOOK_URL);
+    expect(persistedText).not.toMatch(/hooks\.slack|sk-|@/i);
+  });
+
+  it("fails Slack report delivery gracefully without SLACK_WEBHOOK_URL and records error status", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+
+    const reportResult = await runCli(["report", "daily", "--lang", "ko", "--send", "slack"], testContext(cwd));
+    const stderr = reportResult.stderr.join("\n");
+
+    expect(reportResult.exitCode).toBe(1);
+    expect(stderr).toContain("SLACK_WEBHOOK_URL");
+    expect(stderr).not.toMatch(/https?:\/\//i);
+
+    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const reportRuns = querySqlite<{ delivery_target: string; status: string }>(
+      dbPath,
+      "SELECT delivery_target, status FROM report_runs ORDER BY created_at, id;",
+    );
+    const persistedText = dumpSqlite(dbPath);
+
+    expect(reportRuns).toEqual([
+      {
+        delivery_target: "slack",
+        status: "error",
+      },
+    ]);
+    expect(persistedText).not.toMatch(/hooks\.slack|fake-stackspend-slack-webhook-secret|sk-|@/i);
   });
 
   it("fails AWS sync gracefully without credentials or fixture mode", async () => {

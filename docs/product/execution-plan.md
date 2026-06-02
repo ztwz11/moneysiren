@@ -257,7 +257,11 @@ Files:
 Completion criteria:
 
 - dry-run report works without Slack.
-- `--send-slack` is required for actual send.
+- `--send slack` is required for actual send.
+- tests use injectable transport and never call live Slack.
+- missing `SLACK_WEBHOOK_URL` fails gracefully.
+- `report_runs` records Slack `sent` and `error` delivery statuses.
+- Korean report text uses Slack-readable section dividers and bullets.
 - webhook URL is never logged or persisted.
 
 ## M9 — Local dashboard

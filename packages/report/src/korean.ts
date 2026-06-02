@@ -2,20 +2,20 @@ import type { DailyProviderSummary, DailyReportInput } from "./daily.js";
 
 export function renderKoreanDailyReport(input: DailyReportInput): string {
   const lines = [
-    "StackSpend 일일 리포트",
-    `날짜: ${input.reportDate}`,
-    `생성: ${input.generatedAt}`,
-    `리포트 상태: ${translateReportStatus(input.reportRunStatus)}`,
+    "*StackSpend 일일 리포트*",
+    `- 날짜 ${input.reportDate}`,
+    `- 생성 ${input.generatedAt}`,
+    `- 리포트 상태 ${translateReportStatus(input.reportRunStatus)}`,
     "",
   ];
 
   if (input.providerSummaries.length === 0) {
-    lines.push("수집된 공급자 데이터가 없습니다.");
+    lines.push("---", "*요약*", "- 수집된 공급자 데이터가 없습니다.");
     return lines.join("\n");
   }
 
   for (const summary of input.providerSummaries) {
-    lines.push(...renderProviderSummary(summary), "");
+    lines.push("---", ...renderProviderSummary(summary), "");
   }
 
   return lines.join("\n").trimEnd();
@@ -23,13 +23,13 @@ export function renderKoreanDailyReport(input: DailyReportInput): string {
 
 function renderProviderSummary(summary: DailyProviderSummary): string[] {
   return [
-    summary.displayName,
-    `- 동기화 상태: ${translateSyncStatus(summary.syncStatus)}`,
-    `- 사용량 스냅샷: ${summary.usageSnapshotCount}건`,
-    `- 청구 스냅샷: ${summary.billingSnapshotCount}건`,
-    `- 서비스 상태: ${translateHealthStatus(summary.healthStatus)}`,
-    `- 예상 비용: ${formatMinorCurrency(summary.estimatedAmountMinor, summary.currency)}`,
-    `- 알림: ${summary.alertCount}건`,
+    `*${summary.displayName}*`,
+    `- 동기화 상태 ${translateSyncStatus(summary.syncStatus)}`,
+    `- 사용량 스냅샷 ${summary.usageSnapshotCount}건`,
+    `- 청구 스냅샷 ${summary.billingSnapshotCount}건`,
+    `- 서비스 상태 ${translateHealthStatus(summary.healthStatus)}`,
+    `- 예상 비용 ${formatMinorCurrency(summary.estimatedAmountMinor, summary.currency)}`,
+    `- 알림 ${summary.alertCount}건`,
   ];
 }
 

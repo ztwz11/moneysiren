@@ -26,10 +26,13 @@ describe("Korean daily report renderer", () => {
 
     expect(text).toContain("StackSpend 일일 리포트");
     expect(text).toContain("2026-06-02");
+    expect(text).toContain("---");
     expect(text).toContain("Mock Provider");
-    expect(text).toContain("동기화 상태: 정상");
-    expect(text).toContain("예상 비용: USD 15.00");
-    expect(text).toContain("알림: 0건");
+    expect(text).toContain("- 동기화 상태 정상");
+    expect(text).toContain("- 예상 비용 USD 15.00");
+    expect(text).toContain("- 알림 0건");
+    expect(text).not.toMatch(/^[^-*\n][^\n]+: .+$/m);
+    expect(text).not.toContain("동기화 상태:");
   });
 
   it("does not render secrets, webhook URLs, emails, or raw payload labels", () => {

@@ -18,8 +18,8 @@
   "active_plan": {
     "dossier": "PROJECT_DOSSIER.md",
     "execution_plan": "EXECUTION_PLAN.md",
-    "current_milestone": "M8",
-    "current_slice": "S8-slack-report",
+    "current_milestone": "M9",
+    "current_slice": "S9-local-dashboard",
     "SPEC_LOCKED": true,
     "CODING_LOOP_ALLOWED": true
   },
@@ -46,11 +46,13 @@
     "M5/S5-openai-connector completed locally.",
     "M6/S6-supabase-connector completed locally.",
     "M7/S7-cloudflare-connector completed locally.",
-    "M8/S8-slack-report is the current approved slice; canonical details live in docs/product/execution-plan.md.",
+    "M8/S8-slack-report completed locally.",
+    "M9/S9-local-dashboard is the current approved slice; canonical details live in docs/product/execution-plan.md.",
     "Do not create .env; use env-only secrets only.",
     "Cloudflare fixture mode uses STACKSPEND_CLOUDFLARE_FIXTURE with fake local payloads only.",
     "Slack delivery uses SLACK_WEBHOOK_URL only when stackspend report daily --lang ko --send slack is requested.",
     "Slack tests must use injectable transport and must not call live Slack.",
+    "Local dashboard reads normalized SQLite snapshots and returns a safe empty state when the database is missing.",
     "Do not persist raw provider payloads.",
     "Do not add telemetry."
   ]

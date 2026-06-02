@@ -15,7 +15,9 @@
   "include": [
     "next-env.d.ts",
     "app/**/*.ts",
-    "app/**/*.tsx"
+    "app/**/*.tsx",
+    "components/**/*.tsx",
+    "lib/**/*.ts"
   ],
   "exclude": [
     "node_modules"

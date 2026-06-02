@@ -1,11 +1,16 @@
 import { execFileSync } from "node:child_process";
 import { mkdtemp, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { runCli } from "./cli.js";
 
 const FIXED_NOW = "2026-06-02T09:00:00.000Z";
+const AWS_FIXTURE_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../tests/fixtures/providers/aws/cost-explorer-grouped-by-service.json",
+);
 
 describe("StackSpend CLI", () => {
   it("ignores a leading pnpm argument separator", async () => {
@@ -100,6 +105,98 @@ describe("StackSpend CLI", () => {
     });
     expect(persistedText).not.toContain("sqlite-placeholder-v1");
     expect(persistedText).not.toMatch(/rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@/i);
+  });
+
+  it("fails AWS sync gracefully without credentials or fixture mode", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const result = await runCli(["sync", "--provider", "aws"], testContext(cwd));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.join("\n")).toContain("AWS_PROFILE");
+    expect(result.stderr.join("\n")).toContain("STACKSPEND_AWS_COST_EXPLORER_FIXTURE");
+    expect(await fileExists(join(cwd, ".env"))).toBe(false);
+    expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
+  });
+
+  it("syncs AWS Cost Explorer from fixture mode without credentials or raw AWS persistence", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const result = await runCli(
+      ["sync", "--provider", "aws"],
+      testContext(cwd, {
+        STACKSPEND_AWS_COST_EXPLORER_FIXTURE: AWS_FIXTURE_PATH,
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.join("\n")).toContain("Synced AWS Cost Explorer snapshots");
+
+    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const counts = querySqlite<{
+      providers: number;
+      usage_snapshots: number;
+      billing_snapshots: number;
+      service_health_snapshots: number;
+      cost_estimates: number;
+      alerts: number;
+    }>(
+      dbPath,
+      `
+      SELECT
+        (SELECT count(*) FROM providers) AS providers,
+        (SELECT count(*) FROM usage_snapshots) AS usage_snapshots,
+        (SELECT count(*) FROM billing_snapshots) AS billing_snapshots,
+        (SELECT count(*) FROM service_health_snapshots) AS service_health_snapshots,
+        (SELECT count(*) FROM cost_estimates) AS cost_estimates,
+        (SELECT count(*) FROM alerts) AS alerts;
+      `,
+    )[0];
+    const serviceCosts = querySqlite<{ service: string; metric: string; unit: string; value: number }>(
+      dbPath,
+      `
+      SELECT service, metric, unit, value
+      FROM usage_snapshots
+      ORDER BY value DESC, service;
+      `,
+    );
+    const persistedText = dumpSqlite(dbPath);
+
+    expect(counts).toEqual({
+      providers: 1,
+      usage_snapshots: 4,
+      billing_snapshots: 1,
+      service_health_snapshots: 0,
+      cost_estimates: 1,
+      alerts: 0,
+    });
+    expect(serviceCosts).toEqual([
+      {
+        service: "Amazon Elastic Compute Cloud - Compute",
+        metric: "unblended_cost",
+        unit: "USD",
+        value: 7.12,
+      },
+      {
+        service: "Amazon Simple Storage Service",
+        metric: "unblended_cost",
+        unit: "USD",
+        value: 3.34,
+      },
+      {
+        service: "AWS Lambda",
+        metric: "unblended_cost",
+        unit: "USD",
+        value: 1,
+      },
+      {
+        service: "Amazon CloudWatch",
+        metric: "unblended_cost",
+        unit: "USD",
+        value: 0.88,
+      },
+    ]);
+    expect(persistedText).not.toMatch(
+      /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b/i,
+    );
   });
 });
 

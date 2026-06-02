@@ -40,6 +40,8 @@ importers:
 
   packages/config: {}
 
+  packages/connectors/aws: {}
+
   packages/connectors/mock: {}
 
   packages/core: {}

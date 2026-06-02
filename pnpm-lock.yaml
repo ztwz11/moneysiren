@@ -46,6 +46,8 @@ importers:
 
   packages/connectors/openai: {}
 
+  packages/connectors/supabase: {}
+
   packages/core: {}
 
   packages/db: {}

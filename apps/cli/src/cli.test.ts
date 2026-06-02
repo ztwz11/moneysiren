@@ -15,6 +15,10 @@ const OPENAI_FIXTURE_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../../tests/fixtures/providers/openai/usage-costs.json",
 );
+const SUPABASE_FIXTURE_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../tests/fixtures/providers/supabase/usage-health.json",
+);
 const FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN =
   /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b/i;
 
@@ -132,6 +136,17 @@ describe("StackSpend CLI", () => {
     expect(result.stderr.join("\n")).toContain("OPENAI_ADMIN_KEY");
     expect(result.stderr.join("\n")).toContain("STACKSPEND_OPENAI_USAGE_FIXTURE");
     expect(result.stderr.join("\n")).toContain("STACKSPEND_OPENAI_COSTS_FIXTURE");
+    expect(await fileExists(join(cwd, ".env"))).toBe(false);
+    expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
+  });
+
+  it("fails Supabase sync gracefully without access token or fixture mode", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const result = await runCli(["sync", "--provider", "supabase"], testContext(cwd));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.join("\n")).toContain("SUPABASE_ACCESS_TOKEN");
+    expect(result.stderr.join("\n")).toContain("STACKSPEND_SUPABASE_FIXTURE");
     expect(await fileExists(join(cwd, ".env"))).toBe(false);
     expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
   });
@@ -313,6 +328,132 @@ describe("StackSpend CLI", () => {
       },
     ]);
     expect(persistedProviderDataText).not.toMatch(FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN);
+  });
+
+  it("syncs Supabase usage and health from fixture mode without credentials or raw Supabase persistence", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const result = await runCli(
+      ["sync", "--provider", "supabase"],
+      testContext(cwd, {
+        STACKSPEND_SUPABASE_FIXTURE: SUPABASE_FIXTURE_PATH,
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.join("\n")).toContain("Synced Supabase usage and health snapshots");
+
+    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const counts = querySqlite<{
+      providers: number;
+      provider_accounts: number;
+      usage_snapshots: number;
+      billing_snapshots: number;
+      service_health_snapshots: number;
+      cost_estimates: number;
+      alerts: number;
+    }>(
+      dbPath,
+      `
+      SELECT
+        (SELECT count(*) FROM providers) AS providers,
+        (SELECT count(*) FROM provider_accounts) AS provider_accounts,
+        (SELECT count(*) FROM usage_snapshots) AS usage_snapshots,
+        (SELECT count(*) FROM billing_snapshots) AS billing_snapshots,
+        (SELECT count(*) FROM service_health_snapshots) AS service_health_snapshots,
+        (SELECT count(*) FROM cost_estimates) AS cost_estimates,
+        (SELECT count(*) FROM alerts) AS alerts;
+      `,
+    )[0];
+    const usage = querySqlite<{ service: string; metric: string; unit: string; value: number }>(
+      dbPath,
+      `
+      SELECT service, metric, unit, value
+      FROM usage_snapshots
+      ORDER BY value DESC, metric;
+      `,
+    );
+    const health = querySqlite<{ service: string; region: string | null; status: string; message: string | null }>(
+      dbPath,
+      `
+      SELECT service, region, status, message
+      FROM service_health_snapshots
+      ORDER BY service, status;
+      `,
+    );
+    const persistedProviderDataText = dumpPersistedProviderDataText(dbPath);
+
+    expect(counts).toEqual({
+      providers: 1,
+      provider_accounts: 2,
+      usage_snapshots: 8,
+      billing_snapshots: 0,
+      service_health_snapshots: 5,
+      cost_estimates: 0,
+      alerts: 1,
+    });
+    expect(usage.map(({ metric, unit, value }) => ({ metric, unit, value }))).toEqual([
+      {
+        metric: "api_requests",
+        unit: "requests",
+        value: 5082,
+      },
+      {
+        metric: "rest_requests",
+        unit: "requests",
+        value: 3400,
+      },
+      {
+        metric: "auth_requests",
+        unit: "requests",
+        value: 1200,
+      },
+      {
+        metric: "storage_requests",
+        unit: "requests",
+        value: 450,
+      },
+      {
+        metric: "realtime_requests",
+        unit: "requests",
+        value: 32,
+      },
+      {
+        metric: "api_requests",
+        unit: "requests",
+        value: 11,
+      },
+      {
+        metric: "rest_requests",
+        unit: "requests",
+        value: 10,
+      },
+      {
+        metric: "storage_requests",
+        unit: "requests",
+        value: 1,
+      },
+    ]);
+    expect(health.map(({ region, status, message }) => ({ region, status, message }))).toEqual(
+      expect.arrayContaining([
+        {
+          region: "ap-northeast-2",
+          status: "degraded",
+          message: "FAKE degraded fixture message",
+        },
+        {
+          region: "ap-northeast-2",
+          status: "ok",
+          message: null,
+        },
+        {
+          region: "us-east-1",
+          status: "degraded",
+          message: "Project is paused.",
+        },
+      ]),
+    );
+    expect(persistedProviderDataText).not.toMatch(FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN);
+    expect(persistedProviderDataText).not.toMatch(/fake-supabase-ref|fake-supabase-org|FAKE StackSpend/i);
   });
 });
 

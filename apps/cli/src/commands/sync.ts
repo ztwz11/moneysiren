@@ -14,6 +14,11 @@ import {
   type OpenAiUsageCostsPayload,
   type OpenAiUsagePage,
 } from "../../../../packages/connectors/openai/src/index.js";
+import {
+  createStaticSupabaseUsageHealthClient,
+  createSupabaseUsageHealthConnector,
+  type SupabaseUsageHealthPayload,
+} from "../../../../packages/connectors/supabase/src/index.js";
 import { initializeLocalStore, saveLocalProviderCollection } from "../../../../packages/db/src/index.js";
 import type { CliExecutionContext } from "../cli.js";
 import { loadCliConfig, readFlag, resolveDbPath } from "./shared.js";
@@ -21,7 +26,8 @@ import { loadCliConfig, readFlag, resolveDbPath } from "./shared.js";
 const AWS_COST_EXPLORER_FIXTURE_ENV_KEY = "STACKSPEND_AWS_COST_EXPLORER_FIXTURE";
 const OPENAI_USAGE_FIXTURE_ENV_KEY = "STACKSPEND_OPENAI_USAGE_FIXTURE";
 const OPENAI_COSTS_FIXTURE_ENV_KEY = "STACKSPEND_OPENAI_COSTS_FIXTURE";
-const SYNC_USAGE = "Usage: stackspend sync --provider <mock|aws|openai>";
+const SUPABASE_FIXTURE_ENV_KEY = "STACKSPEND_SUPABASE_FIXTURE";
+const SYNC_USAGE = "Usage: stackspend sync --provider <mock|aws|openai|supabase>";
 
 export async function runSyncCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   const providerFlag = readFlag(args, "--provider");
@@ -82,13 +88,35 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
     return syncOpenAiProvider(context, config.dbPath, usageFixturePath, costsFixturePath);
   }
 
+  if (providerFlag.value === "supabase") {
+    const fixturePath = readConfiguredEnvValue(context.env[SUPABASE_FIXTURE_ENV_KEY]);
+
+    if (fixturePath === undefined && !config.providers.supabase.configured) {
+      context.stderr(
+        `Supabase sync requires SUPABASE_ACCESS_TOKEN or ${SUPABASE_FIXTURE_ENV_KEY}. ` +
+          `Set ${SUPABASE_FIXTURE_ENV_KEY} for fixture mode.`,
+      );
+      return 1;
+    }
+
+    if (fixturePath === undefined) {
+      context.stderr(
+        `Supabase live Management API sync is not enabled in this fixture-only M6 CLI path. ` +
+          `Set ${SUPABASE_FIXTURE_ENV_KEY} to a fake Supabase usage/health fixture file.`,
+      );
+      return 1;
+    }
+
+    return syncSupabaseProvider(context, config.dbPath, fixturePath);
+  }
+
   return syncMockProvider(context, config.dbPath);
 }
 
-type SupportedSyncProvider = "mock" | "aws" | "openai";
+type SupportedSyncProvider = "mock" | "aws" | "openai" | "supabase";
 
 function isSupportedSyncProvider(provider: string): provider is SupportedSyncProvider {
-  return provider === "mock" || provider === "aws" || provider === "openai";
+  return provider === "mock" || provider === "aws" || provider === "openai" || provider === "supabase";
 }
 
 async function syncMockProvider(context: CliExecutionContext, configuredDbPath: string): Promise<number> {
@@ -249,6 +277,54 @@ async function loadOpenAiFixtureSection<Section extends keyof OpenAiUsageCostsPa
   }
 
   return parsed as OpenAiUsageCostsPayload[Section];
+}
+
+async function syncSupabaseProvider(
+  context: CliExecutionContext,
+  configuredDbPath: string,
+  fixturePath: string,
+): Promise<number> {
+  const dbPath = resolveDbPath(context.cwd, configuredDbPath);
+  await initializeLocalStore({ dbPath });
+
+  const connector = createSupabaseUsageHealthConnector({
+    client: createStaticSupabaseUsageHealthClient(await loadSupabaseFixture(context.cwd, fixturePath)),
+  });
+  const collection = await collectProviderSnapshots(connector, {
+    now: context.now,
+  });
+
+  await saveLocalProviderCollection({
+    dbPath,
+    provider: {
+      key: connector.kind,
+      displayName: connector.displayName,
+      connectorVersion: "0.1.0-alpha.0",
+    },
+    collectedAt: collection.collectedAt,
+    status: collection.status,
+    snapshots: collection.snapshots,
+    alerts: collection.alerts,
+  });
+
+  context.stdout(
+    [
+      "Synced Supabase usage and health snapshots:",
+      `usage=${collection.snapshots.usage.length}`,
+      `billing=${collection.snapshots.billing.length}`,
+      `health=${collection.snapshots.serviceHealth.length}`,
+      `estimates=${collection.snapshots.costEstimates.length}`,
+      `alerts=${collection.alerts.length}`,
+    ].join(" "),
+  );
+
+  return 0;
+}
+
+async function loadSupabaseFixture(cwd: string, fixturePath: string): Promise<SupabaseUsageHealthPayload> {
+  const resolvedPath = isAbsolute(fixturePath) ? fixturePath : join(cwd, fixturePath);
+
+  return JSON.parse(await readFile(resolvedPath, "utf8")) as SupabaseUsageHealthPayload;
 }
 
 function readConfiguredEnvValue(value: string | undefined): string | undefined {

@@ -1,0 +1,93 @@
+{
+  "accounts": [
+    {
+      "id": "FAKE_CLOUDFLARE_ACCOUNT_ALPHA",
+      "name": "FAKE StackSpend Cloudflare Alpha"
+    },
+    {
+      "id": "FAKE_CLOUDFLARE_ACCOUNT_RESTRICTED",
+      "name": "FAKE Restricted Cloudflare Account"
+    }
+  ],
+  "billableUsage": [
+    {
+      "BillingAccountId": "FAKE_CLOUDFLARE_ACCOUNT_ALPHA",
+      "BillingAccountName": "FAKE StackSpend Cloudflare Alpha",
+      "BillingCurrency": "USD",
+      "BillingPeriodStart": "2026-06-01T00:00:00Z",
+      "BillingPeriodEnd": "2026-07-01T00:00:00Z",
+      "ChargePeriodStart": "2026-06-01T00:00:00Z",
+      "ChargePeriodEnd": "2026-06-02T00:00:00Z",
+      "BilledCost": "12.345",
+      "ConsumedQuantity": "128.5",
+      "ConsumedUnit": "GB",
+      "PricingQuantity": "128.5",
+      "PricingUnit": "GB",
+      "ServiceName": "Cloudflare R2",
+      "x_ProductFamilyName": "R2",
+      "x_BillableMetricId": "fake-r2-storage-gb",
+      "x_ZoneId": "FAKE_CLOUDFLARE_ZONE_ALPHA",
+      "x_ZoneName": "fake-zone.invalid",
+      "SubAccountId": "FAKE_CLOUDFLARE_SUBSCRIPTION_ALPHA",
+      "SubAccountName": "FAKE Subscription Alpha",
+      "ChargeCategory": "Usage",
+      "ChargeDescription": "FAKE R2 storage usage",
+      "ChargeFrequency": "Usage-Based"
+    },
+    {
+      "BillingAccountId": "FAKE_CLOUDFLARE_ACCOUNT_ALPHA",
+      "BillingAccountName": "FAKE StackSpend Cloudflare Alpha",
+      "BillingCurrency": "USD",
+      "BillingPeriodStart": "2026-06-01T00:00:00Z",
+      "BillingPeriodEnd": "2026-07-01T00:00:00Z",
+      "ChargePeriodStart": "2026-06-01T00:00:00Z",
+      "ChargePeriodEnd": "2026-06-02T00:00:00Z",
+      "BilledCost": "0.01",
+      "ConsumedQuantity": "2500",
+      "ConsumedUnit": "requests",
+      "PricingQuantity": "2500",
+      "PricingUnit": "requests",
+      "ServiceName": "Cloudflare Workers",
+      "x_ProductFamilyName": "Workers",
+      "x_BillableMetricId": "fake-workers-requests",
+      "ChargeCategory": "Usage",
+      "ChargeDescription": "FAKE Workers request usage",
+      "ChargeFrequency": "Usage-Based"
+    }
+  ],
+  "paygoUsage": [
+    {
+      "BillingAccountId": "FAKE_CLOUDFLARE_ACCOUNT_ALPHA",
+      "BillingCurrency": "USD",
+      "BillingPeriodStart": "2026-06-01T00:00:00Z",
+      "ChargePeriodStart": "2026-06-01T00:00:00Z",
+      "ChargePeriodEnd": "2026-06-02T00:00:00Z",
+      "ContractedCost": "0.02",
+      "ConsumedQuantity": "12",
+      "ConsumedUnit": "GB-seconds",
+      "ServiceName": "Workers KV",
+      "ServiceFamilyName": "Workers"
+    }
+  ],
+  "status": [
+    {
+      "accountId": "FAKE_CLOUDFLARE_ACCOUNT_ALPHA",
+      "service": "billing_usage_api",
+      "status": "ok",
+      "message": "FAKE fixture billing usage available"
+    },
+    {
+      "accountId": "FAKE_CLOUDFLARE_ACCOUNT_RESTRICTED",
+      "service": "billable_usage_api",
+      "status": "restricted",
+      "message": "FAKE restricted account does not expose billable usage"
+    }
+  ],
+  "unavailable": [
+    {
+      "surface": "billable-usage",
+      "accountId": "FAKE_CLOUDFLARE_ACCOUNT_RESTRICTED",
+      "reason": "restricted"
+    }
+  ]
+}

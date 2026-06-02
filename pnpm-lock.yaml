@@ -42,6 +42,8 @@ importers:
 
   packages/connectors/aws: {}
 
+  packages/connectors/cloudflare: {}
+
   packages/connectors/mock: {}
 
   packages/connectors/openai: {}

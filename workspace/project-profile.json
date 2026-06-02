@@ -18,8 +18,8 @@
   "active_plan": {
     "dossier": "PROJECT_DOSSIER.md",
     "execution_plan": "EXECUTION_PLAN.md",
-    "current_milestone": "M6",
-    "current_slice": "S6-supabase-connector",
+    "current_milestone": "M7",
+    "current_slice": "S7-cloudflare-connector",
     "SPEC_LOCKED": true,
     "CODING_LOOP_ALLOWED": true
   },
@@ -44,9 +44,10 @@
     "SPEC_LOCKED: YES; CODING_LOOP_ALLOWED: YES.",
     "M4/S4-aws-connector completed locally.",
     "M5/S5-openai-connector completed locally.",
-    "M6/S6-supabase-connector is the current approved slice; canonical details live in docs/product/execution-plan.md.",
+    "M6/S6-supabase-connector completed locally.",
+    "M7/S7-cloudflare-connector is the current approved slice; canonical details live in docs/product/execution-plan.md.",
     "Do not create .env; use env-only secrets only.",
-    "Supabase fixture mode uses STACKSPEND_SUPABASE_FIXTURE with fake local payloads only.",
+    "Cloudflare fixture mode uses STACKSPEND_CLOUDFLARE_FIXTURE with fake local payloads only.",
     "Do not persist raw provider payloads.",
     "Do not add telemetry."
   ]

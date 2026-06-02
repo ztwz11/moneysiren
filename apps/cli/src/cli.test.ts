@@ -19,8 +19,12 @@ const SUPABASE_FIXTURE_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../../tests/fixtures/providers/supabase/usage-health.json",
 );
+const CLOUDFLARE_FIXTURE_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../tests/fixtures/providers/cloudflare/billing-usage.json",
+);
 const FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN =
-  /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b/i;
+  /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b|FAKE_CLOUDFLARE|fake-zone\.invalid|card_|payment_/i;
 
 describe("StackSpend CLI", () => {
   it("ignores a leading pnpm argument separator", async () => {
@@ -147,6 +151,17 @@ describe("StackSpend CLI", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr.join("\n")).toContain("SUPABASE_ACCESS_TOKEN");
     expect(result.stderr.join("\n")).toContain("STACKSPEND_SUPABASE_FIXTURE");
+    expect(await fileExists(join(cwd, ".env"))).toBe(false);
+    expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
+  });
+
+  it("fails Cloudflare sync gracefully without API token or fixture mode", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const result = await runCli(["sync", "--provider", "cloudflare"], testContext(cwd));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.join("\n")).toContain("CLOUDFLARE_API_TOKEN");
+    expect(result.stderr.join("\n")).toContain("STACKSPEND_CLOUDFLARE_FIXTURE");
     expect(await fileExists(join(cwd, ".env"))).toBe(false);
     expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
   });
@@ -454,6 +469,121 @@ describe("StackSpend CLI", () => {
     );
     expect(persistedProviderDataText).not.toMatch(FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN);
     expect(persistedProviderDataText).not.toMatch(/fake-supabase-ref|fake-supabase-org|FAKE StackSpend/i);
+  });
+
+  it("syncs Cloudflare billing and usage from fixture mode without credentials or raw Cloudflare persistence", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const result = await runCli(
+      ["sync", "--provider", "cloudflare"],
+      testContext(cwd, {
+        STACKSPEND_CLOUDFLARE_FIXTURE: CLOUDFLARE_FIXTURE_PATH,
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.join("\n")).toContain("Synced Cloudflare billing and usage snapshots");
+
+    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const counts = querySqlite<{
+      providers: number;
+      provider_accounts: number;
+      usage_snapshots: number;
+      billing_snapshots: number;
+      service_health_snapshots: number;
+      cost_estimates: number;
+      alerts: number;
+    }>(
+      dbPath,
+      `
+      SELECT
+        (SELECT count(*) FROM providers) AS providers,
+        (SELECT count(*) FROM provider_accounts) AS provider_accounts,
+        (SELECT count(*) FROM usage_snapshots) AS usage_snapshots,
+        (SELECT count(*) FROM billing_snapshots) AS billing_snapshots,
+        (SELECT count(*) FROM service_health_snapshots) AS service_health_snapshots,
+        (SELECT count(*) FROM cost_estimates) AS cost_estimates,
+        (SELECT count(*) FROM alerts) AS alerts;
+      `,
+    )[0];
+    const usage = querySqlite<{ service: string; metric: string; unit: string; value: number }>(
+      dbPath,
+      `
+      SELECT service, metric, unit, value
+      FROM usage_snapshots
+      ORDER BY service, metric;
+      `,
+    );
+    const billing = querySqlite<{ amount_minor: number; currency: string; status: string }>(
+      dbPath,
+      `
+      SELECT amount_minor, currency, status
+      FROM billing_snapshots;
+      `,
+    );
+    const health = querySqlite<{ service: string; status: string; message: string | null }>(
+      dbPath,
+      `
+      SELECT service, status, message
+      FROM service_health_snapshots
+      ORDER BY service;
+      `,
+    );
+    const alerts = querySqlite<{ severity: string; title: string; message: string }>(
+      dbPath,
+      `
+      SELECT severity, title, message
+      FROM alerts;
+      `,
+    );
+    const persistedProviderDataText = dumpPersistedProviderDataText(dbPath);
+
+    expect(counts).toEqual({
+      providers: 1,
+      provider_accounts: 1,
+      usage_snapshots: 2,
+      billing_snapshots: 1,
+      service_health_snapshots: 2,
+      cost_estimates: 1,
+      alerts: 1,
+    });
+    expect(usage.map(({ metric, unit, value }) => ({ metric, unit, value }))).toEqual([
+      {
+        metric: "billable_quantity",
+        unit: "GB",
+        value: 128.5,
+      },
+      {
+        metric: "billable_quantity",
+        unit: "requests",
+        value: 2500,
+      },
+    ]);
+    expect(billing).toEqual([
+      {
+        amount_minor: 1236,
+        currency: "USD",
+        status: "estimated",
+      },
+    ]);
+    expect(health.map(({ status, message }) => ({ status, message }))).toEqual([
+      {
+        status: "degraded",
+        message: "Cloudflare billing usage API unavailable for this account.",
+      },
+      {
+        status: "ok",
+        message: "Cloudflare billing usage API available.",
+      },
+    ]);
+    expect(alerts).toEqual([
+      {
+        severity: "warning",
+        title: "Cloudflare billable usage surface unavailable",
+        message: "Cloudflare billable usage API was restricted or unavailable; normalized sync continued with available data.",
+      },
+    ]);
+    expect(persistedProviderDataText).not.toMatch(FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN);
+    expect(persistedProviderDataText).not.toMatch(/FAKE StackSpend|FAKE Restricted|FAKE Subscription/i);
   });
 });
 

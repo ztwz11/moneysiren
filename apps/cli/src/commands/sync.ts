@@ -19,6 +19,11 @@ import {
   createSupabaseUsageHealthConnector,
   type SupabaseUsageHealthPayload,
 } from "../../../../packages/connectors/supabase/src/index.js";
+import {
+  createCloudflareBillingUsageConnector,
+  createStaticCloudflareBillingUsageClient,
+  type CloudflareBillingUsagePayload,
+} from "../../../../packages/connectors/cloudflare/src/index.js";
 import { initializeLocalStore, saveLocalProviderCollection } from "../../../../packages/db/src/index.js";
 import type { CliExecutionContext } from "../cli.js";
 import { loadCliConfig, readFlag, resolveDbPath } from "./shared.js";
@@ -27,7 +32,8 @@ const AWS_COST_EXPLORER_FIXTURE_ENV_KEY = "STACKSPEND_AWS_COST_EXPLORER_FIXTURE"
 const OPENAI_USAGE_FIXTURE_ENV_KEY = "STACKSPEND_OPENAI_USAGE_FIXTURE";
 const OPENAI_COSTS_FIXTURE_ENV_KEY = "STACKSPEND_OPENAI_COSTS_FIXTURE";
 const SUPABASE_FIXTURE_ENV_KEY = "STACKSPEND_SUPABASE_FIXTURE";
-const SYNC_USAGE = "Usage: stackspend sync --provider <mock|aws|openai|supabase>";
+const CLOUDFLARE_FIXTURE_ENV_KEY = "STACKSPEND_CLOUDFLARE_FIXTURE";
+const SYNC_USAGE = "Usage: stackspend sync --provider <mock|aws|openai|supabase|cloudflare>";
 
 export async function runSyncCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   const providerFlag = readFlag(args, "--provider");
@@ -110,13 +116,36 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
     return syncSupabaseProvider(context, config.dbPath, fixturePath);
   }
 
+  if (providerFlag.value === "cloudflare") {
+    const fixturePath = readConfiguredEnvValue(context.env[CLOUDFLARE_FIXTURE_ENV_KEY]);
+
+    if (fixturePath === undefined && !config.providers.cloudflare.configured) {
+      context.stderr(
+        `Cloudflare sync requires CLOUDFLARE_API_TOKEN or ${CLOUDFLARE_FIXTURE_ENV_KEY}. ` +
+          `Set ${CLOUDFLARE_FIXTURE_ENV_KEY} for fixture mode.`,
+      );
+      return 1;
+    }
+
+    if (fixturePath === undefined) {
+      context.stderr(
+        `Cloudflare live billing/usage sync is not enabled in this fixture-only M7 CLI path. ` +
+          `Set ${CLOUDFLARE_FIXTURE_ENV_KEY} to a fake Cloudflare billing/usage fixture file.`,
+      );
+      return 1;
+    }
+
+    return syncCloudflareProvider(context, config.dbPath, fixturePath);
+  }
+
   return syncMockProvider(context, config.dbPath);
 }
 
-type SupportedSyncProvider = "mock" | "aws" | "openai" | "supabase";
+type SupportedSyncProvider = "mock" | "aws" | "openai" | "supabase" | "cloudflare";
 
 function isSupportedSyncProvider(provider: string): provider is SupportedSyncProvider {
-  return provider === "mock" || provider === "aws" || provider === "openai" || provider === "supabase";
+  return provider === "mock" || provider === "aws" || provider === "openai" || provider === "supabase" ||
+    provider === "cloudflare";
 }
 
 async function syncMockProvider(context: CliExecutionContext, configuredDbPath: string): Promise<number> {
@@ -325,6 +354,54 @@ async function loadSupabaseFixture(cwd: string, fixturePath: string): Promise<Su
   const resolvedPath = isAbsolute(fixturePath) ? fixturePath : join(cwd, fixturePath);
 
   return JSON.parse(await readFile(resolvedPath, "utf8")) as SupabaseUsageHealthPayload;
+}
+
+async function syncCloudflareProvider(
+  context: CliExecutionContext,
+  configuredDbPath: string,
+  fixturePath: string,
+): Promise<number> {
+  const dbPath = resolveDbPath(context.cwd, configuredDbPath);
+  await initializeLocalStore({ dbPath });
+
+  const connector = createCloudflareBillingUsageConnector({
+    client: createStaticCloudflareBillingUsageClient(await loadCloudflareFixture(context.cwd, fixturePath)),
+  });
+  const collection = await collectProviderSnapshots(connector, {
+    now: context.now,
+  });
+
+  await saveLocalProviderCollection({
+    dbPath,
+    provider: {
+      key: connector.kind,
+      displayName: connector.displayName,
+      connectorVersion: "0.1.0-alpha.0",
+    },
+    collectedAt: collection.collectedAt,
+    status: collection.status,
+    snapshots: collection.snapshots,
+    alerts: collection.alerts,
+  });
+
+  context.stdout(
+    [
+      "Synced Cloudflare billing and usage snapshots:",
+      `usage=${collection.snapshots.usage.length}`,
+      `billing=${collection.snapshots.billing.length}`,
+      `health=${collection.snapshots.serviceHealth.length}`,
+      `estimates=${collection.snapshots.costEstimates.length}`,
+      `alerts=${collection.alerts.length}`,
+    ].join(" "),
+  );
+
+  return 0;
+}
+
+async function loadCloudflareFixture(cwd: string, fixturePath: string): Promise<CloudflareBillingUsagePayload> {
+  const resolvedPath = isAbsolute(fixturePath) ? fixturePath : join(cwd, fixturePath);
+
+  return JSON.parse(await readFile(resolvedPath, "utf8")) as CloudflareBillingUsagePayload;
 }
 
 function readConfiguredEnvValue(value: string | undefined): string | undefined {

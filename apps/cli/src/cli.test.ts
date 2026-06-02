@@ -11,6 +11,12 @@ const AWS_FIXTURE_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../../tests/fixtures/providers/aws/cost-explorer-grouped-by-service.json",
 );
+const OPENAI_FIXTURE_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../tests/fixtures/providers/openai/usage-costs.json",
+);
+const FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN =
+  /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b/i;
 
 describe("StackSpend CLI", () => {
   it("ignores a leading pnpm argument separator", async () => {
@@ -118,6 +124,18 @@ describe("StackSpend CLI", () => {
     expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
   });
 
+  it("fails OpenAI sync gracefully without admin key or fixture mode", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const result = await runCli(["sync", "--provider", "openai"], testContext(cwd));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.join("\n")).toContain("OPENAI_ADMIN_KEY");
+    expect(result.stderr.join("\n")).toContain("STACKSPEND_OPENAI_USAGE_FIXTURE");
+    expect(result.stderr.join("\n")).toContain("STACKSPEND_OPENAI_COSTS_FIXTURE");
+    expect(await fileExists(join(cwd, ".env"))).toBe(false);
+    expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
+  });
+
   it("syncs AWS Cost Explorer from fixture mode without credentials or raw AWS persistence", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
     const result = await runCli(
@@ -158,7 +176,7 @@ describe("StackSpend CLI", () => {
       ORDER BY value DESC, service;
       `,
     );
-    const persistedText = dumpSqlite(dbPath);
+    const persistedProviderDataText = dumpPersistedProviderDataText(dbPath);
 
     expect(counts).toEqual({
       providers: 1,
@@ -194,11 +212,111 @@ describe("StackSpend CLI", () => {
         value: 0.88,
       },
     ]);
-    expect(persistedText).not.toMatch(
-      /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b/i,
+    expect(persistedProviderDataText).not.toMatch(FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN);
+  });
+
+  it("syncs OpenAI usage and costs from fixture mode without credentials or raw OpenAI persistence", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const result = await runCli(
+      ["sync", "--provider", "openai"],
+      testContext(cwd, {
+        STACKSPEND_OPENAI_USAGE_FIXTURE: OPENAI_FIXTURE_PATH,
+        STACKSPEND_OPENAI_COSTS_FIXTURE: OPENAI_FIXTURE_PATH,
+      }),
     );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.join("\n")).toContain("Synced OpenAI usage and costs snapshots");
+
+    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const counts = querySqlite<{
+      providers: number;
+      usage_snapshots: number;
+      billing_snapshots: number;
+      service_health_snapshots: number;
+      cost_estimates: number;
+      alerts: number;
+    }>(
+      dbPath,
+      `
+      SELECT
+        (SELECT count(*) FROM providers) AS providers,
+        (SELECT count(*) FROM usage_snapshots) AS usage_snapshots,
+        (SELECT count(*) FROM billing_snapshots) AS billing_snapshots,
+        (SELECT count(*) FROM service_health_snapshots) AS service_health_snapshots,
+        (SELECT count(*) FROM cost_estimates) AS cost_estimates,
+        (SELECT count(*) FROM alerts) AS alerts;
+      `,
+    )[0];
+    const usage = querySqlite<{ service: string; metric: string; unit: string; value: number }>(
+      dbPath,
+      `
+      SELECT service, metric, unit, value
+      FROM usage_snapshots
+      ORDER BY service, metric;
+      `,
+    );
+    const billing = querySqlite<{ amount_minor: number; currency: string; status: string }>(
+      dbPath,
+      `
+      SELECT amount_minor, currency, status
+      FROM billing_snapshots;
+      `,
+    );
+    const persistedProviderDataText = dumpPersistedProviderDataText(dbPath);
+
+    expect(counts).toEqual({
+      providers: 1,
+      usage_snapshots: 5,
+      billing_snapshots: 1,
+      service_health_snapshots: 0,
+      cost_estimates: 1,
+      alerts: 0,
+    });
+    expect(usage).toEqual([
+      {
+        service: "completions:gpt-4.1-mini",
+        metric: "input_tokens",
+        unit: "tokens",
+        value: 2000000,
+      },
+      {
+        service: "completions:gpt-4.1-mini",
+        metric: "model_requests",
+        unit: "requests",
+        value: 420,
+      },
+      {
+        service: "completions:gpt-4.1-mini",
+        metric: "output_tokens",
+        unit: "tokens",
+        value: 150000,
+      },
+      {
+        service: "embeddings:text-embedding-3-small",
+        metric: "input_tokens",
+        unit: "tokens",
+        value: 500000,
+      },
+      {
+        service: "embeddings:text-embedding-3-small",
+        metric: "model_requests",
+        unit: "requests",
+        value: 80,
+      },
+    ]);
+    expect(billing).toEqual([
+      {
+        amount_minor: 1300,
+        currency: "USD",
+        status: "estimated",
+      },
+    ]);
+    expect(persistedProviderDataText).not.toMatch(FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN);
   });
 });
+
+type SqliteValueRow = Record<string, string | number | null>;
 
 function querySqlite<T>(dbPath: string, sql: string): T[] {
   const output = execFileSync("/usr/bin/sqlite3", ["-json", dbPath, sql], {
@@ -210,6 +328,47 @@ function querySqlite<T>(dbPath: string, sql: string): T[] {
   }
 
   return JSON.parse(output) as T[];
+}
+
+function dumpPersistedProviderDataText(dbPath: string): string {
+  const rows: SqliteValueRow[] = [
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT provider_key, display_name, connector_version FROM providers ORDER BY provider_key;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT account_label, account_ref FROM provider_accounts ORDER BY account_label, account_ref;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT service, metric, unit, metadata_json FROM usage_snapshots ORDER BY service, metric, unit;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT currency, status, metadata_json FROM billing_snapshots ORDER BY currency, status;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT service, region, status, message, metadata_json FROM service_health_snapshots ORDER BY service, status;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT currency, confidence, metadata_json FROM cost_estimates ORDER BY currency, confidence;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT severity, category, title, message, metadata_json FROM alerts ORDER BY severity, category, title;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT language, delivery_target, status, metadata_json FROM report_runs ORDER BY language, delivery_target, status;",
+    ),
+  ];
+
+  return rows
+    .flatMap((row) => Object.values(row).filter((value): value is string => typeof value === "string"))
+    .join("\n");
 }
 
 function dumpSqlite(dbPath: string): string {

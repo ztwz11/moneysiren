@@ -14,7 +14,7 @@ Usage:
   stackspend --version
   stackspend init
   stackspend doctor
-  stackspend sync --provider <mock|aws>
+  stackspend sync --provider <mock|aws|openai>
   stackspend report daily --lang ko
 `;
 

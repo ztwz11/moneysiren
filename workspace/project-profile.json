@@ -18,8 +18,8 @@
   "active_plan": {
     "dossier": "PROJECT_DOSSIER.md",
     "execution_plan": "EXECUTION_PLAN.md",
-    "current_milestone": "M4",
-    "current_slice": "S4-aws-connector",
+    "current_milestone": "M5",
+    "current_slice": "S5-openai-connector",
     "SPEC_LOCKED": true,
     "CODING_LOOP_ALLOWED": true
   },
@@ -42,7 +42,8 @@
     "M2/S2-core-config-db-security completed locally and remains intentionally uncommitted for review.",
     "M3/S3-cli-mock-pipeline completed locally and remains intentionally uncommitted for review.",
     "SPEC_LOCKED: YES; CODING_LOOP_ALLOWED: YES.",
-    "M4/S4-aws-connector is the current approved slice; canonical details live in docs/product/execution-plan.md.",
+    "M4/S4-aws-connector completed locally.",
+    "M5/S5-openai-connector is the current approved slice; canonical details live in docs/product/execution-plan.md.",
     "Do not create .env; use env-only secrets and .env.example only.",
     "Do not persist raw provider payloads.",
     "Do not add telemetry."

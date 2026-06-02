@@ -44,6 +44,8 @@ importers:
 
   packages/connectors/mock: {}
 
+  packages/connectors/openai: {}
+
   packages/core: {}
 
   packages/db: {}

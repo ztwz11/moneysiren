@@ -1,0 +1,59 @@
+{
+  "usage": {
+    "object": "page",
+    "data": [
+      {
+        "object": "bucket",
+        "start_time": 1780272000,
+        "end_time": 1780358400,
+        "results": [
+          {
+            "object": "organization.usage.completions.result",
+            "model": "gpt-4.1-mini",
+            "input_tokens": 2000000,
+            "output_tokens": 150000,
+            "num_model_requests": 420
+          },
+          {
+            "object": "organization.usage.embeddings.result",
+            "model": "text-embedding-3-small",
+            "input_tokens": 500000,
+            "num_model_requests": 80
+          }
+        ]
+      }
+    ],
+    "has_more": false,
+    "next_page": null
+  },
+  "costs": {
+    "object": "page",
+    "data": [
+      {
+        "object": "bucket",
+        "start_time": 1780272000,
+        "end_time": 1780358400,
+        "results": [
+          {
+            "object": "organization.costs.result",
+            "amount": {
+              "currency": "usd",
+              "value": 12.34
+            },
+            "line_item": "gpt-4.1-mini input and output tokens"
+          },
+          {
+            "object": "organization.costs.result",
+            "amount": {
+              "currency": "usd",
+              "value": 0.66
+            },
+            "line_item": "text-embedding-3-small tokens"
+          }
+        ]
+      }
+    ],
+    "has_more": false,
+    "next_page": null
+  }
+}

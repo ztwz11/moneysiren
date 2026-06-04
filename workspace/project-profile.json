@@ -49,6 +49,7 @@
     "M8/S8-slack-report completed locally.",
     "M9/S9-local-dashboard completed locally.",
     "M10/S10-alpha-release is the current approved slice; canonical details live in docs/product/execution-plan.md.",
+    "M10/S10-alpha-release now includes @stackspend/cli public alpha npm packageability and tarball install review.",
     "Do not create .env; use env-only secrets only.",
     "Cloudflare fixture mode uses STACKSPEND_CLOUDFLARE_FIXTURE with fake local payloads only.",
     "Slack delivery uses SLACK_WEBHOOK_URL only when stackspend report daily --lang ko --send slack is requested.",

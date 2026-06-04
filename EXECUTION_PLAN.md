@@ -29,10 +29,11 @@ The canonical detailed execution plan lives at `docs/product/execution-plan.md`.
 
 ## M10/S10 Summary
 
-Deliver Docker and documentation support for local `v0.1.0-alpha.0` review:
+Deliver Docker, documentation, and npm alpha packageability support for local `v0.1.0-alpha.0` review:
 
 - Dockerfile for local self-host/dev review
 - `compose.yaml` with no embedded secrets and fake fixture paths only
+- `@stackspend/cli` package metadata/bin/files for npm alpha dry-run and tarball install review
 - README quickstart for CLI, mock/provider fixtures, local dashboard, Slack report, and Docker
 - security docs for env-only secrets, redaction, local SQLite storage, and Docker/Compose boundaries
 - `docs/product/v0.1.0-alpha-checklist.md`

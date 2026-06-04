@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, stat } from "node:fs/promises";
+import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,11 +24,45 @@ const CLOUDFLARE_FIXTURE_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../../tests/fixtures/providers/cloudflare/billing-usage.json",
 );
+const CLI_PACKAGE_JSON_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "../package.json");
 const TEST_SLACK_WEBHOOK_URL = "fake-stackspend-slack-webhook-secret";
 const FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN =
   /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b|FAKE_CLOUDFLARE|fake-zone\.invalid|card_|payment_/i;
 
 describe("StackSpend CLI", () => {
+  it("declares a public alpha npm package with a built JavaScript bin and scoped files", async () => {
+    const packageJson = JSON.parse(await readFile(CLI_PACKAGE_JSON_PATH, "utf8")) as {
+      private?: boolean;
+      license?: string;
+      packageManager?: string;
+      engines?: Record<string, string>;
+      bin?: Record<string, string>;
+      files?: string[];
+      publishConfig?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
+    const files = packageJson.files ?? [];
+
+    expect(packageJson.private).toBe(false);
+    expect(packageJson.license).toBe("MIT");
+    expect(packageJson.packageManager).toBe("pnpm@11.5.0");
+    expect(packageJson.engines?.node).toBe(">=20.11.0");
+    expect(packageJson.publishConfig?.access).toBe("public");
+    expect(packageJson.bin?.stackspend).toBe("dist/apps/cli/src/index.js");
+    expect(packageJson.bin?.stackspend).not.toBe("src/index.ts");
+    expect(packageJson.scripts?.build).toContain("tsconfig.build.json");
+    expect(packageJson.scripts?.build).toContain("chmod +x dist/apps/cli/src/index.js");
+    expect(files).toEqual(
+      expect.arrayContaining([
+        "dist/apps/cli/src/**/*.js",
+        "dist/packages/**/*.js",
+        "README.md",
+        "LICENSE",
+      ]),
+    );
+    expect(files.join("\n")).not.toMatch(/(^|\n)(src\/|test|tests\/|\*\*\/\*\.test\.)/i);
+  });
+
   it("ignores a leading pnpm argument separator", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
     const result = await runCli(["--", "doctor"], testContext(cwd));

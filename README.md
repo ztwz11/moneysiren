@@ -39,6 +39,41 @@ pnpm typecheck
 git diff --check
 ```
 
+## NPM Alpha CLI Preview
+
+The CLI package is prepared for a public npm alpha as `@stackspend/cli`, but this repository workflow does not publish it.
+
+Once an alpha is published:
+
+```bash
+npm install -g @stackspend/cli@alpha
+stackspend --version
+stackspend doctor
+npx --package @stackspend/cli@alpha stackspend --version
+```
+
+For local tarball review without publishing:
+
+```bash
+pnpm --filter @stackspend/cli build
+cd apps/cli
+npm pack
+TARBALL_PATH="$(pwd)/stackspend-cli-0.1.0-alpha.0.tgz"
+mkdir -p /tmp/stackspend-alpha-review
+cd /tmp/stackspend-alpha-review
+npm init -y
+npm install "$TARBALL_PATH"
+npm exec stackspend -- --version
+npm exec stackspend -- doctor
+```
+
+Alpha CLI requirements:
+
+- Node.js 20.11 or newer.
+- `sqlite3` CLI at `/usr/bin/sqlite3` for the current local SQLite runtime path.
+- Environment variables only for secrets; do not create `.env` or commit live credentials.
+- `stackspend --version`, `stackspend doctor`, and `stackspend sync --provider mock` do not require live provider credentials.
+
 ## CLI Commands
 
 ```bash

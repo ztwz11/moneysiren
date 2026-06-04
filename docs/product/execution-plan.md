@@ -291,6 +291,9 @@ Files:
 
 - `Dockerfile`
 - `compose.yaml`
+- `apps/cli/package.json`
+- `apps/cli/tsconfig.build.json`
+- `apps/cli/README.md`
 - `docs/product/v0.1.0-alpha-checklist.md`
 - `README.md`
 - `docs/security.md`
@@ -298,5 +301,7 @@ Files:
 Completion criteria:
 
 - mock demo can run without real credentials.
+- `@stackspend/cli` can be packed into a public alpha npm tarball without tests or external source files.
+- installed tarball can run `stackspend --version` and `stackspend doctor` without live credentials.
 - security docs describe secrets, redaction, and local storage.
 - alpha checklist passes.

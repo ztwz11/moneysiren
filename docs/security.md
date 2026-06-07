@@ -27,6 +27,7 @@ The local web dashboard also supports a convenience credential store for read-on
 - vault passphrases are never stored by StackSpend and must stay in the server process memory only.
 - credentials are never written to SQLite, localStorage, sessionStorage, readable cookies, logs, reports, dashboard API responses, or screenshots.
 - local session cookies contain only an opaque session id; CSRF tokens and OAuth state/nonce/PKCE verifier are held server-side.
+- OAuth client secrets, if configured for local provider OAuth, must remain process environment secrets and must not be committed.
 
 `.env.example` must keep secret values blank and may only include fake local fixture paths. Do not create or commit `.env`.
 

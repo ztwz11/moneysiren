@@ -30,7 +30,7 @@ StackSpend is a local-first TypeScript monorepo. The CLI collects normalized sna
 
 The route-based web dashboard separates canonical SQLite data from `live_today` overlays. `GET /api/live-today` reads the current in-memory live cache. `POST /api/live-today` performs a manual read-only live refresh and keeps the result provisional.
 
-Local web connection flows use `/api/auth/session` for an opaque local session plus CSRF token, `/api/connections/[provider]/credentials` for read-only credential mutation, and `/api/auth/start|callback/[provider]` for localhost OAuth broker state/nonce/PKCE handling. Provider write operations are not implemented.
+Local web connection flows use `/api/auth/session` for an opaque local session plus CSRF token, `/api/connections/[provider]/credentials` for read-only credential mutation, and `/api/auth/start|callback/[provider]` for localhost OAuth broker state/nonce/PKCE handling. Supabase OAuth can exchange a localhost callback code for a read-only token when local OAuth env is configured. Provider write operations are not implemented.
 
 ## Storage
 

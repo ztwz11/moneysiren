@@ -381,6 +381,7 @@ export function ConnectionsView({ dashboard, locale, messages }: ViewProps) {
                         accountIds: messages.settings.accountIds,
                         saveCredential: messages.settings.saveCredential,
                         removeCredential: messages.settings.removeCredential,
+                        startOAuth: messages.settings.startOAuth,
                         awsManaged: messages.settings.awsManaged,
                       }}
                     />

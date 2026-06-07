@@ -8,6 +8,7 @@ interface CredentialControlLabels {
   accountIds: string;
   saveCredential: string;
   removeCredential: string;
+  startOAuth: string;
   awsManaged: string;
 }
 
@@ -82,6 +83,39 @@ export function CredentialControls({
         </label>
       ) : null}
       <div className="credential-actions">
+        {providerKey === "supabase" ? (
+          <button
+            className="ghost-button"
+            disabled={isPending}
+            onClick={() => {
+              startTransition(async () => {
+                const sessionResponse = await fetch("/api/auth/session", {
+                  method: "POST",
+                });
+
+                if (!sessionResponse.ok) {
+                  return;
+                }
+
+                const session = await sessionResponse.json() as { csrfToken?: string };
+                const response = await fetch("/api/auth/start/supabase", {
+                  method: "POST",
+                  headers: {
+                    "x-stackspend-csrf": session.csrfToken ?? "",
+                  },
+                });
+                const payload = await response.json() as { authorizationUrl?: string | null };
+
+                if (response.ok && typeof payload.authorizationUrl === "string") {
+                  window.location.href = payload.authorizationUrl;
+                }
+              });
+            }}
+            type="button"
+          >
+            {labels.startOAuth}
+          </button>
+        ) : null}
         <button className="primary-button" disabled={isPending || secret.trim().length === 0} type="submit">
           {labels.saveCredential}
         </button>

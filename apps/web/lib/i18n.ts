@@ -101,6 +101,7 @@ export interface Messages {
     accountIds: string;
     saveCredential: string;
     removeCredential: string;
+    startOAuth: string;
     awsManaged: string;
     defaultLocale: string;
     dashboardTimezone: string;
@@ -228,6 +229,7 @@ export const messages = {
       accountIds: "Account IDs",
       saveCredential: "Save",
       removeCredential: "Remove local",
+      startOAuth: "OAuth",
       awsManaged: "Use AWS profile or SSO outside StackSpend.",
       defaultLocale: "Default locale",
       dashboardTimezone: "Dashboard timezone",
@@ -385,6 +387,7 @@ export const messages = {
       accountIds: "계정 ID",
       saveCredential: "저장",
       removeCredential: "로컬 제거",
+      startOAuth: "OAuth",
       awsManaged: "AWS profile 또는 SSO를 StackSpend 밖에서 사용합니다.",
       defaultLocale: "기본 언어",
       dashboardTimezone: "대시보드 시간대",
@@ -542,6 +545,7 @@ export const messages = {
       accountIds: "アカウント ID",
       saveCredential: "保存",
       removeCredential: "ローカルから外す",
+      startOAuth: "OAuth",
       awsManaged: "AWS profile または SSO を StackSpend の外で使用します。",
       defaultLocale: "既定の言語",
       dashboardTimezone: "ダッシュボードタイムゾーン",

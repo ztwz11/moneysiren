@@ -29,15 +29,15 @@ export default async function ProvidersPage({ params, searchParams }: PageProps)
   return (
     <>
       <PageHeader title={messages.catalog.title} subtitle={messages.catalog.subtitle} />
-      <form className="panel" method="get">
-        <div className="panel-body two-column">
-          <label>
+      <form className="panel catalog-filter-panel" method="get">
+        <div className="catalog-filter-grid">
+          <label className="catalog-filter-field">
             <span className="metric-label">{messages.catalog.search}</span>
-            <input className="ghost-button" name="q" defaultValue={filters.q} />
+            <input className="catalog-filter-control" name="q" defaultValue={filters.q} />
           </label>
-          <label>
+          <label className="catalog-filter-field">
             <span className="metric-label">{messages.catalog.category}</span>
-            <select className="ghost-button" name="category" defaultValue={filters.category}>
+            <select className="catalog-filter-control" name="category" defaultValue={filters.category}>
               <option value="">{messages.catalog.all}</option>
               <option value="Cloud">Cloud</option>
               <option value="AI">AI</option>
@@ -46,16 +46,16 @@ export default async function ProvidersPage({ params, searchParams }: PageProps)
               <option value="Observability">Observability</option>
             </select>
           </label>
-          <label>
+          <label className="catalog-filter-field">
             <span className="metric-label">{messages.catalog.status}</span>
-            <select className="ghost-button" name="status" defaultValue={filters.status}>
+            <select className="catalog-filter-control" name="status" defaultValue={filters.status}>
               <option value="">{messages.catalog.all}</option>
               <option value="available">{messages.catalog.available}</option>
               <option value="planned">{messages.catalog.planned}</option>
               <option value="research">{messages.catalog.research}</option>
             </select>
           </label>
-          <button className="primary-button" type="submit">
+          <button className="primary-button catalog-filter-button" type="submit">
             {messages.catalog.search}
           </button>
         </div>

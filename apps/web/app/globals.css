@@ -95,7 +95,7 @@ select {
 
 .layout-grid {
   display: grid;
-  grid-template-columns: 164px minmax(0, 1fr);
+  grid-template-columns: 188px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -193,6 +193,14 @@ select {
   align-items: center;
   display: inline-flex;
   gap: 10px;
+  min-width: 0;
+}
+
+.nav-link-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-collapsed .nav-link {
@@ -975,8 +983,42 @@ select {
 
 .catalog-grid {
   display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.catalog-filter-panel {
+  overflow: visible;
+}
+
+.catalog-filter-grid {
+  align-items: end;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(240px, 1fr) minmax(150px, 180px) minmax(132px, 160px) minmax(132px, 160px);
+  padding: 16px;
+}
+
+.catalog-filter-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.catalog-filter-control {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  min-height: 34px;
+  min-width: 0;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.catalog-filter-button {
+  min-height: 34px;
+  width: 100%;
 }
 
 .catalog-card {
@@ -984,15 +1026,34 @@ select {
   border: 1px solid var(--border);
   border-radius: 8px;
   display: grid;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: 14px;
+  grid-template-rows: auto auto auto auto 1fr;
+  min-height: 246px;
+  padding: 16px;
 }
 
 .catalog-card-header {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
+}
+
+.catalog-card-header > div {
+  min-width: 0;
+}
+
+.catalog-card .panel-title,
+.catalog-card .metric-meta,
+.catalog-card > div:not(.catalog-card-header):not(.badge-row) {
+  overflow-wrap: break-word;
+}
+
+.catalog-card > .primary-button,
+.catalog-card > .ghost-button {
+  align-self: end;
+  margin-top: 4px;
+  width: 100%;
 }
 
 .catalog-provider-mark {
@@ -1388,6 +1449,10 @@ select {
 }
 
 @media (max-width: 1180px) {
+  .catalog-filter-grid {
+    grid-template-columns: minmax(220px, 1fr) minmax(140px, 1fr);
+  }
+
   .risk-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1428,6 +1493,7 @@ select {
 
   .two-column,
   .ops-grid,
+  .catalog-filter-grid,
   .connection-card-body,
   .credential-form-grid,
   .insight-grid,

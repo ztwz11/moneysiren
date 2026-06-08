@@ -14,6 +14,7 @@ export function renderHomeScreen(input: { version: string; theme: Theme }): stri
     `  ${theme.command("/init")}                 Create local SQLite storage`,
     `  ${theme.command("/dashboard")}            Check the local dashboard API`,
     `  ${theme.command("/dashboard check")}      Same as /dashboard`,
+    `  ${theme.command("/theme preview")}        Preview the active CLI image-reference theme`,
     `  ${theme.command("/sync mock")}            Sync fake local review snapshots`,
     `  ${theme.command("/sync aws")}             Sync AWS Cost Explorer snapshots`,
     `  ${theme.command("/sync openai")}          Sync OpenAI usage/cost snapshots`,
@@ -28,6 +29,9 @@ export function renderHomeScreen(input: { version: string; theme: Theme }): stri
     "  stackspend sync --provider mock",
     "  stackspend report daily --lang ko",
     "  stackspend dashboard check",
+    "  stackspend theme preview",
+    "  stackspend theme image-prompt",
+    "  stackspend theme image-generate",
     "",
     theme.warning("Security"),
     "  Home/help does not call provider APIs, read secret values, create .env, or enable telemetry.",
@@ -46,6 +50,9 @@ Usage:
   stackspend init
   stackspend doctor
   stackspend dashboard check [--url <local-dashboard-url>]
+  stackspend theme preview
+  stackspend theme image-prompt
+  stackspend theme image-generate [--out <png> --theme-out <json> --model <model>]
   stackspend sync --provider <mock|aws|openai|supabase|cloudflare>
   stackspend report daily --lang ko [--send slack]
 
@@ -56,6 +63,7 @@ Slash commands:
   stackspend /init
   stackspend /dashboard
   stackspend /dashboard check
+  stackspend /theme <preview|image-prompt|image-generate>
   stackspend /sync <mock|aws|openai|supabase|cloudflare>
   stackspend /report ko
   stackspend /quit

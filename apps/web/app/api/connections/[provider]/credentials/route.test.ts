@@ -135,6 +135,44 @@ describe("provider credential routes", () => {
       error: expect.stringContaining("AWS raw access keys"),
     });
   });
+
+  it("stores roadmap provider credentials as local-only setup without live API validation", async () => {
+    const session = await createLocalSessionHeaders();
+    globalThis.fetch = (async () => {
+      throw new Error("Roadmap provider credentials must not call live validation.");
+    }) as typeof fetch;
+    const response = await POST(new Request("http://127.0.0.1:3000/api/connections/vercel/credentials", {
+      method: "POST",
+      headers: {
+        ...session,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        label: "Vercel personal",
+        secret: "FAKE_VERCEL_TOKEN_FOR_TESTS",
+      }),
+    }), {
+      params: Promise.resolve({
+        provider: "vercel",
+      }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.provider).toMatchObject({
+      providerKey: "vercel",
+      connectionState: "credential_store_configured",
+      credentialSource: "credential_store",
+      readOnlyTestState: "credential_store_configured",
+    });
+    expect(payload.provider.connections).toEqual([
+      expect.objectContaining({
+        label: "Vercel personal",
+        readOnlyTestState: "credential_store_configured",
+      }),
+    ]);
+    expect(JSON.stringify(payload)).not.toContain("FAKE_VERCEL_TOKEN_FOR_TESTS");
+  }, 30000);
 });
 
 async function createLocalSessionHeaders(): Promise<Record<string, string>> {

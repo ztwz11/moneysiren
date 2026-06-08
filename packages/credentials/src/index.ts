@@ -2,7 +2,27 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
 
-export const CREDENTIAL_PROVIDERS = ["aws", "openai", "supabase", "cloudflare"] as const;
+export const CREDENTIAL_PROVIDERS = [
+  "aws",
+  "openai",
+  "supabase",
+  "cloudflare",
+  "gcp",
+  "azure",
+  "oracle",
+  "anthropic",
+  "gemini",
+  "vercel",
+  "github-actions",
+  "railway",
+  "fly",
+  "netlify",
+  "render",
+  "neon",
+  "mongodb-atlas",
+  "datadog",
+  "sentry",
+] as const;
 export const CREDENTIAL_SCOPES = ["read-only", "emergency"] as const;
 
 export type CredentialProvider = (typeof CREDENTIAL_PROVIDERS)[number];

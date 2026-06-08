@@ -17,7 +17,7 @@ import type {
 } from "./dashboard-data";
 import { readDashboardSnapshot, type ReadDashboardSnapshotOptions } from "./dashboard-data";
 import {
-  AVAILABLE_PROVIDER_KEYS,
+  CONNECTABLE_PROVIDER_KEYS,
   findAvailableProvider,
   type LiveGranularity,
   type ProviderSetupLink,
@@ -142,7 +142,7 @@ export function buildOperationsDashboard(
   },
 ): OperationsDashboard {
   const config = loadStackSpendConfig(options.env);
-  const providers = AVAILABLE_PROVIDER_KEYS.map((providerKey) => {
+  const providers = CONNECTABLE_PROVIDER_KEYS.map((providerKey) => {
     const catalog = findAvailableProvider(providerKey);
     const row = snapshot.providers.find((provider) => provider.providerKey === providerKey);
     const providerConfig = config.providers[providerKey];

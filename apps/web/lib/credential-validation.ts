@@ -8,7 +8,7 @@ import {
 import {
   createSupabaseManagementClient,
 } from "../../../packages/connectors/supabase/src/index";
-import type { ProviderKey } from "./provider-catalog";
+import type { LiveProviderKey } from "./provider-catalog";
 
 export interface CredentialValidationInput {
   secret: string;
@@ -20,7 +20,7 @@ export interface CredentialValidationResult {
 }
 
 export async function validateReadOnlyCredential(
-  providerKey: ProviderKey,
+  providerKey: LiveProviderKey,
   input: CredentialValidationInput,
   now: Date = new Date(),
 ): Promise<CredentialValidationResult> {

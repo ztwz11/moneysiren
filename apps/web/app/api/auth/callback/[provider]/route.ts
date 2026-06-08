@@ -1,7 +1,8 @@
 import { setCredential } from "../../../../../../../packages/credentials/src/index";
 import { validateReadOnlyCredential } from "../../../../../lib/credential-validation";
 import { consumeOAuthTransaction, isLocalRequest } from "../../../../../lib/local-security";
-import { AVAILABLE_PROVIDER_KEYS, type ProviderKey } from "../../../../../lib/provider-catalog";
+
+type OAuthProviderKey = "supabase";
 
 interface RouteContext {
   params: Promise<{
@@ -27,7 +28,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
     }
 
     const transaction = consumeOAuthTransaction(provider, state);
-    const stored = await maybeStoreOAuthCredential(provider, code, transaction.codeVerifier);
+    const stored = await maybeStoreOAuthCredential(code, transaction.codeVerifier);
 
     return Response.json(
       {
@@ -58,14 +59,9 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
 }
 
 async function maybeStoreOAuthCredential(
-  provider: ProviderKey,
   code: string,
   codeVerifier: string,
 ): Promise<boolean> {
-  if (provider !== "supabase") {
-    return false;
-  }
-
   const tokenUrl = process.env.SUPABASE_OAUTH_TOKEN_URL?.trim();
   const clientId = process.env.SUPABASE_OAUTH_CLIENT_ID?.trim();
   const clientSecret = process.env.SUPABASE_OAUTH_CLIENT_SECRET?.trim();
@@ -149,12 +145,12 @@ async function exchangeSupabaseCode(options: {
   };
 }
 
-async function readProvider(params: RouteContext["params"]): Promise<ProviderKey> {
+async function readProvider(params: RouteContext["params"]): Promise<OAuthProviderKey> {
   const { provider } = await params;
 
-  if (!AVAILABLE_PROVIDER_KEYS.includes(provider as ProviderKey)) {
+  if (provider !== "supabase") {
     throw new Error("Unsupported provider.");
   }
 
-  return provider as ProviderKey;
+  return provider;
 }

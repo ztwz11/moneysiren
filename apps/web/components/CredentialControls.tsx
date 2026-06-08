@@ -247,14 +247,30 @@ async function createSessionOrThrow(fallback: string): Promise<{ csrfToken: stri
 }
 
 function defaultLabel(providerKey: ProviderKey): string {
-  return providerKey === "openai"
-    ? "OpenAI"
-    : providerKey === "supabase"
-      ? "Supabase"
-      : providerKey === "cloudflare"
-        ? "Cloudflare"
-        : "Default";
+  return defaultProviderLabels[providerKey] ?? "Default";
 }
+
+const defaultProviderLabels: Record<ProviderKey, string> = {
+  aws: "AWS",
+  openai: "OpenAI",
+  supabase: "Supabase",
+  cloudflare: "Cloudflare",
+  gcp: "GCP",
+  azure: "Azure",
+  oracle: "Oracle Cloud",
+  anthropic: "Anthropic Claude",
+  gemini: "Google Gemini / Vertex AI",
+  vercel: "Vercel",
+  "github-actions": "GitHub Actions",
+  railway: "Railway",
+  fly: "Fly.io",
+  netlify: "Netlify",
+  render: "Render",
+  neon: "Neon",
+  "mongodb-atlas": "MongoDB Atlas",
+  datadog: "Datadog",
+  sentry: "Sentry",
+};
 
 function shortConnectionId(connectionId: string): string {
   return connectionId.length <= 10 ? connectionId : connectionId.slice(-8);

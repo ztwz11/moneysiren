@@ -473,15 +473,12 @@ export function ProviderCatalogView({
           </div>
           <KeyValue label={messages.catalog.auth} value={provider.authMethods.join(", ")} />
           <KeyValue label={messages.catalog.data} value={provider.dataSurfaces.join(", ")} />
-          {provider.status === "available" && provider.availableProviderKey !== undefined ? (
-            <Link className="primary-button" href={`/${locale}/settings/connections#${provider.availableProviderKey}`}>
-              {messages.catalog.connect}
-            </Link>
-          ) : (
-            <Link className="ghost-button" href={`/${locale}/providers?status=${provider.status}`}>
-              {messages.catalog.viewRoadmap}
-            </Link>
-          )}
+          <Link
+            className={provider.status === "available" ? "primary-button" : "ghost-button"}
+            href={`/${locale}/settings/connections#${provider.key}`}
+          >
+            {messages.catalog.connect}
+          </Link>
         </article>
       ))}
     </div>

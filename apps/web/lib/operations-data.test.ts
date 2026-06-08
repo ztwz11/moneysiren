@@ -58,12 +58,15 @@ describe("operations dashboard data", () => {
     expect(dashboard.summary.monthForecastAmountMinor).toBe(7975);
     expect(dashboard.summary.confirmedThroughYesterdayAmountMinor).toBe(1100);
     expect(dashboard.summary.todayLiveAmountMinor).toBeNull();
-    expect(dashboard.providers.map((provider) => provider.providerKey)).toEqual([
+    expect(dashboard.providers.map((provider) => provider.providerKey)).toEqual(expect.arrayContaining([
       "aws",
       "openai",
       "supabase",
       "cloudflare",
-    ]);
+      "gcp",
+      "anthropic",
+      "vercel",
+    ]));
     expect(dashboard.visibleProviders.map((provider) => provider.providerKey)).toEqual(["aws"]);
     expect(dashboard.visibleConnections.map((connection) => `${connection.providerKey}:${connection.connectionId}`)).toEqual([
       "aws:env",

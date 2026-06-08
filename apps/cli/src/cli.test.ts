@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, stat } from "node:fs/promises";
+import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -75,6 +75,101 @@ describe("StackSpend CLI", () => {
     expect(colored.stdout.join("\n")).toMatch(ANSI_PATTERN);
     expect(noColor.stdout.join("\n")).not.toMatch(ANSI_PATTERN);
     expect(dumbTerm.stdout.join("\n")).not.toMatch(ANSI_PATTERN);
+  });
+
+  it("previews bundled and file-based image reference CLI themes without secrets", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const themePath = join(cwd, "theme.json");
+    await writeFile(themePath, JSON.stringify({
+      version: 1,
+      source: "fake-image-reference",
+      ansi: {
+        brand: "1;38;5;37",
+        command: "38;5;42",
+      },
+    }), "utf8");
+
+    const bundled = await runCli(["theme", "preview"], testContext(cwd, {
+      CI: "1",
+      FORCE_COLOR: "1",
+      STACKSPEND_CLI_THEME: "image2-dashboard",
+    }));
+    const fromFile = await runCli(["theme", "preview"], testContext(cwd, {
+      CI: "1",
+      FORCE_COLOR: "1",
+      STACKSPEND_CLI_THEME_FILE: "theme.json",
+    }));
+    const prompt = await runCli(["theme", "image-prompt"], testContext(cwd));
+
+    expect(bundled.exitCode).toBe(0);
+    expect(bundled.stdout.join("\n")).toContain("Source: image2-dashboard");
+    expect(bundled.stdout.join("\n")).toContain("\x1b[1;38;5;30mStackSpend\x1b[0m");
+    expect(fromFile.exitCode).toBe(0);
+    expect(fromFile.stdout.join("\n")).toContain("Source: fake-image-reference");
+    expect(fromFile.stdout.join("\n")).toContain("\x1b[1;38;5;37mStackSpend\x1b[0m");
+    expect(prompt.exitCode).toBe(0);
+    expect(prompt.stdout.join("\n")).toContain("Create a polished Image 2 reference");
+    expect(prompt.stdout.join("\n")).toContain("STACKSPEND_CLI_THEME_FILE");
+    expect(prompt.stdout.join("\n")).not.toMatch(/sk-|hooks\.slack|FAKE_/i);
+  });
+
+  it("generates a CLI image reference and theme file with an explicit env-only API key", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const fetchRequests: Array<{ url: string; model?: string; hasAuthorization: boolean }> = [];
+    const result = await runCli(
+      [
+        "theme",
+        "image-generate",
+        "--out",
+        ".stackspend/themes/test-reference.png",
+        "--theme-out",
+        ".stackspend/themes/test-theme.json",
+        "--model",
+        "gpt-image-1-mini",
+      ],
+      {
+        ...testContext(cwd, {
+          OPENAI_API_KEY: "sk-fake-image-key-for-tests",
+        }),
+        fetch: async (input, init) => {
+          const body = JSON.parse(String(init?.body ?? "{}")) as { model?: string; prompt?: string };
+          fetchRequests.push({
+            url: String(input),
+            model: body.model,
+            hasAuthorization: String((init?.headers as Record<string, string>).authorization ?? "").startsWith("Bearer "),
+          });
+          expect(body.prompt).toContain("StackSpend CLI theme");
+
+          return Response.json({
+            data: [
+              {
+                b64_json: Buffer.from("fake png bytes").toString("base64"),
+              },
+            ],
+          });
+        },
+      },
+    );
+    const image = await readFile(join(cwd, ".stackspend", "themes", "test-reference.png"), "utf8");
+    const theme = JSON.parse(await readFile(join(cwd, ".stackspend", "themes", "test-theme.json"), "utf8")) as {
+      source?: string;
+      ansi?: Record<string, string>;
+    };
+    const allOutput = [...result.stdout, ...result.stderr].join("\n");
+
+    expect(result.exitCode).toBe(0);
+    expect(fetchRequests).toEqual([
+      {
+        url: "https://api.openai.com/v1/images/generations",
+        model: "gpt-image-1-mini",
+        hasAuthorization: true,
+      },
+    ]);
+    expect(image).toBe("fake png bytes");
+    expect(theme.source).toBe("image-generation:gpt-image-1-mini");
+    expect(theme.ansi?.brand).toBe("1;38;5;30");
+    expect(result.stdout.join("\n")).toContain("STACKSPEND_CLI_THEME_FILE=.stackspend/themes/test-theme.json");
+    expect(allOutput).not.toContain("sk-fake-image-key-for-tests");
   });
 
   it("declares a public alpha npm package with a built JavaScript bin and scoped files", async () => {

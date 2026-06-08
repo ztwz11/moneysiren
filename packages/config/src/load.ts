@@ -63,6 +63,21 @@ function loadProviders(env: StackSpendEnv): ProviderConfigMap {
     openai: loadProviderConfig("openai", env),
     supabase: loadProviderConfig("supabase", env),
     cloudflare: loadProviderConfig("cloudflare", env),
+    gcp: loadProviderConfig("gcp", env),
+    azure: loadProviderConfig("azure", env),
+    oracle: loadProviderConfig("oracle", env),
+    anthropic: loadProviderConfig("anthropic", env),
+    gemini: loadProviderConfig("gemini", env),
+    vercel: loadProviderConfig("vercel", env),
+    "github-actions": loadProviderConfig("github-actions", env),
+    railway: loadProviderConfig("railway", env),
+    fly: loadProviderConfig("fly", env),
+    netlify: loadProviderConfig("netlify", env),
+    render: loadProviderConfig("render", env),
+    neon: loadProviderConfig("neon", env),
+    "mongodb-atlas": loadProviderConfig("mongodb-atlas", env),
+    datadog: loadProviderConfig("datadog", env),
+    sentry: loadProviderConfig("sentry", env),
   };
 }
 

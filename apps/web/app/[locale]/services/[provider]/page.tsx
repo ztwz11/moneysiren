@@ -5,7 +5,7 @@ import {
 } from "../../../../components/OperationsViews";
 import { getMessages, isLocale, type Locale } from "../../../../lib/i18n";
 import { readOperationsDashboard } from "../../../../lib/operations-data";
-import { AVAILABLE_PROVIDER_KEYS, type ProviderKey } from "../../../../lib/provider-catalog";
+import { isProviderKey, type ProviderKey } from "../../../../lib/provider-catalog";
 
 interface PageProps {
   params: Promise<{
@@ -50,8 +50,4 @@ async function readParams(params: PageProps["params"]): Promise<{ locale: Locale
     locale: locale as Locale,
     provider: provider as ProviderKey,
   };
-}
-
-function isProviderKey(value: string): value is ProviderKey {
-  return AVAILABLE_PROVIDER_KEYS.includes(value as ProviderKey);
 }

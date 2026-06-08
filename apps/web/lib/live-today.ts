@@ -24,7 +24,6 @@ import {
   type ProviderConnectionStatus,
 } from "./connection-status";
 import {
-  AVAILABLE_PROVIDER_KEYS,
   findAvailableProvider,
   type LiveGranularity,
   type ProviderKey,
@@ -428,7 +427,11 @@ function createDefaultLiveTodayCollector(providerKey: ProviderKey): LiveTodayPro
     return collectSupabaseLiveToday;
   }
 
-  return collectCloudflareLiveToday;
+  if (providerKey === "cloudflare") {
+    return collectCloudflareLiveToday;
+  }
+
+  throw new Error(`Live today collector is not implemented for ${providerKey}.`);
 }
 
 async function collectAwsLiveToday(context: LiveTodayCollectionContext): Promise<LiveTodayProviderCollection> {

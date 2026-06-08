@@ -1,5 +1,6 @@
 import { createOAuthTransaction, requireLocalSession } from "../../../../../lib/local-security";
-import { AVAILABLE_PROVIDER_KEYS, type ProviderKey } from "../../../../../lib/provider-catalog";
+
+type OAuthProviderKey = "supabase";
 
 interface RouteContext {
   params: Promise<{
@@ -18,7 +19,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       request,
       session,
     });
-    const authorizationUrl = buildAuthorizationUrl(provider, transaction);
+    const authorizationUrl = buildAuthorizationUrl(transaction);
 
     return Response.json(
       {
@@ -52,24 +53,17 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   }
 }
 
-async function readProvider(params: RouteContext["params"]): Promise<ProviderKey> {
+async function readProvider(params: RouteContext["params"]): Promise<OAuthProviderKey> {
   const { provider } = await params;
 
-  if (!AVAILABLE_PROVIDER_KEYS.includes(provider as ProviderKey)) {
+  if (provider !== "supabase") {
     throw new Error("Unsupported provider.");
   }
 
-  return provider as ProviderKey;
+  return provider;
 }
 
-function buildAuthorizationUrl(
-  provider: ProviderKey,
-  transaction: ReturnType<typeof createOAuthTransaction>,
-): string | null {
-  if (provider !== "supabase") {
-    return null;
-  }
-
+function buildAuthorizationUrl(transaction: ReturnType<typeof createOAuthTransaction>): string | null {
   const authorizationEndpoint = process.env.SUPABASE_OAUTH_AUTHORIZATION_URL?.trim();
   const clientId = process.env.SUPABASE_OAUTH_CLIENT_ID?.trim();
 

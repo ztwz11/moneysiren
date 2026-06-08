@@ -3,6 +3,7 @@ import { runDoctorCommand } from "./commands/doctor.js";
 import { runInitCommand } from "./commands/init.js";
 import { runReportCommand } from "./commands/report.js";
 import { runSyncCommand } from "./commands/sync.js";
+import { runThemeCommand } from "./commands/theme.js";
 import { renderHelpScreen, renderHomeScreen } from "./home.js";
 import { runSlashPrompt } from "./interactive.js";
 import { resolveSlashCommand } from "./slash.js";
@@ -70,6 +71,7 @@ export async function runCli(args: readonly string[], runtime: CliRuntime = {}):
   const stdinIsTTY = runtime.stdinIsTTY ?? Boolean(process.stdin.isTTY);
   const stdoutIsTTY = runtime.stdoutIsTTY ?? Boolean(process.stdout.isTTY);
   const theme = createTheme({
+    cwd: runtime.cwd ?? process.cwd(),
     env,
     stdoutIsTTY,
   });
@@ -190,6 +192,10 @@ async function dispatchCommand(args: readonly string[], context: CliExecutionCon
 
   if (command === "report") {
     return runReportCommand(rest, context);
+  }
+
+  if (command === "theme") {
+    return runThemeCommand(rest, context);
   }
 
   context.stderr(`Unknown command: ${command}`);

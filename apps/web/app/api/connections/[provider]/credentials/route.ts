@@ -1,13 +1,20 @@
 import {
+  createDefaultCredentialStore,
   deleteCredential,
   setCredential,
   testCredentialStore,
   type CredentialAuthMethod,
+  type CredentialStore,
 } from "../../../../../../../packages/credentials/src/index";
 import { readConnectionsStatus } from "../../../../../lib/connection-status";
 import { validateReadOnlyCredential } from "../../../../../lib/credential-validation";
 import { requireLocalSession } from "../../../../../lib/local-security";
-import { type ProviderKey, AVAILABLE_PROVIDER_KEYS } from "../../../../../lib/provider-catalog";
+import {
+  findAvailableProvider,
+  isLiveProviderKey,
+  isProviderKey,
+  type ProviderKey,
+} from "../../../../../lib/provider-catalog";
 
 interface RouteContext {
   params: Promise<{
@@ -22,28 +29,35 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     requireLocalSession(request);
     const provider = await readProvider(context.params);
     const input = await readCredentialInput(request, provider);
-    await assertCredentialStoreWritable();
-    const validation = await validateReadOnlyCredential(provider, {
-      secret: input.secret,
-      ...(input.metadata?.accountIds === undefined ? {} : { accountIds: input.metadata.accountIds }),
-    });
+    const credentialStore = createDefaultCredentialStore();
+    await assertCredentialStoreWritable(credentialStore);
+    const validation = isLiveProviderKey(provider)
+      ? await validateReadOnlyCredential(provider, {
+          secret: input.secret,
+          ...(input.metadata?.accountIds === undefined ? {} : { accountIds: input.metadata.accountIds }),
+        })
+      : undefined;
 
     const credential = await setCredential(provider, "read-only", {
       ...input,
       metadata: {
         ...(input.metadata ?? {}),
-        validatedAt: validation.validatedAt,
+        ...(validation === undefined ? {} : { validatedAt: validation.validatedAt }),
       },
+    }, {
+      store: credentialStore,
     });
 
-    return providerStatusResponse(provider, credential.connectionId);
+    return providerStatusResponse(provider, credentialStore, credential.connectionId);
   } catch (error) {
     return errorResponse(error);
   }
 }
 
-async function assertCredentialStoreWritable(): Promise<void> {
-  const health = await testCredentialStore();
+async function assertCredentialStoreWritable(credentialStore: CredentialStore): Promise<void> {
+  const health = await testCredentialStore({
+    store: credentialStore,
+  });
 
   if (!health.writable) {
     const reason = health.reason ?? "Credential store is not writable.";
@@ -60,10 +74,11 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
     requireLocalSession(request);
     const provider = await readProvider(context.params);
     const connectionId = readConnectionId(request);
+    const credentialStore = createDefaultCredentialStore();
 
-    await deleteCredential(provider, "read-only", { connectionId });
+    await deleteCredential(provider, "read-only", { connectionId, store: credentialStore });
 
-    return providerStatusResponse(provider);
+    return providerStatusResponse(provider, credentialStore);
   } catch (error) {
     return errorResponse(error);
   }
@@ -72,11 +87,11 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
 async function readProvider(params: RouteContext["params"]): Promise<ProviderKey> {
   const { provider } = await params;
 
-  if (!AVAILABLE_PROVIDER_KEYS.includes(provider as ProviderKey)) {
+  if (!isProviderKey(provider)) {
     throw new Error("Unsupported provider.");
   }
 
-  return provider as ProviderKey;
+  return provider;
 }
 
 async function readCredentialInput(
@@ -112,17 +127,45 @@ async function readCredentialInput(
     };
   }
 
-  const accountIds = readRequiredString(body.accountIds, "Cloudflare account IDs");
+  if (provider === "cloudflare") {
+    const accountIds = readRequiredString(body.accountIds, "Cloudflare account IDs");
+
+    return {
+      secret,
+      label,
+      authMethod: "api_token",
+      metadata: {
+        accountIds,
+      },
+    };
+  }
+
+  if (provider === "github-actions") {
+    return {
+      secret,
+      label,
+      authMethod: "pat",
+    };
+  }
 
   return {
     secret,
     label,
-    authMethod: "api_token",
-    metadata: {
-      accountIds,
-    },
+    authMethod: apiKeyProviders.has(provider) ? "api_key" : "api_token",
   };
 }
+
+const apiKeyProviders = new Set<ProviderKey>([
+  "gcp",
+  "azure",
+  "oracle",
+  "anthropic",
+  "gemini",
+  "neon",
+  "mongodb-atlas",
+  "datadog",
+  "sentry",
+]);
 
 function readConnectionId(request: Request): string {
   const connectionId = new URL(request.url).searchParams.get("connectionId")?.trim();
@@ -155,23 +198,17 @@ function readOptionalString(value: unknown, label: string): string | undefined {
 }
 
 function defaultConnectionLabel(provider: ProviderKey): string {
-  if (provider === "openai") {
-    return "OpenAI";
-  }
-
-  if (provider === "supabase") {
-    return "Supabase";
-  }
-
-  if (provider === "cloudflare") {
-    return "Cloudflare";
-  }
-
-  return "Default";
+  return findAvailableProvider(provider)?.name ?? "Default";
 }
 
-async function providerStatusResponse(provider: ProviderKey, connectionId?: string): Promise<Response> {
-  const status = await readConnectionsStatus();
+async function providerStatusResponse(
+  provider: ProviderKey,
+  credentialStore: CredentialStore,
+  connectionId?: string,
+): Promise<Response> {
+  const status = await readConnectionsStatus({
+    credentialStore,
+  });
   const providerStatus = status.providers.find((item) => item.providerKey === provider);
 
   return Response.json(

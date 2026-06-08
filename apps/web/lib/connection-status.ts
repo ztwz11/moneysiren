@@ -1,13 +1,12 @@
 import {
   createDefaultCredentialStore,
   type CredentialConnectionState,
-  type CredentialProvider,
   type CredentialStatus,
   type CredentialStore,
 } from "../../../packages/credentials/src/index";
 import { loadStackSpendConfig } from "../../../packages/config/src/index";
 import {
-  AVAILABLE_PROVIDER_KEYS,
+  CONNECTABLE_PROVIDER_KEYS,
   findAvailableProvider,
   type ProviderKey,
 } from "./provider-catalog";
@@ -86,7 +85,7 @@ export async function readConnectionsStatus(
   const credentialStore = options.credentialStore ?? createDefaultCredentialStore({ env, now });
   const config = loadStackSpendConfig(env);
   const providers = await Promise.all(
-    AVAILABLE_PROVIDER_KEYS.map(async (providerKey) => {
+    CONNECTABLE_PROVIDER_KEYS.map(async (providerKey) => {
       const readOnlyStatus = await credentialStore.getCredentialStatus(providerKey, "read-only");
       const readOnlyStatuses = await credentialStore.listCredentialStatuses(providerKey, "read-only");
       const emergencyStatus = await credentialStore.getCredentialStatus(providerKey, "emergency");
@@ -110,7 +109,7 @@ export async function readConnectionsStatus(
         requiredEnvKeys: providerConfig.requiredEnvKeys,
         configuredEnvKeys: redactedConfiguredEnvKeys(providerKey, env, providerConfig.configuredEnvKeys),
         missingEnvKeys: providerConfig.missingEnvKeys,
-        credentialRequirements: credentialRequirementsFor(providerKey),
+        credentialRequirements: catalog?.credentialRequirements ?? [],
         credentialStore: {
           backend: readOnlyStatus.backend,
           storeState: readOnlyStatus.storeState,
@@ -246,22 +245,6 @@ function credentialSourceFor(connectionState: ConnectionState): CredentialSource
   }
 
   return "none";
-}
-
-function credentialRequirementsFor(providerKey: ProviderKey): readonly string[] {
-  if (providerKey === "aws") {
-    return ["AWS_PROFILE or SDK default credential chain outside StackSpend"];
-  }
-
-  if (providerKey === "openai") {
-    return ["OpenAI Admin API key"];
-  }
-
-  if (providerKey === "supabase") {
-    return ["Supabase OAuth2 connection or PAT"];
-  }
-
-  return ["Cloudflare API token", "Cloudflare account IDs"];
 }
 
 function isProviderEnvConfigured(

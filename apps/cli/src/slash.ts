@@ -70,6 +70,10 @@ export function resolveSlashCommand(args: readonly string[]): SlashDispatch {
     return resolveReportSlash(rest);
   }
 
+  if (command === "/theme") {
+    return resolveThemeSlash(rest);
+  }
+
   if (command === "/quit") {
     if (rest.length === 0) {
       return {
@@ -140,6 +144,30 @@ function resolveReportSlash(rest: readonly string[]): SlashDispatch {
     kind: "dispatch",
     args: ["report", "daily", "--lang", "ko"],
   };
+}
+
+function resolveThemeSlash(rest: readonly string[]): SlashDispatch {
+  const [subcommand, ...extra] = rest;
+
+  if (subcommand === "preview" || subcommand === "image-prompt") {
+    if (extra.length > 0) {
+      return invalidUsage("/theme", "Usage: stackspend /theme <preview|image-prompt|image-generate>");
+    }
+
+    return {
+      kind: "dispatch",
+      args: ["theme", subcommand],
+    };
+  }
+
+  if (subcommand === "image-generate") {
+    return {
+      kind: "dispatch",
+      args: ["theme", subcommand, ...extra],
+    };
+  }
+
+  return invalidUsage("/theme", "Usage: stackspend /theme <preview|image-prompt|image-generate>");
 }
 
 function invalidUsage(command: string, usage: string): SlashDispatch {

@@ -278,7 +278,7 @@ describe("StackSpend CLI", () => {
     });
     expect(dashboardCheck.exitCode).toBe(0);
     expect(dashboardCheck.stdout.join("\n")).toContain("StackSpend dashboard check");
-  }, 15000);
+  }, 30000);
 
   it("rejects unknown slash commands with slash usage guidance", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));

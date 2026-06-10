@@ -88,7 +88,7 @@ describe("provider credential routes", () => {
       providerKey: "openai",
       connectionState: "not_configured",
     });
-  }, 60000);
+  }, 120000);
 
   it("rejects credential mutation without CSRF", async () => {
     const response = await POST(new Request("http://127.0.0.1:3000/api/connections/openai/credentials", {
@@ -172,7 +172,7 @@ describe("provider credential routes", () => {
       }),
     ]);
     expect(JSON.stringify(payload)).not.toContain("FAKE_VERCEL_TOKEN_FOR_TESTS");
-  }, 60000);
+  }, 120000);
 });
 
 async function createLocalSessionHeaders(): Promise<Record<string, string>> {

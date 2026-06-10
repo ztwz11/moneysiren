@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
-    "frontendDist": "../dist"
+    "frontendDist": "assets"
   },
   "app": {
     "windows": [],
@@ -15,8 +15,11 @@
     }
   },
   "bundle": {
-    "active": false,
+    "active": true,
     "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "Local StackSpend tray notifier",
+    "longDescription": "StackSpend Tray is a local-only desktop tray notifier that reads sanitized loopback StackSpend API responses.",
     "icon": [
       "icons/tray.ico",
       "icons/tray.png"

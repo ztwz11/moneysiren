@@ -13,8 +13,16 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "icons:generate": "node ../../tools/scripts/generate-tray-icons.mjs",
+    "native:check": "node ../../tools/scripts/check-tray-native.mjs",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "tsc -p tsconfig.json --noEmit"
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "tauri:dev": "node ../../tools/scripts/run-tray-tauri.mjs dev",
+    "tauri:build": "node ../../tools/scripts/run-tray-tauri.mjs build",
+    "tauri:build:unsigned": "node ../../tools/scripts/run-tray-tauri.mjs build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.2"
   }
 }

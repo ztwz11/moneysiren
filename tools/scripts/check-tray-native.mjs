@@ -44,6 +44,7 @@ for (const scriptName of ["native:check", "icons:generate", "tauri:dev", "tauri:
 
 const config = JSON.parse(read("src-tauri/tauri.conf.json"));
 assert(config.bundle?.active === true, "Tauri bundle.active must be true for packaging.");
+assert(JSON.stringify(config.bundle?.targets) === '["nsis"]', "Tauri bundle.targets must default to NSIS on Windows.");
 assert(Array.isArray(config.app?.windows) && config.app.windows.length === 0, "Tray app must not create default windows.");
 assert(JSON.stringify(config.bundle?.icon ?? []).includes("icons/tray.ico"), "Windows .ico icon must be configured.");
 assert(JSON.stringify(config.bundle?.icon ?? []).includes("icons/tray.png"), "PNG tray icon must be configured.");

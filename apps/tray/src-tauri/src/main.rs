@@ -3,7 +3,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Emitter, Manager, Wry,
+    AppHandle, Emitter, Wry,
 };
 
 const TRAY_ACTIONS: [TrayAction; 10] = [

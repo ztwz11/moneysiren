@@ -14,3 +14,5 @@ tmp/
 *.log
 .stackspend/
 var/
+apps/tray/src-tauri/target/
+apps/tray/src-tauri/gen/

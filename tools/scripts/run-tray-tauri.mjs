@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../..");
 const trayRoot = resolve(repoRoot, "apps/tray");
+const commandEnv = buildCommandEnv();
 const args = process.argv.slice(2);
 const allowedCommands = new Set(["dev", "build"]);
 const command = args[0];
@@ -41,6 +42,7 @@ process.exit(result.status ?? 1);
 function isCommandAvailable(executable, versionArgs) {
   const result = spawnSync(executable, versionArgs, {
     cwd: trayRoot,
+    env: commandEnv,
     encoding: "utf8",
     stdio: "ignore",
   });
@@ -50,7 +52,7 @@ function isCommandAvailable(executable, versionArgs) {
 
 function runCorepackPnpm(pnpmArgs) {
   const env = {
-    ...process.env,
+    ...commandEnv,
   };
 
   if (env.COREPACK_HOME === undefined || env.COREPACK_HOME.trim().length === 0) {
@@ -72,6 +74,23 @@ function runCorepackPnpm(pnpmArgs) {
     env,
     stdio: "inherit",
   });
+}
+
+function buildCommandEnv() {
+  const env = {
+    ...process.env,
+  };
+
+  if (process.platform === "win32") {
+    const userProfile = env.USERPROFILE;
+    if (userProfile !== undefined && userProfile.trim().length > 0) {
+      const cargoBin = resolve(userProfile, ".cargo", "bin");
+      env.Path = [cargoBin, env.Path ?? env.PATH ?? ""].filter(Boolean).join(";");
+      env.PATH = env.Path;
+    }
+  }
+
+  return env;
 }
 
 function quoteWindowsArg(value) {

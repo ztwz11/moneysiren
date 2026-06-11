@@ -200,11 +200,28 @@ export function cloudflareAmountToMinorUnits(amount: number | string): number {
 }
 
 function normalizeChargeRecords(payload: CloudflareBillingUsagePayload): NormalizedChargeRecord[] {
-  if ((payload.billableUsage ?? []).length > 0) {
-    return (payload.billableUsage ?? []).map(normalizeBillableUsageRecord);
+  const billableUsage = payload.billableUsage ?? [];
+  const paygoUsage = payload.paygoUsage ?? [];
+
+  if (billableUsage.length === 0) {
+    return paygoUsage.map(normalizePaygoUsageRecord);
   }
 
-  return (payload.paygoUsage ?? []).map(normalizePaygoUsageRecord);
+  const billableAccountIds = new Set(
+    billableUsage
+      .map((record) => readOptionalNonBlankString(record.BillingAccountId))
+      .filter((accountId): accountId is string => accountId !== undefined),
+  );
+  const paygoFallbackUsage = paygoUsage.filter((record) => {
+    const accountId = readOptionalNonBlankString(record.BillingAccountId);
+
+    return accountId === undefined || !billableAccountIds.has(accountId);
+  });
+
+  return [
+    ...billableUsage.map(normalizeBillableUsageRecord),
+    ...paygoFallbackUsage.map(normalizePaygoUsageRecord),
+  ];
 }
 
 function normalizeBillableUsageRecord(record: CloudflareBillableUsageRecord): NormalizedChargeRecord {

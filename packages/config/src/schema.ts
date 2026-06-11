@@ -20,8 +20,8 @@ export const PROVIDER_ENV_KEYS = {
   "mongodb-atlas": ["MONGODB_ATLAS_PUBLIC_KEY", "MONGODB_ATLAS_PRIVATE_KEY", "MONGODB_ATLAS_ORG_ID"],
   datadog: ["DATADOG_API_KEY", "DATADOG_APP_KEY", "DATADOG_SITE"],
   sentry: ["SENTRY_AUTH_TOKEN", "SENTRY_ORG"],
-  "codex-cli": ["STACKSPEND_CODEX_CLI_USAGE"],
-  "claude-cli": ["STACKSPEND_CLAUDE_CLI_USAGE"],
+  "codex-cli": [],
+  "claude-cli": [],
 } as const;
 
 export type ConfiguredProvider = keyof typeof PROVIDER_ENV_KEYS;

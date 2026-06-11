@@ -3,6 +3,8 @@ import type { CSSProperties, ReactNode } from "react";
 import {
   AlertTriangle,
   CalendarDays,
+  ExternalLink,
+  Gauge,
   MoreVertical,
 } from "lucide-react";
 import type { Messages, Locale } from "../lib/i18n";
@@ -191,53 +193,12 @@ export function TodayLiveView({ dashboard, locale, messages, grouping = "service
           <StatusMetric label={messages.dashboard.excludedProviders} value={String(liveStats.excluded)} state={liveStats.excluded > 0 ? "warning" : "ok"} messages={messages} />
           <StatusMetric label={messages.services.confidence} value={liveStats.confidence} state={liveStats.confidence === "none" ? "stale" : "ok"} messages={messages} />
         </div>
-        <div className="data-table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{messages.table.provider}</th>
-                <th>{messages.dashboard.todayLive}</th>
-                <th>{messages.services.currentUsage}</th>
-                <th>{messages.services.liveFreshness}</th>
-                <th>{messages.services.liveGranularity}</th>
-                <th>{messages.services.latestLiveCheck}</th>
-                <th>{messages.services.confidence}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={7}>{messages.empty.noProviders}</td>
-                </tr>
-              ) : (
-                rows.map((provider) => (
-                  <tr key={rowKey(provider)}>
-                    <td>
-                      <strong>{provider.displayName}</strong>
-                      <div className="muted">{rowSubLabel(provider)}</div>
-                    </td>
-                    <td>
-                      {provider.todayLiveAmountMinor === null
-                        ? messages.dashboard.noLiveValue
-                        : formatMinorAmount(provider.todayLiveAmountMinor, provider.currency, locale)}
-                      <div className="badge-row">
-                        <StatusBadge messages={messages} state="provisional" text={messages.dashboard.provisional} />
-                        {!provider.todayLiveIncluded ? (
-                          <StatusBadge messages={messages} state="stale" text={messages.dashboard.partial} />
-                        ) : null}
-                      </div>
-                    </td>
-                    <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages)}</td>
-                    <td><StatusBadge messages={messages} state={provider.liveFreshness} /></td>
-                    <td>{labelFor(messages, provider.liveGranularity)}</td>
-                    <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
-                    <td>{provider.liveConfidence}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <TodayLiveDisplayTables
+          dashboard={dashboard}
+          locale={locale}
+          messages={messages}
+          rows={rows}
+        />
       </div>
       <TodayLiveRail dashboard={dashboard} rows={rows} locale={locale} messages={messages} />
     </div>
@@ -460,10 +421,10 @@ function LocalAiCliServiceDetail({
   dashboard: OperationsDashboard;
 }) {
   const summary = provider.currentUsageSummary;
-  const fiveHourLimit = usageMetricValue(summary, "five_hour_limit_percent", locale) ??
+  const fiveHourLimit = usageUsagePercentLabel(summary, "five_hour", locale) ??
     usageMetricValue(summary, "five_hour_tokens", locale) ??
     messages.services.noCurrentUsage;
-  const weeklyLimit = usageMetricValue(summary, "weekly_limit_percent", locale) ??
+  const weeklyLimit = usageUsagePercentLabel(summary, "weekly", locale) ??
     usageMetricValue(summary, "weekly_tokens", locale) ??
     messages.services.noCurrentUsage;
   const totalTokens = usageMetricValue(summary, "total_tokens", locale) ??
@@ -472,24 +433,51 @@ function LocalAiCliServiceDetail({
   const contextValue = usageMetricValue(summary, "context_percent", locale) ??
     usageMetricValue(summary, "context_tokens", locale) ??
     messages.services.noCurrentUsage;
+  const remainingRows = localCliRemainingRowsFromSummary(summary, locale, dashboard.timezone, messages);
+  const learnMoreHref = provider.setupLinks[0]?.href;
 
   return (
     <div className="stack">
+      {remainingRows.length === 0 ? null : (
+        <section className="local-cli-usage-menu" aria-label={messages.settings.localCliRemaining}>
+          <div className="local-cli-usage-header">
+            <span>
+              <Gauge aria-hidden="true" size={14} strokeWidth={1.9} />
+              <strong>{messages.settings.localCliRemaining}</strong>
+            </span>
+          </div>
+          <div className="local-cli-usage-rows">
+            {remainingRows.map((row) => (
+              <div className="local-cli-usage-row" key={row.label}>
+                <span>{row.label}</span>
+                <span className="local-cli-usage-value">{row.percent}</span>
+                <span className="local-cli-usage-reset">{row.resetAt}</span>
+              </div>
+            ))}
+          </div>
+          {learnMoreHref === undefined ? null : (
+            <a className="local-cli-learn-more" href={learnMoreHref} rel="noreferrer" target="_blank">
+              <span>{messages.settings.localCliLearnMore}</span>
+              <ExternalLink aria-hidden="true" size={13} strokeWidth={1.9} />
+            </a>
+          )}
+        </section>
+      )}
       <section className="metric-grid">
         <MetricCard
           label={messages.services.fiveHourLimit}
           value={fiveHourLimit}
-          meta={metricMeta(summary, "five_hour_tokens", locale, messages)}
+          meta={metricMeta(summary, "five_hour_remaining_tokens", locale, messages)}
         />
         <MetricCard
           label={messages.services.weeklyLimit}
           value={weeklyLimit}
-          meta={metricMeta(summary, "weekly_tokens", locale, messages)}
+          meta={metricMeta(summary, "weekly_remaining_tokens", locale, messages)}
         />
         <MetricCard
           label={messages.services.totalTokens}
           value={totalTokens}
-          meta={messages.services.localCliBillingNote}
+          meta={messages.services.localCliUsageNote}
         />
         <MetricCard
           label={messages.services.contextPercent}
@@ -499,7 +487,7 @@ function LocalAiCliServiceDetail({
       </section>
       <div className="two-column">
         <InfoPanel title={messages.settings.localCliTitle}>
-          <p className="muted">{messages.services.localCliBillingNote}</p>
+          <p className="muted">{messages.services.localCliUsageNote}</p>
           <UsageSummaryBlock summary={summary} locale={locale} messages={messages} />
         </InfoPanel>
         <InfoPanel title={messages.services.dataConfidence}>
@@ -596,6 +584,117 @@ export function PreferencesView({ dashboard, locale, messages }: ViewProps) {
       <InfoPanel title={messages.settings.telemetry}>
         <KeyValue label={messages.settings.telemetry} value={messages.settings.off} />
       </InfoPanel>
+    </div>
+  );
+}
+
+function TodayLiveDisplayTables({
+  dashboard,
+  locale,
+  messages,
+  rows,
+}: {
+  dashboard: OperationsDashboard;
+  locale: Locale;
+  messages: Messages;
+  rows: readonly OperationsRow[];
+}) {
+  const { amountRows, usageRows } = splitRowsByDisplay(rows);
+  const amountTitle = serviceGroupTitle(messages.services.cost, messages);
+  const usageTitle = serviceGroupTitle(messages.services.usage, messages);
+
+  return (
+    <div className="split-table-stack split-table-stack-inner">
+      <section className="data-table-section">
+        <div className="table-section-header">
+          <h3 className="panel-title">{amountTitle}</h3>
+          <span className="metric-meta">{amountRows.length}</span>
+        </div>
+        <div className="data-table-wrap">
+          <table className="data-table amount-service-table">
+            <thead>
+              <tr>
+                <th>{messages.table.provider}</th>
+                <th>{messages.dashboard.todayLive}</th>
+                <th>{messages.services.liveFreshness}</th>
+                <th>{messages.services.liveGranularity}</th>
+                <th>{messages.services.latestLiveCheck}</th>
+                <th>{messages.services.confidence}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {amountRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>{emptyGroupLabel(amountTitle, rows.length, messages)}</td>
+                </tr>
+              ) : (
+                amountRows.map((provider) => (
+                  <tr key={rowKey(provider)}>
+                    <td>
+                      <strong>{provider.displayName}</strong>
+                      <div className="muted">{rowSubLabel(provider)}</div>
+                    </td>
+                    <td>
+                      {amountTodayLiveLabel(provider, locale, messages)}
+                      <div className="badge-row">
+                        <StatusBadge messages={messages} state="provisional" text={messages.dashboard.provisional} />
+                        {!provider.todayLiveIncluded ? (
+                          <StatusBadge messages={messages} state="stale" text={messages.dashboard.partial} />
+                        ) : null}
+                      </div>
+                    </td>
+                    <td><StatusBadge messages={messages} state={provider.liveFreshness} /></td>
+                    <td>{labelFor(messages, provider.liveGranularity)}</td>
+                    <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
+                    <td>{provider.liveConfidence}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section className="data-table-section">
+        <div className="table-section-header">
+          <h3 className="panel-title">{usageTitle}</h3>
+          <span className="metric-meta">{usageRows.length}</span>
+        </div>
+        <div className="data-table-wrap">
+          <table className="data-table usage-service-table">
+            <thead>
+              <tr>
+                <th>{messages.table.provider}</th>
+                <th>{messages.services.fiveHourLimit}</th>
+                <th>{messages.services.weeklyLimit}</th>
+                <th>{messages.services.currentUsage}</th>
+                <th>{messages.services.latestLiveCheck}</th>
+                <th>{messages.services.confidence}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usageRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>{emptyGroupLabel(usageTitle, rows.length, messages)}</td>
+                </tr>
+              ) : (
+                usageRows.map((provider) => (
+                  <tr key={rowKey(provider)}>
+                    <td>
+                      <strong>{provider.displayName}</strong>
+                      <div className="muted">{rowSubLabel(provider)}</div>
+                    </td>
+                    <td>{rowFiveHourUsageLabel(provider, locale, messages)}</td>
+                    <td>{rowWeeklyUsageLabel(provider, locale, messages)}</td>
+                    <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages)}</td>
+                    <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
+                    <td>{provider.liveConfidence}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }
@@ -792,9 +891,83 @@ function DashboardServicesTable({
   grouping = "service",
 }: ViewProps) {
   const rows = serviceRowsFor(dashboard, grouping);
+  const { amountRows, usageRows } = splitRowsByDisplay(rows);
+
+  return (
+    <div className="split-table-stack">
+      <DashboardAmountServicesTable
+        locale={locale}
+        messages={messages}
+        rows={amountRows}
+        totalRows={rows.length}
+      />
+      <DashboardUsageServicesTable
+        dashboard={dashboard}
+        locale={locale}
+        messages={messages}
+        rows={usageRows}
+        totalRows={rows.length}
+      />
+    </div>
+  );
+}
+
+function ProviderSummaryTable({
+  dashboard,
+  locale,
+  messages,
+  grouping = "service",
+  groupingBasePath,
+  serviceLinks = false,
+}: ViewProps & { serviceLinks?: boolean }) {
+  const rows = serviceRowsFor(dashboard, grouping);
+  const { amountRows, usageRows } = splitRowsByDisplay(rows);
+
+  return (
+    <div className="split-table-stack">
+      <ProviderAmountSummaryTable
+        dashboard={dashboard}
+        grouping={grouping}
+        groupingBasePath={groupingBasePath}
+        locale={locale}
+        messages={messages}
+        rows={amountRows}
+        serviceLinks={serviceLinks}
+        totalRows={rows.length}
+      />
+      <ProviderUsageSummaryTable
+        dashboard={dashboard}
+        grouping={grouping}
+        groupingBasePath={groupingBasePath}
+        locale={locale}
+        messages={messages}
+        rows={usageRows}
+        serviceLinks={serviceLinks}
+        totalRows={rows.length}
+      />
+    </div>
+  );
+}
+
+function DashboardAmountServicesTable({
+  locale,
+  messages,
+  rows,
+  totalRows,
+}: {
+  locale: Locale;
+  messages: Messages;
+  rows: readonly OperationsRow[];
+  totalRows: number;
+}) {
+  const title = serviceGroupTitle(messages.services.cost, messages);
 
   return (
     <div className="panel panel-table-only">
+      <div className="panel-header compact-header">
+        <h2 className="panel-title">{title}</h2>
+        <StatusBadge messages={messages} state={rows.length > 0 ? "ok" : "stale"} />
+      </div>
       <div className="data-table-wrap">
         <table className="data-table dashboard-service-table">
           <thead>
@@ -812,7 +985,7 @@ function DashboardServicesTable({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8}>{messages.empty.noProviders}</td>
+                <td colSpan={8}>{emptyGroupLabel(title, totalRows, messages)}</td>
               </tr>
             ) : (
               rows.map((provider) => {
@@ -822,15 +995,7 @@ function DashboardServicesTable({
 
                 return (
                   <tr key={rowKey(provider)}>
-                    <td>
-                      <div className="service-name-cell">
-                        <ProviderIcon
-                          className={`provider-swatch provider-swatch-${provider.providerKey}`}
-                          providerKey={provider.providerKey}
-                        />
-                        <strong>{provider.displayName}</strong>
-                      </div>
-                    </td>
+                    <td>{serviceNameCell(provider)}</td>
                     <td>{rowSubLabel(provider)}</td>
                     <td>
                       <span className="status-dot-line">
@@ -840,11 +1005,7 @@ function DashboardServicesTable({
                     </td>
                     <td>{formatMinorAmount(provider.monthForecastAmountMinor, provider.currency, locale)}</td>
                     <td>{formatMinorAmount(provider.confirmedAmountMinor, provider.currency, locale)}</td>
-                    <td>
-                      {provider.todayLiveAmountMinor === null
-                        ? messages.dashboard.noLiveValue
-                        : formatMinorAmount(provider.todayLiveAmountMinor, provider.currency, locale)}
-                    </td>
+                    <td>{amountTodayLiveLabel(provider, locale, messages)}</td>
                     <td>
                       <div className="table-progress-cell">
                         <span>{ratio}%</span>
@@ -852,13 +1013,7 @@ function DashboardServicesTable({
                       </div>
                     </td>
                     <td className="table-action-cell">
-                      <Link
-                        aria-label={`${provider.displayName} ${messages.services.serviceTitle}`}
-                        className="icon-button"
-                        href={`/${locale}/services/${provider.providerKey}`}
-                      >
-                        <MoreVertical size={15} strokeWidth={1.8} />
-                      </Link>
+                      <ServiceDetailLink locale={locale} messages={messages} row={provider} />
                     </td>
                   </tr>
                 );
@@ -868,75 +1023,218 @@ function DashboardServicesTable({
         </table>
       </div>
       <div className="table-footer">
-        <span>{messages.services.title}: {rows.length}</span>
-        <span className="pager-dots">‹ 1 ›</span>
+        <span>{title}: {rows.length}</span>
+        <span className="pager-dots">1 / 1</span>
       </div>
     </div>
   );
 }
 
-function ProviderSummaryTable({
+function DashboardUsageServicesTable({
   dashboard,
   locale,
   messages,
-  grouping = "service",
+  rows,
+  totalRows,
+}: {
+  dashboard: OperationsDashboard;
+  locale: Locale;
+  messages: Messages;
+  rows: readonly OperationsRow[];
+  totalRows: number;
+}) {
+  const title = serviceGroupTitle(messages.services.usage, messages);
+
+  return (
+    <div className="panel panel-table-only">
+      <div className="panel-header compact-header">
+        <h2 className="panel-title">{title}</h2>
+        <StatusBadge messages={messages} state={rows.length > 0 ? "live" : "stale"} />
+      </div>
+      <div className="data-table-wrap">
+        <table className="data-table dashboard-service-table usage-service-table">
+          <thead>
+            <tr>
+              <th>{messages.table.provider}</th>
+              <th>{messages.services.title}</th>
+              <th>{messages.services.fiveHourLimit}</th>
+              <th>{messages.services.weeklyLimit}</th>
+              <th>{messages.services.currentUsage}</th>
+              <th>{messages.services.latestLiveCheck}</th>
+              <th>{messages.services.confidence}</th>
+              <th aria-label="actions" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={8}>{emptyGroupLabel(title, totalRows, messages)}</td>
+              </tr>
+            ) : (
+              rows.map((provider) => (
+                <tr key={rowKey(provider)}>
+                  <td>{serviceNameCell(provider)}</td>
+                  <td>{rowSubLabel(provider)}</td>
+                  <td>{rowFiveHourUsageLabel(provider, locale, messages)}</td>
+                  <td>{rowWeeklyUsageLabel(provider, locale, messages)}</td>
+                  <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages)}</td>
+                  <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
+                  <td>{provider.liveConfidence}</td>
+                  <td className="table-action-cell">
+                    <ServiceDetailLink locale={locale} messages={messages} row={provider} />
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="table-footer">
+        <span>{title}: {rows.length}</span>
+        <span className="pager-dots">1 / 1</span>
+      </div>
+    </div>
+  );
+}
+
+function ProviderAmountSummaryTable({
+  dashboard,
+  grouping,
   groupingBasePath,
-  serviceLinks = false,
-}: ViewProps & { serviceLinks?: boolean }) {
-  const rows = serviceRowsFor(dashboard, grouping);
+  locale,
+  messages,
+  rows,
+  serviceLinks,
+  totalRows,
+}: {
+  dashboard: OperationsDashboard;
+  grouping: DashboardGrouping;
+  groupingBasePath: string | undefined;
+  locale: Locale;
+  messages: Messages;
+  rows: readonly OperationsRow[];
+  serviceLinks: boolean;
+  totalRows: number;
+}) {
+  const title = serviceGroupTitle(messages.services.cost, messages);
 
   return (
     <div className="panel">
       <div className="panel-header">
-        <h2 className="panel-title">{messages.services.title}</h2>
+        <h2 className="panel-title">{title}</h2>
         <div className="panel-actions">
           <GroupingToggle
             basePath={groupingBasePath}
             grouping={grouping}
             messages={messages}
           />
-          <StatusBadge messages={messages} state={dashboard.summary.providersNeedingAttention > 0 ? "warning" : "ok"} />
+          <StatusBadge messages={messages} state={rows.some((row) => row.riskLevel !== "low") ? "warning" : "ok"} />
         </div>
       </div>
       <div className="data-table-wrap">
-        <table className="data-table">
+        <table className="data-table amount-service-table">
           <thead>
             <tr>
               <th>{messages.table.provider}</th>
-              <th>{messages.table.month}</th>
-              <th>{messages.table.today}</th>
+              <th>{messages.dashboard.monthForecast}</th>
+              <th>{messages.dashboard.confirmedThroughYesterday}</th>
+              <th>{messages.dashboard.todayLive}</th>
               <th>{messages.services.canonicalFreshness}</th>
               <th>{messages.services.liveFreshness}</th>
               <th>{messages.table.health}</th>
-              <th>{messages.table.risk}</th>
               <th>{messages.table.latest}</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8}>{messages.empty.noProviders}</td>
+                <td colSpan={8}>{emptyGroupLabel(title, totalRows, messages)}</td>
               </tr>
             ) : (
               rows.map((provider) => (
                 <tr key={rowKey(provider)}>
-                  <td>
-                    {serviceLinks ? (
-                      <Link href={`/${locale}/services/${provider.providerKey}`}>
-                        <strong>{provider.displayName}</strong>
-                      </Link>
-                    ) : (
-                      <strong>{provider.displayName}</strong>
-                    )}
-                    <div className="muted">{rowSubLabel(provider)}</div>
-                  </td>
+                  <td>{summaryServiceNameCell(provider, locale, serviceLinks)}</td>
                   <td>{formatMinorAmount(provider.monthForecastAmountMinor, provider.currency, locale)}</td>
-                  <td>{provider.todayLiveAmountMinor === null ? messages.dashboard.noLiveValue : formatMinorAmount(provider.todayLiveAmountMinor, provider.currency, locale)}</td>
+                  <td>{formatMinorAmount(provider.confirmedAmountMinor, provider.currency, locale)}</td>
+                  <td>{amountTodayLiveLabel(provider, locale, messages)}</td>
                   <td><StatusBadge messages={messages} state={provider.canonicalFreshness} /></td>
                   <td><StatusBadge messages={messages} state={provider.liveFreshness} /></td>
                   <td><StatusBadge messages={messages} state={provider.healthStatus} /></td>
-                  <td><StatusBadge messages={messages} state={provider.riskLevel} /></td>
                   <td>{formatOptionalDate(provider.latestCanonicalSync, locale, dashboard.timezone, messages)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ProviderUsageSummaryTable({
+  dashboard,
+  grouping,
+  groupingBasePath,
+  locale,
+  messages,
+  rows,
+  serviceLinks,
+  totalRows,
+}: {
+  dashboard: OperationsDashboard;
+  grouping: DashboardGrouping;
+  groupingBasePath: string | undefined;
+  locale: Locale;
+  messages: Messages;
+  rows: readonly OperationsRow[];
+  serviceLinks: boolean;
+  totalRows: number;
+}) {
+  const title = serviceGroupTitle(messages.services.usage, messages);
+
+  return (
+    <div className="panel">
+      <div className="panel-header">
+        <h2 className="panel-title">{title}</h2>
+        <div className="panel-actions">
+          <GroupingToggle
+            basePath={groupingBasePath}
+            grouping={grouping}
+            messages={messages}
+          />
+          <StatusBadge messages={messages} state={rows.some((row) => row.liveFreshness !== "live") ? "warning" : "live"} />
+        </div>
+      </div>
+      <div className="data-table-wrap">
+        <table className="data-table usage-service-table">
+          <thead>
+            <tr>
+              <th>{messages.table.provider}</th>
+              <th>{messages.services.fiveHourLimit}</th>
+              <th>{messages.services.weeklyLimit}</th>
+              <th>{messages.services.currentUsage}</th>
+              <th>{messages.services.liveFreshness}</th>
+              <th>{messages.services.latestLiveCheck}</th>
+              <th>{messages.services.confidence}</th>
+              <th>{messages.table.health}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={8}>{emptyGroupLabel(title, totalRows, messages)}</td>
+              </tr>
+            ) : (
+              rows.map((provider) => (
+                <tr key={rowKey(provider)}>
+                  <td>{summaryServiceNameCell(provider, locale, serviceLinks)}</td>
+                  <td>{rowFiveHourUsageLabel(provider, locale, messages)}</td>
+                  <td>{rowWeeklyUsageLabel(provider, locale, messages)}</td>
+                  <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages)}</td>
+                  <td><StatusBadge messages={messages} state={provider.liveFreshness} /></td>
+                  <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
+                  <td>{provider.liveConfidence}</td>
+                  <td><StatusBadge messages={messages} state={provider.healthStatus} /></td>
                 </tr>
               ))
             )}
@@ -979,9 +1277,7 @@ function DashboardInsightPanels({
                     <div className="metric-meta">{provider.liveConfidence}</div>
                   </div>
                   <div className="insight-value">
-                    {provider.todayLiveAmountMinor === null
-                      ? messages.dashboard.noLiveValue
-                      : formatMinorAmount(provider.todayLiveAmountMinor, provider.currency, locale)}
+                    {rowTodayLiveLabel(provider, locale, messages)}
                   </div>
                 </div>
               ))}
@@ -1064,6 +1360,118 @@ function rowSubLabel(row: OperationsRow): string {
 
 function isConnectionRow(row: OperationsRow): row is OperationsProviderConnection {
   return "connectionId" in row;
+}
+
+function splitRowsByDisplay(rows: readonly OperationsRow[]): {
+  amountRows: OperationsRow[];
+  usageRows: OperationsRow[];
+} {
+  return {
+    amountRows: rows.filter((row) => !isUsageDisplayRow(row)),
+    usageRows: rows.filter(isUsageDisplayRow),
+  };
+}
+
+function isUsageDisplayRow(row: OperationsRow): boolean {
+  return row.liveGranularity === "usage_only";
+}
+
+function serviceGroupTitle(kind: string, messages: Messages): string {
+  return `${kind} ${messages.nav.services}`;
+}
+
+function emptyGroupLabel(title: string, totalRows: number, messages: Messages): string {
+  return totalRows === 0 ? messages.empty.noProviders : `${title}: 0`;
+}
+
+function serviceNameCell(row: OperationsRow): ReactNode {
+  return (
+    <div className="service-name-cell">
+      <ProviderIcon
+        className={`provider-swatch provider-swatch-${row.providerKey}`}
+        providerKey={row.providerKey}
+      />
+      <strong>{row.displayName}</strong>
+    </div>
+  );
+}
+
+function summaryServiceNameCell(row: OperationsRow, locale: Locale, serviceLinks: boolean): ReactNode {
+  return (
+    <>
+      {serviceLinks ? (
+        <Link href={`/${locale}/services/${row.providerKey}`}>
+          <strong>{row.displayName}</strong>
+        </Link>
+      ) : (
+        <strong>{row.displayName}</strong>
+      )}
+      <div className="muted">{rowSubLabel(row)}</div>
+    </>
+  );
+}
+
+function ServiceDetailLink({
+  locale,
+  messages,
+  row,
+}: {
+  locale: Locale;
+  messages: Messages;
+  row: OperationsRow;
+}) {
+  return (
+    <Link
+      aria-label={`${row.displayName} ${messages.services.serviceTitle}`}
+      className="icon-button"
+      href={`/${locale}/services/${row.providerKey}`}
+    >
+      <MoreVertical size={15} strokeWidth={1.8} />
+    </Link>
+  );
+}
+
+function amountTodayLiveLabel(row: OperationsRow, locale: Locale, messages: Messages): string {
+  return row.todayLiveAmountMinor === null
+    ? messages.dashboard.noLiveValue
+    : formatMinorAmount(row.todayLiveAmountMinor, row.currency, locale);
+}
+
+function rowFiveHourUsageLabel(row: OperationsRow, locale: Locale, messages: Messages): string {
+  return usageUsagePercentLabel(row.currentUsageSummary, "five_hour", locale) ??
+    usageMetricValue(row.currentUsageSummary, "five_hour_tokens", locale) ??
+    usageMetricValue(row.currentUsageSummary, "five_hour_remaining_tokens", locale) ??
+    messages.services.noCurrentUsage;
+}
+
+function rowWeeklyUsageLabel(row: OperationsRow, locale: Locale, messages: Messages): string {
+  return usageUsagePercentLabel(row.currentUsageSummary, "weekly", locale) ??
+    usageMetricValue(row.currentUsageSummary, "weekly_tokens", locale) ??
+    usageMetricValue(row.currentUsageSummary, "weekly_remaining_tokens", locale) ??
+    messages.services.noCurrentUsage;
+}
+
+function usageUsagePercentLabel(
+  summary: OperationsProvider["currentUsageSummary"],
+  window: "five_hour" | "weekly",
+  locale: Locale,
+): string | undefined {
+  const explicitPercent = usageMetricValue(summary, `${window}_limit_percent`, locale);
+
+  if (explicitPercent !== undefined) {
+    return explicitPercent;
+  }
+
+  const usedMetric = usageMetric(summary, `${window}_tokens`);
+  const remainingMetric = usageMetric(summary, `${window}_remaining_tokens`);
+
+  if (usedMetric === undefined || remainingMetric === undefined) {
+    return undefined;
+  }
+
+  const total = usedMetric.value + remainingMetric.value;
+
+  return total <= 0 ? undefined : formatUsageMetric((usedMetric.value / total) * 100, "percent", locale);
 }
 
 function summarizeLiveRows(rows: readonly OperationsRow[]): {
@@ -1213,12 +1621,87 @@ function isLocalAiCliProvider(providerKey: string): boolean {
   return providerKey === "codex-cli" || providerKey === "claude-cli";
 }
 
+function localCliRemainingRowsFromSummary(
+  summary: OperationsProvider["currentUsageSummary"],
+  locale: Locale,
+  timezone: string,
+  messages: Messages,
+): Array<{ label: string; percent: string; resetAt: string }> {
+  if (summary === null) {
+    return [];
+  }
+
+  return [
+    {
+      label: messages.settings.localCliFiveHourWindow,
+      percent: formatRemainingUsagePercent(summary, "five_hour_remaining_tokens", "five_hour_limit_percent", locale),
+      resetAt: formatUsageResetAt(usageMetric(summary, "five_hour_remaining_tokens")?.resetAt, locale, timezone),
+    },
+    {
+      label: messages.settings.localCliWeeklyWindow,
+      percent: formatRemainingUsagePercent(summary, "weekly_remaining_tokens", "weekly_limit_percent", locale),
+      resetAt: formatUsageResetAt(usageMetric(summary, "weekly_remaining_tokens")?.resetAt, locale, timezone),
+    },
+  ];
+}
+
+function formatRemainingUsagePercent(
+  summary: NonNullable<OperationsProvider["currentUsageSummary"]>,
+  remainingKey: string,
+  usedPercentKey: string,
+  locale: Locale,
+): string {
+  const remainingMetric = usageMetric(summary, remainingKey);
+  const usedPercentMetric = usageMetric(summary, usedPercentKey);
+
+  if (remainingMetric !== undefined) {
+    const usedTokenMetric = remainingKey === "five_hour_remaining_tokens"
+      ? usageMetric(summary, "five_hour_tokens")
+      : usageMetric(summary, "weekly_tokens");
+    const denominator = usedTokenMetric === undefined ? null : usedTokenMetric.value + remainingMetric.value;
+
+    if (denominator !== null && denominator > 0) {
+      return formatUsageMetric((remainingMetric.value / denominator) * 100, "percent", locale);
+    }
+  }
+
+  if (usedPercentMetric !== undefined) {
+    return formatUsageMetric(Math.max(100 - usedPercentMetric.value, 0), "percent", locale);
+  }
+
+  return "-";
+}
+
+function usageMetric(
+  summary: OperationsProvider["currentUsageSummary"],
+  key: string,
+): NonNullable<OperationsProvider["currentUsageSummary"]>["metrics"][number] | undefined {
+  return summary?.metrics.find((item) => item.key === key);
+}
+
+function rowTodayLiveLabel(row: OperationsRow, locale: Locale, messages: Messages): string {
+  if (isLocalAiCliProvider(row.providerKey)) {
+    const fiveHourRemaining = usageMetricValue(row.currentUsageSummary, "five_hour_remaining_tokens", locale);
+    const weeklyRemaining = usageMetricValue(row.currentUsageSummary, "weekly_remaining_tokens", locale);
+    const remaining = [
+      fiveHourRemaining === undefined ? null : `${messages.services.fiveHourRemainingTokens}: ${fiveHourRemaining}`,
+      weeklyRemaining === undefined ? null : `${messages.services.weeklyRemainingTokens}: ${weeklyRemaining}`,
+    ].filter((value): value is string => value !== null);
+
+    return remaining.length === 0 ? messages.services.noCurrentUsage : remaining.join(" / ");
+  }
+
+  return row.todayLiveAmountMinor === null
+    ? messages.dashboard.noLiveValue
+    : formatMinorAmount(row.todayLiveAmountMinor, row.currency, locale);
+}
+
 function usageMetricValue(
   summary: OperationsProvider["currentUsageSummary"],
   key: string,
   locale: Locale,
 ): string | undefined {
-  const metric = summary?.metrics.find((item) => item.key === key);
+  const metric = usageMetric(summary, key);
 
   return metric === undefined ? undefined : formatUsageMetric(metric.value, metric.unit, locale);
 }
@@ -1356,8 +1839,16 @@ function usageMetricLabel(metric: string, messages: Messages): string {
     return messages.services.fiveHourTokens;
   }
 
+  if (metric === "five_hour_remaining_tokens") {
+    return messages.services.fiveHourRemainingTokens;
+  }
+
   if (metric === "weekly_tokens") {
     return messages.services.weeklyTokens;
+  }
+
+  if (metric === "weekly_remaining_tokens") {
+    return messages.services.weeklyRemainingTokens;
   }
 
   if (metric === "last_request_tokens") {
@@ -1370,10 +1861,6 @@ function usageMetricLabel(metric: string, messages: Messages): string {
 
   if (metric === "reasoning_tokens") {
     return messages.services.reasoningTokens;
-  }
-
-  if (metric === "estimated_cost_usd") {
-    return messages.services.estimatedCost;
   }
 
   return messages.services.modelRequests;
@@ -1467,4 +1954,31 @@ function formatOptionalDate(value: string | null, locale: Locale, timezone: stri
     timeStyle: "short",
     timeZone: timezone,
   }).format(new Date(value));
+}
+
+function formatUsageResetAt(value: string | undefined, locale: Locale, timezone: string): string {
+  if (value === undefined || value.trim().length === 0) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const sameDay = dateKeyInTimezone(date, timezone) === dateKeyInTimezone(new Date(), timezone);
+
+  return new Intl.DateTimeFormat(locale, sameDay
+    ? { hour: "numeric", minute: "2-digit", timeZone: timezone }
+    : { day: "numeric", month: "long", timeZone: timezone }).format(date);
+}
+
+function dateKeyInTimezone(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: timezone,
+    year: "numeric",
+  }).format(date);
 }

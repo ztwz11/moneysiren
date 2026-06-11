@@ -1,8 +1,13 @@
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { GET } from "./route";
 
 const originalOpenAiAdminKey = process.env.OPENAI_ADMIN_KEY;
 const originalCredentialBackend = process.env.STACKSPEND_CREDENTIAL_BACKEND;
+const originalCodexSessionsDir = process.env.STACKSPEND_CODEX_SESSIONS_DIR;
+const originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
 
 afterEach(() => {
   if (originalOpenAiAdminKey === undefined) {
@@ -16,12 +21,28 @@ afterEach(() => {
   } else {
     process.env.STACKSPEND_CREDENTIAL_BACKEND = originalCredentialBackend;
   }
+
+  if (originalCodexSessionsDir === undefined) {
+    delete process.env.STACKSPEND_CODEX_SESSIONS_DIR;
+  } else {
+    process.env.STACKSPEND_CODEX_SESSIONS_DIR = originalCodexSessionsDir;
+  }
+
+  if (originalClaudeConfigDir === undefined) {
+    delete process.env.CLAUDE_CONFIG_DIR;
+  } else {
+    process.env.CLAUDE_CONFIG_DIR = originalClaudeConfigDir;
+  }
 });
 
 describe("GET /api/connections/status", () => {
   it("returns connection states without secret values", async () => {
+    const localCliRoot = await mkdtemp(join(tmpdir(), "stackspend-route-cli-"));
+
     process.env.OPENAI_ADMIN_KEY = "FAKE_OPENAI_ADMIN_KEY_FOR_TESTS";
     process.env.STACKSPEND_CREDENTIAL_BACKEND = "vault";
+    process.env.STACKSPEND_CODEX_SESSIONS_DIR = join(localCliRoot, "codex-sessions");
+    process.env.CLAUDE_CONFIG_DIR = join(localCliRoot, "claude");
 
     const response = await GET();
     const payload = await response.json();

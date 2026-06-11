@@ -5,6 +5,13 @@ import { describe, expect, it } from "vitest";
 import { createEncryptedVaultCredentialStore, createMemoryCredentialStore } from "../../../packages/credentials/src/index";
 import { readConnectionsStatus, summarizeConnectionState } from "./connection-status";
 
+const EMPTY_LOCAL_AI_CLI_STATUS = {
+  generatedAt: "2026-06-08T00:00:00.000Z",
+  localOnly: true,
+  secretsReturned: false,
+  providers: [],
+} as const;
+
 describe("connection status", () => {
   it("summarizes env and credential-store status without returning secret values", async () => {
     const store = createMemoryCredentialStore({
@@ -20,6 +27,7 @@ describe("connection status", () => {
         AWS_PROFILE: "fake-profile",
       },
       credentialStore: store,
+      localAiCliStatus: EMPTY_LOCAL_AI_CLI_STATUS,
       now: () => new Date("2026-06-08T00:00:00.000Z"),
     });
 
@@ -67,6 +75,7 @@ describe("connection status", () => {
 
     const payload = await readConnectionsStatus({
       credentialStore: locked,
+      localAiCliStatus: EMPTY_LOCAL_AI_CLI_STATUS,
       now: () => new Date("2026-06-08T00:00:00.000Z"),
     });
 
@@ -121,6 +130,8 @@ describe("connection status", () => {
               totalTokens: null,
               reasoningOutputTokens: null,
               logFileCount: 1,
+              parsedUsageRecordCount: 2,
+              searchedPathHint: "~\\.codex\\sessions",
               latestActivityAt: "2026-06-08T00:00:00.000Z",
               topModels: [],
               providerKind: "codex",
@@ -149,6 +160,8 @@ describe("connection status", () => {
               totalTokens: null,
               reasoningOutputTokens: null,
               logFileCount: 0,
+              parsedUsageRecordCount: 0,
+              searchedPathHint: "~\\.claude\\projects",
               latestActivityAt: null,
               topModels: [],
               providerKind: "claude",
@@ -182,10 +195,12 @@ function emptyStatusLineUsage() {
     fiveHourUsedTokens: null,
     fiveHourLimitTokens: null,
     fiveHourLimitPercent: null,
+    fiveHourRemainingTokens: null,
     fiveHourResetAt: null,
     weeklyUsedTokens: null,
     weeklyLimitTokens: null,
     weeklyLimitPercent: null,
+    weeklyRemainingTokens: null,
     weeklyResetAt: null,
     lastInputTokens: null,
     lastOutputTokens: null,
@@ -197,6 +212,5 @@ function emptyStatusLineUsage() {
     totalCacheTokens: null,
     totalReasoningTokens: null,
     totalTokens: null,
-    estimatedCostUsd: null,
   };
 }

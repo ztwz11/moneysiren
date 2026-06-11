@@ -9,7 +9,20 @@
     "frontendDist": "assets"
   },
   "app": {
-    "windows": [],
+    "windows": [
+      {
+        "label": "main",
+        "title": "StackSpend",
+        "url": "http://127.0.0.1:3000/ko/dashboard/overview",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "center": true,
+        "visible": true
+      }
+    ],
     "security": {
       "csp": null
     }

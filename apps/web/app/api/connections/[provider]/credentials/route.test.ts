@@ -11,6 +11,7 @@ const ORIGINAL_ENV = {
   passphrase: process.env.STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE,
   vaultPath: process.env.STACKSPEND_CREDENTIAL_VAULT_PATH,
   openai: process.env.OPENAI_ADMIN_KEY,
+  credentialWrites: process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES,
 };
 const originalFetch = globalThis.fetch;
 
@@ -20,6 +21,7 @@ beforeEach(async () => {
   process.env.STACKSPEND_CREDENTIAL_BACKEND = "vault";
   process.env.STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE = "fake local passphrase";
   process.env.STACKSPEND_CREDENTIAL_VAULT_PATH = join(dir, "credentials-vault.json");
+  delete process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES;
   delete process.env.OPENAI_ADMIN_KEY;
   globalThis.fetch = (async () => Response.json({
     data: [],
@@ -32,10 +34,35 @@ afterEach(() => {
   restoreEnv("STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE", ORIGINAL_ENV.passphrase);
   restoreEnv("STACKSPEND_CREDENTIAL_VAULT_PATH", ORIGINAL_ENV.vaultPath);
   restoreEnv("OPENAI_ADMIN_KEY", ORIGINAL_ENV.openai);
+  restoreEnv("STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES", ORIGINAL_ENV.credentialWrites);
 });
 
 describe("provider credential routes", () => {
-  it("stores and deletes a read-only credential without returning the secret", async () => {
+  it("rejects local credential writes by default for the v0.1 env-only secret model", async () => {
+    const session = await createLocalSessionHeaders();
+    const response = await POST(new Request("http://127.0.0.1:3000/api/connections/openai/credentials", {
+      method: "POST",
+      headers: {
+        ...session,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        secret: "FAKE_OPENAI_ADMIN_KEY_FOR_TESTS",
+      }),
+    }), {
+      params: Promise.resolve({
+        provider: "openai",
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("environment variables only"),
+    });
+  });
+
+  it("stores and deletes a read-only credential only when experimental local writes are enabled", async () => {
+    process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
     const session = await createLocalSessionHeaders();
     const response = await POST(new Request("http://127.0.0.1:3000/api/connections/openai/credentials", {
       method: "POST",
@@ -114,6 +141,7 @@ describe("provider credential routes", () => {
   });
 
   it("does not store raw AWS access keys through StackSpend", async () => {
+    process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
     const session = await createLocalSessionHeaders();
     const response = await POST(new Request("http://127.0.0.1:3000/api/connections/aws/credentials", {
       method: "POST",
@@ -136,7 +164,8 @@ describe("provider credential routes", () => {
     });
   });
 
-  it("stores roadmap provider credentials as local-only setup without live API validation", async () => {
+  it("rejects roadmap provider credential writes even when experimental writes are enabled", async () => {
+    process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
     const session = await createLocalSessionHeaders();
     globalThis.fetch = (async () => {
       throw new Error("Roadmap provider credentials must not call live validation.");
@@ -158,19 +187,10 @@ describe("provider credential routes", () => {
     });
     const payload = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(payload.provider).toMatchObject({
-      providerKey: "vercel",
-      connectionState: "credential_store_configured",
-      credentialSource: "credential_store",
-      readOnlyTestState: "credential_store_configured",
+    expect(response.status).toBe(400);
+    expect(payload).toMatchObject({
+      error: expect.stringContaining("not connectable"),
     });
-    expect(payload.provider.connections).toEqual([
-      expect.objectContaining({
-        label: "Vercel personal",
-        readOnlyTestState: "credential_store_configured",
-      }),
-    ]);
     expect(JSON.stringify(payload)).not.toContain("FAKE_VERCEL_TOKEN_FOR_TESTS");
   }, 120000);
 });

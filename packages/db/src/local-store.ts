@@ -362,6 +362,22 @@ function readBillingSnapshots(dbPath: string): LocalBillingSnapshotRecord[] {
     FROM billing_snapshots
     JOIN providers ON providers.id = billing_snapshots.provider_id
     LEFT JOIN provider_accounts ON provider_accounts.id = billing_snapshots.provider_account_id
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM billing_snapshots AS newer_billing_snapshot
+      WHERE newer_billing_snapshot.provider_id = billing_snapshots.provider_id
+        AND newer_billing_snapshot.provider_account_id IS billing_snapshots.provider_account_id
+        AND newer_billing_snapshot.period_start = billing_snapshots.period_start
+        AND newer_billing_snapshot.period_end = billing_snapshots.period_end
+        AND newer_billing_snapshot.currency = billing_snapshots.currency
+        AND (
+          newer_billing_snapshot.collected_at > billing_snapshots.collected_at
+          OR (
+            newer_billing_snapshot.collected_at = billing_snapshots.collected_at
+            AND newer_billing_snapshot.id > billing_snapshots.id
+          )
+        )
+    )
     ORDER BY billing_snapshots.collected_at, billing_snapshots.id;
     `,
   ).map((row) => ({
@@ -425,6 +441,22 @@ function readCostEstimates(dbPath: string): LocalCostEstimateRecord[] {
     FROM cost_estimates
     JOIN providers ON providers.id = cost_estimates.provider_id
     LEFT JOIN provider_accounts ON provider_accounts.id = cost_estimates.provider_account_id
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM cost_estimates AS newer_cost_estimate
+      WHERE newer_cost_estimate.provider_id = cost_estimates.provider_id
+        AND newer_cost_estimate.provider_account_id IS cost_estimates.provider_account_id
+        AND newer_cost_estimate.period_start = cost_estimates.period_start
+        AND newer_cost_estimate.period_end = cost_estimates.period_end
+        AND newer_cost_estimate.currency = cost_estimates.currency
+        AND (
+          newer_cost_estimate.collected_at > cost_estimates.collected_at
+          OR (
+            newer_cost_estimate.collected_at = cost_estimates.collected_at
+            AND newer_cost_estimate.id > cost_estimates.id
+          )
+        )
+    )
     ORDER BY cost_estimates.collected_at, cost_estimates.id;
     `,
   ).map((row) => ({

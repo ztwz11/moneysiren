@@ -114,3 +114,10 @@ CREATE INDEX IF NOT EXISTS idx_service_health_snapshots_collected_at ON service_
 CREATE INDEX IF NOT EXISTS idx_cost_estimates_period ON cost_estimates(period_start, period_end);
 CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at);
 `.trim();
+
+export const READ_MODEL_INDEX_SQL = `
+CREATE INDEX IF NOT EXISTS idx_billing_snapshots_latest_logical
+  ON billing_snapshots(provider_id, provider_account_id, period_start, period_end, currency, collected_at, id);
+CREATE INDEX IF NOT EXISTS idx_cost_estimates_latest_logical
+  ON cost_estimates(provider_id, provider_account_id, period_start, period_end, currency, collected_at, id);
+`.trim();

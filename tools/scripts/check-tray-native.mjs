@@ -45,7 +45,10 @@ for (const scriptName of ["native:check", "icons:generate", "tauri:dev", "tauri:
 const config = JSON.parse(read("src-tauri/tauri.conf.json"));
 assert(config.bundle?.active === true, "Tauri bundle.active must be true for packaging.");
 assert(JSON.stringify(config.bundle?.targets) === '["nsis"]', "Tauri bundle.targets must default to NSIS on Windows.");
-assert(Array.isArray(config.app?.windows) && config.app.windows.length === 0, "Tray app must not create default windows.");
+assert(Array.isArray(config.app?.windows) && config.app.windows.length === 1, "Tauri GUI must create one main window.");
+assert(config.app.windows[0]?.label === "main", "Tauri GUI window label must be main.");
+assert(config.app.windows[0]?.url === "http://127.0.0.1:3000/ko/dashboard/overview", "Tauri GUI window must open the local dashboard.");
+assert(config.app.windows[0]?.visible === true, "Tauri GUI window must be visible by default.");
 assert(JSON.stringify(config.bundle?.icon ?? []).includes("icons/tray.ico"), "Windows .ico icon must be configured.");
 assert(JSON.stringify(config.bundle?.icon ?? []).includes("icons/tray.png"), "PNG tray icon must be configured.");
 
@@ -55,6 +58,7 @@ assert(cargoToml.includes('features = ["image-ico", "image-png", "tray-icon"]'),
 const mainRs = read("src-tauri/src/main.rs");
 assert(mainRs.includes("TrayIconBuilder"), "Rust entrypoint must build a tray icon.");
 assert(mainRs.includes("show_menu_on_left_click(true)"), "Tray menu should open from the tray icon.");
+assert(mainRs.includes("get_webview_window(\"main\")"), "Tray menu actions must target the main Tauri GUI window.");
 assert(mainRs.includes("secrets_returned: false"), "Native status must declare secretsReturned=false.");
 for (const actionId of actionIds) {
   assert(mainRs.includes(actionId), `Rust tray menu is missing action: ${actionId}`);

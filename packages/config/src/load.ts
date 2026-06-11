@@ -89,7 +89,7 @@ function loadProviderConfig(provider: ConfiguredProvider, env: StackSpendEnv): P
   const missingEnvKeys = requiredEnvKeys.filter((envKey) => !isConfigured(env[envKey]));
 
   return {
-    configured: missingEnvKeys.length === 0,
+    configured: requiredEnvKeys.length > 0 && missingEnvKeys.length === 0,
     requiredEnvKeys,
     configuredEnvKeys,
     missingEnvKeys,

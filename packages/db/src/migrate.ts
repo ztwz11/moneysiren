@@ -1,4 +1,4 @@
-import { INITIAL_SCHEMA_SQL } from "./schema.js";
+import { INITIAL_SCHEMA_SQL, READ_MODEL_INDEX_SQL } from "./schema.js";
 
 export interface Migration {
   id: string;
@@ -20,6 +20,10 @@ export const MIGRATIONS: readonly Migration[] = [
   {
     id: "0001_init",
     sql: INITIAL_SCHEMA_SQL,
+  },
+  {
+    id: "0002_read_model_indexes",
+    sql: READ_MODEL_INDEX_SQL,
   },
 ];
 

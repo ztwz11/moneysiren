@@ -37,7 +37,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
       <PageHeader
         title={selectedProvider.displayName}
         subtitle={localCliProvider
-          ? messages.services.localCliBillingNote
+          ? messages.services.localCliUsageNote
           : `${messages.services.serviceTitle} - ${messages.services.readOnly}`}
       />
       <ServiceDetail dashboard={dashboard} locale={locale} messages={messages} provider={selectedProvider} />

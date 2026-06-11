@@ -1,4 +1,10 @@
-import { normalizeOpenAiUsageCosts, type OpenAiNormalizedSnapshotBundle, type OpenAiUsageCostsPayload } from "./normalize.js";
+import {
+  normalizeOpenAiUsageCosts,
+  type OpenAiCostsPage,
+  type OpenAiNormalizedSnapshotBundle,
+  type OpenAiUsageCostsPayload,
+  type OpenAiUsagePage,
+} from "./normalize.js";
 
 export {
   normalizeOpenAiUsageCosts,
@@ -77,6 +83,7 @@ export interface OpenAiUsageCostsConnectorOptions {
 }
 
 const OPENAI_API_BASE_URL = "https://api.openai.com";
+type OpenAiPaginatedPage = OpenAiCostsPage | OpenAiUsagePage;
 
 const EMPTY_OPENAI_SNAPSHOTS: OpenAiNormalizedSnapshotBundle = {
   usage: [],
@@ -130,7 +137,7 @@ export function createOpenAiUsageCostsClient(
         Authorization: `Bearer ${adminKey}`,
       };
 
-      const usage = await transport.getJson({
+      const usage = await fetchOpenAiPaginatedPage<OpenAiUsagePage>(transport, {
         path: "/v1/organization/usage/completions",
         query: {
           start_time: String(period.startTime),
@@ -140,7 +147,7 @@ export function createOpenAiUsageCostsClient(
         },
         headers,
       });
-      const costs = await transport.getJson({
+      const costs = await fetchOpenAiPaginatedPage<OpenAiCostsPage>(transport, {
         path: "/v1/organization/costs",
         query: {
           start_time: String(period.startTime),
@@ -157,6 +164,61 @@ export function createOpenAiUsageCostsClient(
       };
     },
   };
+}
+
+async function fetchOpenAiPaginatedPage<Page extends OpenAiPaginatedPage>(
+  transport: OpenAiUsageCostsTransport,
+  request: OpenAiUsageCostsRequest,
+): Promise<Page> {
+  const data: unknown[] = [];
+  const seenPageTokens = new Set<string>();
+  let currentRequest = request;
+  let lastPage: Page | undefined;
+
+  while (true) {
+    const page = await transport.getJson(currentRequest) as Page;
+
+    data.push(...(page.data ?? []));
+    lastPage = page;
+
+    if (page.has_more !== true) {
+      break;
+    }
+
+    const nextPage = requireOpenAiNextPageToken(page.next_page, request.path);
+
+    if (seenPageTokens.has(nextPage)) {
+      throw new Error(`OpenAI Usage/Costs ${request.path} pagination returned a repeated next_page token.`);
+    }
+
+    seenPageTokens.add(nextPage);
+    currentRequest = {
+      ...request,
+      query: {
+        ...request.query,
+        page: nextPage,
+      },
+    };
+  }
+
+  if (lastPage === undefined) {
+    throw new Error(`OpenAI Usage/Costs ${request.path} pagination did not return a page.`);
+  }
+
+  return {
+    ...lastPage,
+    data,
+  } as Page;
+}
+
+function requireOpenAiNextPageToken(value: string | null | undefined, path: OpenAiUsageCostsRequest["path"]): string {
+  const nextPage = value?.trim();
+
+  if (nextPage === undefined || nextPage.length === 0) {
+    throw new Error(`OpenAI Usage/Costs ${path} response has has_more=true without next_page.`);
+  }
+
+  return nextPage;
 }
 
 export function createStaticOpenAiUsageCostsClient(

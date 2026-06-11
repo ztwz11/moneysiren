@@ -136,6 +136,97 @@ describe("normalizeCloudflareBillingUsage", () => {
       },
     ]);
   });
+
+  it("merges PayGo fallback records only for accounts without billable records", () => {
+    const billableRef = redactedCloudflareAccountId("FAKE_CLOUDFLARE_ACCOUNT_BILLABLE");
+    const paygoRef = redactedCloudflareAccountId("FAKE_CLOUDFLARE_ACCOUNT_EMPTY_BILLABLE");
+    const snapshots = normalizeCloudflareBillingUsage({
+      collectedAt: FIXED_NOW,
+      payload: {
+        billableUsage: [
+          {
+            BillingAccountId: "FAKE_CLOUDFLARE_ACCOUNT_BILLABLE",
+            BillingCurrency: "USD",
+            ChargePeriodStart: "2026-06-01T00:00:00Z",
+            ChargePeriodEnd: "2026-06-02T00:00:00Z",
+            BilledCost: "1.00",
+            PricingQuantity: "10",
+            PricingUnit: "GB",
+            x_ProductFamilyName: "R2",
+          },
+        ],
+        paygoUsage: [
+          {
+            BillingAccountId: "FAKE_CLOUDFLARE_ACCOUNT_BILLABLE",
+            BillingCurrency: "USD",
+            ChargePeriodStart: "2026-06-01T00:00:00Z",
+            ChargePeriodEnd: "2026-06-02T00:00:00Z",
+            ContractedCost: "0.03",
+            ConsumedQuantity: "99",
+            ConsumedUnit: "GB-seconds",
+            ServiceName: "Workers KV",
+          },
+          {
+            BillingAccountId: "FAKE_CLOUDFLARE_ACCOUNT_EMPTY_BILLABLE",
+            BillingCurrency: "USD",
+            ChargePeriodStart: "2026-06-01T00:00:00Z",
+            ChargePeriodEnd: "2026-06-02T00:00:00Z",
+            ContractedCost: "0.04",
+            ConsumedQuantity: "42",
+            ConsumedUnit: "GB-seconds",
+            ServiceName: "Workers KV",
+          },
+        ],
+      },
+    });
+
+    expect(snapshots.usage).toEqual([
+      {
+        provider: "cloudflare",
+        collectedAt: FIXED_NOW,
+        providerAccountRef: billableRef,
+        service: `R2:${billableRef}`,
+        metric: "billable_quantity",
+        unit: "GB",
+        value: 10,
+      },
+      {
+        provider: "cloudflare",
+        collectedAt: FIXED_NOW,
+        providerAccountRef: paygoRef,
+        service: `Workers KV:${paygoRef}`,
+        metric: "billable_quantity",
+        unit: "GB-seconds",
+        value: 42,
+      },
+    ]);
+    expect(snapshots.billing).toHaveLength(2);
+    expect(snapshots.billing).toEqual(
+      expect.arrayContaining([
+        {
+          provider: "cloudflare",
+          collectedAt: FIXED_NOW,
+          providerAccountRef: billableRef,
+          periodStart: "2026-06-01",
+          periodEnd: "2026-06-02",
+          amountMinor: 100,
+          currency: "USD",
+          status: "estimated",
+        },
+        {
+          provider: "cloudflare",
+          collectedAt: FIXED_NOW,
+          providerAccountRef: paygoRef,
+          periodStart: "2026-06-01",
+          periodEnd: "2026-06-02",
+          amountMinor: 4,
+          currency: "USD",
+          status: "estimated",
+        },
+      ]),
+    );
+    expect(snapshots.costEstimates).toHaveLength(2);
+  });
 });
 
 describe("cloudflareAmountToMinorUnits", () => {

@@ -63,9 +63,8 @@ describe("operations dashboard data", () => {
       "openai",
       "supabase",
       "cloudflare",
-      "gcp",
-      "anthropic",
-      "vercel",
+      "codex-cli",
+      "claude-cli",
     ]));
     expect(dashboard.visibleProviders.map((provider) => provider.providerKey)).toEqual(["aws"]);
     expect(dashboard.visibleConnections.map((connection) => `${connection.providerKey}:${connection.connectionId}`)).toEqual([

@@ -104,7 +104,10 @@ export function createCloudflareBillingUsageClient(
 
         if (billableRecords !== undefined) {
           billableUsage.push(...billableRecords);
-          continue;
+
+          if (billableRecords.length > 0) {
+            continue;
+          }
         }
 
         const paygoRecords = await tryFetchSurface<CloudflarePaygoUsageRecord>(

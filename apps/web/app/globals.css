@@ -543,6 +543,34 @@ select {
   width: 100%;
 }
 
+.split-table-stack {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.split-table-stack-inner {
+  padding: 0 12px 12px;
+}
+
+.data-table-section {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.data-table-section + .data-table-section {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 10px;
+}
+
+.table-section-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  min-height: 24px;
+}
+
 .data-table th {
   background: var(--surface);
   border-bottom: 1px solid var(--border-soft);
@@ -574,8 +602,24 @@ select {
   min-width: 780px;
 }
 
+.amount-service-table {
+  min-width: 820px;
+}
+
+.usage-service-table {
+  min-width: 880px;
+}
+
+.split-table-stack .panel-table-only {
+  min-height: 0;
+}
+
 .panel-table-only .data-table-wrap {
   min-height: 298px;
+}
+
+.split-table-stack .panel-table-only .data-table-wrap {
+  min-height: 0;
 }
 
 .service-name-cell {
@@ -1391,6 +1435,74 @@ select {
   color: var(--text);
   display: inline-flex;
   gap: 6px;
+}
+
+.local-cli-usage-menu {
+  background: #ffffff;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  display: grid;
+  gap: 0;
+  max-width: 320px;
+  overflow: hidden;
+}
+
+.local-cli-usage-header,
+.local-cli-learn-more {
+  align-items: center;
+  display: flex;
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.local-cli-usage-header {
+  border-bottom: 1px solid var(--border-soft);
+  justify-content: space-between;
+}
+
+.local-cli-usage-header span,
+.local-cli-learn-more {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.local-cli-usage-header svg,
+.local-cli-learn-more svg {
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+.local-cli-usage-rows {
+  display: grid;
+  gap: 0;
+  padding: 4px 10px;
+}
+
+.local-cli-usage-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(60px, 1fr) auto auto;
+  min-height: 26px;
+}
+
+.local-cli-usage-row > span:first-child {
+  font-weight: 640;
+}
+
+.local-cli-usage-value,
+.local-cli-usage-reset {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.local-cli-learn-more {
+  border-top: 1px solid var(--border-soft);
+  color: var(--text);
+  justify-content: space-between;
+  text-decoration: none;
 }
 
 .tool-loading-panel {

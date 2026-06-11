@@ -1,4 +1,8 @@
 import { setCredential } from "../../../../../../../packages/credentials/src/index";
+import {
+  CREDENTIAL_WRITES_DISABLED_MESSAGE,
+  credentialWritesEnabled,
+} from "../../../../../lib/credential-write-policy";
 import { validateReadOnlyCredential } from "../../../../../lib/credential-validation";
 import { consumeOAuthTransaction, isLocalRequest } from "../../../../../lib/local-security";
 
@@ -28,6 +32,29 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
     }
 
     const transaction = consumeOAuthTransaction(provider, state);
+
+    if (transaction === null) {
+      throw new Error("OAuth transaction was not found or expired.");
+    }
+
+    if (!credentialWritesEnabled()) {
+      return Response.json(
+        {
+          provider,
+          status: "oauth_disabled",
+          credentialStored: false,
+          secretsReturned: false,
+          error: CREDENTIAL_WRITES_DISABLED_MESSAGE,
+        },
+        {
+          status: 409,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
+
     const stored = await maybeStoreOAuthCredential(code, transaction.codeVerifier);
 
     return Response.json(

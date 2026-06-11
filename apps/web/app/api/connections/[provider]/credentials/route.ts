@@ -7,10 +7,15 @@ import {
   type CredentialStore,
 } from "../../../../../../../packages/credentials/src/index";
 import { readConnectionsStatus } from "../../../../../lib/connection-status";
+import {
+  CREDENTIAL_WRITES_DISABLED_MESSAGE,
+  credentialWritesEnabled,
+} from "../../../../../lib/credential-write-policy";
 import { validateReadOnlyCredential } from "../../../../../lib/credential-validation";
 import { requireLocalSession } from "../../../../../lib/local-security";
 import {
   findAvailableProvider,
+  isConnectableProviderKey,
   isLiveProviderKey,
   isProviderKey,
   type ProviderKey,
@@ -28,6 +33,11 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   try {
     requireLocalSession(request);
     const provider = await readProvider(context.params);
+
+    if (!credentialWritesEnabled()) {
+      throw new Error(CREDENTIAL_WRITES_DISABLED_MESSAGE);
+    }
+
     const input = await readCredentialInput(request, provider);
     const credentialStore = createDefaultCredentialStore();
     await assertCredentialStoreWritable(credentialStore);
@@ -89,6 +99,10 @@ async function readProvider(params: RouteContext["params"]): Promise<ProviderKey
 
   if (!isProviderKey(provider)) {
     throw new Error("Unsupported provider.");
+  }
+
+  if (!isConnectableProviderKey(provider)) {
+    throw new Error("Provider is not connectable in StackSpend v0.1.");
   }
 
   return provider;

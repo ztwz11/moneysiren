@@ -16,6 +16,7 @@ import {
   type StoredCredential,
   type CredentialStore,
 } from "../../../packages/credentials/src/index";
+import { redactSensitiveString } from "../../../packages/security/src/index";
 import {
   readConnectionsStatus,
   type ConnectionState,
@@ -82,9 +83,10 @@ export interface LiveTodayUsageSummary {
 }
 
 export interface LiveTodayUsageMetric {
-  key: "input_tokens" | "output_tokens" | "cache_tokens" | "model_requests" | "sessions" | "turns" | "tool_calls" | "log_files" | "context_tokens" | "context_percent" | "last_request_tokens" | "total_tokens" | "reasoning_tokens" | "estimated_cost_usd" | "five_hour_limit_percent" | "weekly_limit_percent" | "five_hour_tokens" | "weekly_tokens";
+  key: "input_tokens" | "output_tokens" | "cache_tokens" | "model_requests" | "sessions" | "turns" | "tool_calls" | "log_files" | "context_tokens" | "context_percent" | "last_request_tokens" | "total_tokens" | "reasoning_tokens" | "five_hour_limit_percent" | "weekly_limit_percent" | "five_hour_tokens" | "weekly_tokens" | "five_hour_remaining_tokens" | "weekly_remaining_tokens";
   value: number;
   unit: "tokens" | "requests" | "sessions" | "turns" | "calls" | "files" | "percent" | "usd";
+  resetAt?: string;
 }
 
 export type LiveTodayProviderCollector = (
@@ -123,15 +125,21 @@ interface CachedLiveTodayProvider extends LiveTodayProviderCollection {
 
 export async function readLiveTodaySnapshot(options: LiveTodayOptions = {}): Promise<LiveTodaySnapshot> {
   const context = await createLiveTodayContext(options);
-  const providers = liveTargetsFromConnections(context.connections).map((target) => {
+  const providers = await Promise.all(liveTargetsFromConnections(context.connections).map(async (target) => {
     const cached = cache.get(liveCacheKey(target));
 
     if (cached === undefined) {
+      if (isLocalAiCliProviderKey(target.providerKey)) {
+        const collected = await collectAndCacheLiveTodayTarget(context, target);
+
+        return snapshotFromCachedProvider(target, collected, context.now, context.ttlSeconds);
+      }
+
       return notCheckedSnapshot(target, context.ttlSeconds);
     }
 
     return snapshotFromCachedProvider(target, cached, context.now, context.ttlSeconds);
-  });
+  }));
 
   return {
     generatedAt: context.now.toISOString(),
@@ -145,62 +153,7 @@ export async function refreshLiveToday(options: LiveTodayOptions = {}): Promise<
   const context = await createLiveTodayContext(options);
 
   await Promise.all(
-    liveTargetsFromConnections(context.connections).map(async (target) => {
-      const providerKey = target.providerKey;
-      const checkedAt = context.now.toISOString();
-      const preflight = preflightProvider(target);
-
-      if (preflight !== null) {
-        cache.set(liveCacheKey(target), {
-          providerKey,
-          ...(target.connectionId === undefined ? {} : { connectionId: target.connectionId }),
-          ...(target.connectionLabel === undefined ? {} : { connectionLabel: target.connectionLabel }),
-          status: "partial",
-          checkedAt,
-          expiresAt: expiresAt(context.now, context.ttlSeconds),
-          todayLiveAmountMinor: null,
-          currency: "USD",
-          included: false,
-          confidence: "none",
-          message: preflight,
-        });
-        return;
-      }
-
-      const collector = context.collectors[providerKey] ?? createDefaultLiveTodayCollector(providerKey);
-
-      try {
-        const collected = await collector({
-          providerKey,
-          connection: target.connection,
-          ...(target.credentialConnection === undefined ? {} : { credentialConnection: target.credentialConnection }),
-          env: context.env,
-          credentialStore: context.credentialStore,
-          now: context.now,
-          timezone: context.timezone,
-        });
-        cache.set(liveCacheKey(target), {
-          ...collected,
-          ...(target.connectionId === undefined ? {} : { connectionId: target.connectionId }),
-          ...(target.connectionLabel === undefined ? {} : { connectionLabel: target.connectionLabel }),
-          expiresAt: expiresAt(context.now, context.ttlSeconds),
-        });
-      } catch (error) {
-        cache.set(liveCacheKey(target), {
-          providerKey,
-          ...(target.connectionId === undefined ? {} : { connectionId: target.connectionId }),
-          ...(target.connectionLabel === undefined ? {} : { connectionLabel: target.connectionLabel }),
-          status: "error",
-          checkedAt,
-          expiresAt: expiresAt(context.now, context.ttlSeconds),
-          todayLiveAmountMinor: null,
-          currency: "USD",
-          included: false,
-          confidence: "none",
-          message: safeErrorMessage(error),
-        });
-      }
-    }),
+    liveTargetsFromConnections(context.connections).map((target) => collectAndCacheLiveTodayTarget(context, target)),
   );
 
   return readLiveTodaySnapshot({
@@ -209,6 +162,74 @@ export async function refreshLiveToday(options: LiveTodayOptions = {}): Promise<
     credentialStore: context.credentialStore,
     now: () => context.now,
   });
+}
+
+async function collectAndCacheLiveTodayTarget(
+  context: RequiredLiveTodayContext,
+  target: LiveTodayConnectionTarget,
+): Promise<CachedLiveTodayProvider> {
+  const providerKey = target.providerKey;
+  const checkedAt = context.now.toISOString();
+  const preflight = preflightProvider(target);
+
+  if (preflight !== null) {
+    const collected: CachedLiveTodayProvider = {
+      providerKey,
+      ...(target.connectionId === undefined ? {} : { connectionId: target.connectionId }),
+      ...(target.connectionLabel === undefined ? {} : { connectionLabel: target.connectionLabel }),
+      status: "partial",
+      checkedAt,
+      expiresAt: expiresAt(context.now, context.ttlSeconds),
+      todayLiveAmountMinor: null,
+      currency: "USD",
+      included: false,
+      confidence: "none",
+      message: preflight,
+    };
+    cache.set(liveCacheKey(target), collected);
+
+    return collected;
+  }
+
+  const collector = context.collectors[providerKey] ?? createDefaultLiveTodayCollector(providerKey);
+
+  try {
+    const collected = await collector({
+      providerKey,
+      connection: target.connection,
+      ...(target.credentialConnection === undefined ? {} : { credentialConnection: target.credentialConnection }),
+      env: context.env,
+      credentialStore: context.credentialStore,
+      now: context.now,
+      timezone: context.timezone,
+    });
+    const cached: CachedLiveTodayProvider = {
+      ...collected,
+      ...(target.connectionId === undefined ? {} : { connectionId: target.connectionId }),
+      ...(target.connectionLabel === undefined ? {} : { connectionLabel: target.connectionLabel }),
+      expiresAt: expiresAt(context.now, context.ttlSeconds),
+    };
+    cache.set(liveCacheKey(target), cached);
+
+    return cached;
+  } catch (error) {
+    const cached: CachedLiveTodayProvider = {
+      providerKey,
+      ...(target.connectionId === undefined ? {} : { connectionId: target.connectionId }),
+      ...(target.connectionLabel === undefined ? {} : { connectionLabel: target.connectionLabel }),
+      status: "error",
+      checkedAt,
+      expiresAt: expiresAt(context.now, context.ttlSeconds),
+      todayLiveAmountMinor: null,
+      currency: "USD",
+      included: false,
+      confidence: "none",
+      message: safeErrorMessage(error),
+    };
+    cache.set(liveCacheKey(target), cached);
+
+    return cached;
+  }
 }
 
 export function clearLiveTodayCache(): void {
@@ -415,6 +436,10 @@ function summarizeCacheState(providers: readonly LiveTodayProviderSnapshot[]): L
   return "stale";
 }
 
+function isLocalAiCliProviderKey(providerKey: ProviderKey): providerKey is LocalAiCliProviderKey {
+  return providerKey === "codex-cli" || providerKey === "claude-cli";
+}
+
 function createDefaultLiveTodayCollector(providerKey: ProviderKey): LiveTodayProviderCollector {
   if (providerKey === "aws") {
     return collectAwsLiveToday;
@@ -603,8 +628,26 @@ function localCliUsageMetrics(provider: LocalAiCliProviderStatus): LiveTodayUsag
     metrics.push({ key: "five_hour_tokens", value: statusLine.fiveHourUsedTokens, unit: "tokens" });
   }
 
+  if (statusLine.fiveHourRemainingTokens !== null) {
+    metrics.push({
+      key: "five_hour_remaining_tokens",
+      value: statusLine.fiveHourRemainingTokens,
+      unit: "tokens",
+      ...(statusLine.fiveHourResetAt === null ? {} : { resetAt: statusLine.fiveHourResetAt }),
+    });
+  }
+
   if (statusLine.weeklyUsedTokens !== null && statusLine.weeklyUsedTokens > 0) {
     metrics.push({ key: "weekly_tokens", value: statusLine.weeklyUsedTokens, unit: "tokens" });
+  }
+
+  if (statusLine.weeklyRemainingTokens !== null) {
+    metrics.push({
+      key: "weekly_remaining_tokens",
+      value: statusLine.weeklyRemainingTokens,
+      unit: "tokens",
+      ...(statusLine.weeklyResetAt === null ? {} : { resetAt: statusLine.weeklyResetAt }),
+    });
   }
 
   if (statusLine.contextWindowTokens !== null && statusLine.contextWindowTokens > 0) {
@@ -627,10 +670,6 @@ function localCliUsageMetrics(provider: LocalAiCliProviderStatus): LiveTodayUsag
     metrics.push({ key: "reasoning_tokens", value: statusLine.totalReasoningTokens, unit: "tokens" });
   } else if (provider.usage.reasoningOutputTokens !== null && provider.usage.reasoningOutputTokens > 0) {
     metrics.push({ key: "reasoning_tokens", value: provider.usage.reasoningOutputTokens, unit: "tokens" });
-  }
-
-  if (statusLine.estimatedCostUsd !== null && statusLine.estimatedCostUsd > 0) {
-    metrics.push({ key: "estimated_cost_usd", value: statusLine.estimatedCostUsd, unit: "usd" });
   }
 
   if (provider.usage.sessionCount > 0) {
@@ -849,5 +888,11 @@ function isConfigured(value: string | undefined): value is string {
 }
 
 function safeErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Live provider check failed.";
+  if (!(error instanceof Error) || error.message.trim().length === 0) {
+    return "Live provider check failed.";
+  }
+
+  const redacted = redactSensitiveString(error.message.trim());
+
+  return redacted.length <= 240 ? redacted : `${redacted.slice(0, 237)}...`;
 }

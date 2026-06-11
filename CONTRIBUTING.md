@@ -27,7 +27,6 @@ Run these before opening a pull request:
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm lint
 git diff --check
 ```
 

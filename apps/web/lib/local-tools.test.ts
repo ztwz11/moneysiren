@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -18,6 +18,10 @@ describe("local tool status", () => {
       LOCALAPPDATA: "C:\\Users\\developer\\AppData\\Local",
       NVM_HOME: "C:\\Users\\developer\\AppData\\Local\\nvm",
       NVM_SYMLINK: "C:\\nvm4w\\nodejs",
+      VOLTA_HOME: "C:\\Users\\developer\\AppData\\Local\\Volta",
+      SCOOP: "C:\\Users\\developer\\scoop",
+      ChocolateyInstall: "C:\\ProgramData\\chocolatey",
+      ProgramData: "C:\\ProgramData",
       ProgramFiles: "C:\\Program Files",
       "ProgramFiles(x86)": "C:\\Program Files (x86)",
       USERPROFILE: "C:\\Users\\developer",
@@ -26,6 +30,11 @@ describe("local tool status", () => {
 
     expect(segments.filter((segment) => segment.toLowerCase().replace(/[\\/]+$/, "") === "c:\\nvm4w\\nodejs")).toHaveLength(1);
     expect(segments).toContain("C:\\Users\\developer\\AppData\\Roaming\\npm");
+    expect(segments).toContain("C:\\Users\\developer\\AppData\\Local\\pnpm");
+    expect(segments).toContain("C:\\Users\\developer\\AppData\\Local\\Volta\\bin");
+    expect(segments).toContain("C:\\Users\\developer\\scoop\\shims");
+    expect(segments).toContain("C:\\ProgramData\\chocolatey\\bin");
+    expect(segments).toContain("C:\\Users\\developer\\.bun\\bin");
     expect(segments).toContain("C:\\Users\\developer\\AppData\\Local\\Microsoft\\WindowsApps");
     expect(segments).toContain("C:\\Program Files\\Amazon\\AWSCLIV2");
     expect(segments).toContain("C:\\Program Files\\Google\\Cloud SDK\\google-cloud-sdk\\bin");
@@ -311,7 +320,6 @@ describe("local tool status", () => {
           },
           max_tokens: 200000,
         },
-        total_cost_usd: 1.23,
       }),
       JSON.stringify({
         type: "assistant",
@@ -359,6 +367,8 @@ describe("local tool status", () => {
         sessionCount: 1,
         turnCount: 1,
         toolCallCount: 1,
+        parsedUsageRecordCount: 2,
+        searchedPathHint: expect.stringMatching(/^~[\\/]\.codex[\\/]sessions$/),
         inputTokens: 100,
         outputTokens: 25,
         totalTokens: 125,
@@ -369,9 +379,11 @@ describe("local tool status", () => {
           fiveHourUsedTokens: 51325,
           fiveHourLimitTokens: 200000,
           fiveHourLimitPercent: 25.66,
+          fiveHourRemainingTokens: 148675,
           weeklyUsedTokens: 51325,
           weeklyLimitTokens: 500000,
           weeklyLimitPercent: 10.27,
+          weeklyRemainingTokens: 448675,
           lastInputTokens: 50000,
           lastOutputTokens: 1200,
           lastCacheTokens: 30000,
@@ -393,6 +405,8 @@ describe("local tool status", () => {
         sessionCount: 1,
         turnCount: 1,
         toolCallCount: 1,
+        parsedUsageRecordCount: 2,
+        searchedPathHint: expect.stringMatching(/^~[\\/]\.claude[\\/]projects$/),
         inputTokens: 80,
         outputTokens: 20,
         cacheTokens: 30,
@@ -403,20 +417,116 @@ describe("local tool status", () => {
           fiveHourUsedTokens: 130,
           fiveHourLimitTokens: 100000,
           fiveHourLimitPercent: 0.13,
+          fiveHourRemainingTokens: 99870,
           weeklyUsedTokens: 130,
           weeklyLimitTokens: 300000,
           weeklyLimitPercent: 0.04,
+          weeklyRemainingTokens: 299870,
           lastInputTokens: 80,
           lastOutputTokens: 20,
           lastCacheTokens: 30,
           totalInputTokens: 80,
           totalOutputTokens: 20,
           totalCacheTokens: 30,
-          estimatedCostUsd: 1.23,
         },
       },
     });
     expect(JSON.stringify(status)).not.toContain("FAKE_SECRET_PROMPT_TEXT");
     expect(JSON.stringify(status)).not.toContain("FAKE_CLAUDE_PROMPT_TEXT");
+  });
+
+  it("does not skip current Codex logs when parent directory mtime is older than the month window", async () => {
+    const homeDir = await mkdtemp(join(tmpdir(), "stackspend-stale-codex-dir-"));
+    const yearDir = join(homeDir, ".codex", "sessions", "2026");
+    const codexSessionDir = join(yearDir, "06", "10");
+    await mkdir(codexSessionDir, { recursive: true });
+    await writeFile(join(codexSessionDir, "rollout-fake.jsonl"), JSON.stringify({
+      timestamp: "2026-06-10T01:00:00.000Z",
+      type: "turn_context",
+      turn_id: "turn_codex_stale_parent",
+      payload: {
+        model: "gpt-5",
+        info: {
+          model_context_window: 200000,
+          last_token_usage: {
+            input_tokens: 1200,
+            output_tokens: 100,
+            total_tokens: 1300,
+          },
+        },
+      },
+    }), "utf8");
+    await utimes(yearDir, new Date("2026-05-31T23:59:00.000Z"), new Date("2026-05-31T23:59:00.000Z"));
+
+    const status = await readLocalAiCliStatus({
+      homeDir,
+      now: () => new Date("2026-06-10T05:00:00.000Z"),
+      providerKeys: ["codex-cli"],
+      runCommand: async (file) => ({
+        stdout: `${file} 1.2.3`,
+      }),
+    });
+    const codex = status.providers.find((provider) => provider.providerKey === "codex-cli");
+
+    expect(codex?.usage).toMatchObject({
+      logFileCount: 1,
+      parsedUsageRecordCount: 1,
+      searchedPathHint: expect.stringMatching(/^~[\\/]\.codex[\\/]sessions$/),
+      turnCount: 1,
+      statusLine: {
+        contextWindowTokens: 1200,
+        contextWindowLimit: 200000,
+        contextWindowPercent: 0.6,
+        lastInputTokens: 1200,
+        lastOutputTokens: 100,
+        lastTotalTokens: 1300,
+      },
+    });
+  });
+
+  it("uses STACKSPEND_CODEX_SESSIONS_DIR before CODEX_HOME for Codex usage logs", async () => {
+    const homeDir = await mkdtemp(join(tmpdir(), "stackspend-custom-codex-dir-"));
+    const codexSessionsDir = join(homeDir, "custom-codex-sessions");
+    const codexSessionDayDir = join(codexSessionsDir, "2026", "06", "10");
+    await mkdir(codexSessionDayDir, { recursive: true });
+    await writeFile(join(codexSessionDayDir, "rollout-fake.jsonl"), JSON.stringify({
+      timestamp: "2026-06-10T01:00:00.000Z",
+      type: "response_item",
+      payload: {
+        type: "function_call",
+        name: "shell_command",
+        call_id: "call_custom_codex",
+        usage: {
+          input_tokens: 10,
+          output_tokens: 5,
+        },
+        content: "FAKE_CUSTOM_CODEX_PROMPT",
+      },
+    }), "utf8");
+
+    const status = await readLocalAiCliStatus({
+      env: {
+        CODEX_HOME: join(homeDir, "empty-codex-home"),
+        STACKSPEND_CODEX_SESSIONS_DIR: codexSessionsDir,
+      },
+      homeDir,
+      now: () => new Date("2026-06-10T05:00:00.000Z"),
+      providerKeys: ["codex-cli"],
+      runCommand: async (file) => ({
+        stdout: `${file} 1.2.3`,
+      }),
+    });
+    const codex = status.providers.find((provider) => provider.providerKey === "codex-cli");
+
+    expect(codex?.usage).toMatchObject({
+      logFileCount: 1,
+      parsedUsageRecordCount: 1,
+      searchedPathHint: expect.stringMatching(/^~[\\/]custom-codex-sessions$/),
+      toolCallCount: 1,
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+    });
+    expect(JSON.stringify(status)).not.toContain("FAKE_CUSTOM_CODEX_PROMPT");
   });
 });

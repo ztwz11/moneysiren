@@ -118,6 +118,140 @@ describe("live today cache", () => {
     });
   });
 
+  it("auto collects local AI CLI usage on cache miss without refreshing external providers", async () => {
+    const store = createMemoryCredentialStore({
+      now: () => NOW,
+    });
+    await store.setCredential("openai", "read-only", {
+      secret: "FAKE_OPENAI_ADMIN_KEY_FOR_TESTS",
+      authMethod: "api_key",
+    });
+    const connections = await readConnectionsStatus({
+      credentialStore: store,
+      localAiCliStatus: {
+        generatedAt: NOW.toISOString(),
+        localOnly: true,
+        secretsReturned: false,
+        providers: [
+          {
+            providerKey: "codex-cli",
+            displayName: "Codex CLI",
+            command: "codex",
+            cli: {
+              state: "installed",
+              version: "1.2.3",
+              detail: "codex-cli 1.2.3",
+            },
+            usage: {
+              source: "codex_sessions",
+              period: "current_month",
+              providerKind: "codex",
+              sessionCount: 2,
+              turnCount: 5,
+              toolCallCount: 1,
+              inputTokens: null,
+              outputTokens: null,
+              cacheTokens: null,
+              totalTokens: null,
+              reasoningOutputTokens: null,
+              logFileCount: 2,
+              parsedUsageRecordCount: 9,
+              searchedPathHint: "~\\.codex\\sessions",
+              latestActivityAt: NOW.toISOString(),
+              topModels: ["gpt-5"],
+              statusLine: emptyStatusLineUsage(),
+              message: "fake",
+            },
+          },
+          {
+            providerKey: "claude-cli",
+            displayName: "Claude CLI",
+            command: "claude",
+            cli: {
+              state: "missing",
+              version: null,
+              detail: null,
+            },
+            usage: {
+              source: "claude_projects",
+              period: "current_month",
+              providerKind: "claude",
+              sessionCount: 0,
+              turnCount: 0,
+              toolCallCount: 0,
+              inputTokens: null,
+              outputTokens: null,
+              cacheTokens: null,
+              totalTokens: null,
+              reasoningOutputTokens: null,
+              logFileCount: 0,
+              parsedUsageRecordCount: 0,
+              searchedPathHint: "~\\.claude\\projects",
+              latestActivityAt: null,
+              topModels: [],
+              statusLine: emptyStatusLineUsage(),
+              message: "fake",
+            },
+          },
+        ],
+      },
+      now: () => NOW,
+    });
+    let codexCollectorCalls = 0;
+    let openAiCollectorCalls = 0;
+
+    const snapshot = await readLiveTodaySnapshot({
+      connections,
+      credentialStore: store,
+      now: () => NOW,
+      collectors: {
+        "codex-cli": async () => {
+          codexCollectorCalls += 1;
+
+          return {
+            providerKey: "codex-cli",
+            status: "ok",
+            checkedAt: NOW.toISOString(),
+            todayLiveAmountMinor: null,
+            currency: "USD",
+            included: false,
+            confidence: "low",
+            usageSummary: {
+              kind: "llm_subscription",
+              period: "current_month",
+              metrics: [
+                { key: "sessions", value: 2, unit: "sessions" },
+                { key: "turns", value: 5, unit: "turns" },
+              ],
+              topServices: ["gpt-5"],
+            },
+          };
+        },
+        openai: async () => {
+          openAiCollectorCalls += 1;
+          throw new Error("OpenAI should still require an explicit refresh.");
+        },
+      },
+    });
+
+    expect(codexCollectorCalls).toBe(1);
+    expect(openAiCollectorCalls).toBe(0);
+    expect(snapshot.providers.find((provider) => provider.providerKey === "codex-cli")).toMatchObject({
+      freshness: "live",
+      status: "ok",
+      usageSummary: {
+        kind: "llm_subscription",
+        metrics: [
+          { key: "sessions", value: 2, unit: "sessions" },
+          { key: "turns", value: 5, unit: "turns" },
+        ],
+      },
+    });
+    expect(snapshot.providers.find((provider) => provider.providerKey === "openai")).toMatchObject({
+      status: "not_checked",
+    });
+  });
+
   it("keeps separate live cache entries for multiple provider connections", async () => {
     const store = createMemoryCredentialStore({
       now: () => NOW,
@@ -181,4 +315,68 @@ describe("live today cache", () => {
       }),
     ]);
   });
+
+  it("redacts sensitive provider error text before returning cached live status", async () => {
+    const store = createMemoryCredentialStore({
+      now: () => NOW,
+    });
+    await store.setCredential("openai", "read-only", {
+      secret: "FAKE_OPENAI_ADMIN_KEY_FOR_TESTS",
+      authMethod: "api_key",
+    });
+    const connections = await readConnectionsStatus({
+      credentialStore: store,
+      now: () => NOW,
+    });
+    const tokenLikeValue = ["sk", "sensitive-token"].join("-");
+
+    const snapshot = await refreshLiveToday({
+      connections,
+      credentialStore: store,
+      now: () => NOW,
+      collectors: {
+        openai: async () => {
+          throw new Error(`failed for acct_sensitive user@example.com with ${tokenLikeValue}`);
+        },
+      },
+    });
+    const openai = snapshot.providers.find((provider) => provider.providerKey === "openai");
+    const payload = JSON.stringify(snapshot);
+
+    expect(openai).toMatchObject({
+      status: "error",
+      message: expect.stringContaining("[REDACTED:account_id]"),
+    });
+    expect(payload).not.toContain("acct_sensitive");
+    expect(payload).not.toContain("user@example.com");
+    expect(payload).not.toContain(tokenLikeValue);
+  });
 });
+
+function emptyStatusLineUsage() {
+  return {
+    contextWindowTokens: null,
+    contextWindowLimit: null,
+    contextWindowPercent: null,
+    fiveHourUsedTokens: null,
+    fiveHourLimitTokens: null,
+    fiveHourLimitPercent: null,
+    fiveHourRemainingTokens: null,
+    fiveHourResetAt: null,
+    weeklyUsedTokens: null,
+    weeklyLimitTokens: null,
+    weeklyLimitPercent: null,
+    weeklyRemainingTokens: null,
+    weeklyResetAt: null,
+    lastInputTokens: null,
+    lastOutputTokens: null,
+    lastCacheTokens: null,
+    lastReasoningTokens: null,
+    lastTotalTokens: null,
+    totalInputTokens: null,
+    totalOutputTokens: null,
+    totalCacheTokens: null,
+    totalReasoningTokens: null,
+    totalTokens: null,
+  };
+}

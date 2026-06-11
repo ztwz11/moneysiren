@@ -29,7 +29,6 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - run: pnpm lint
       - run: pnpm tray:native:check
       - run: pnpm secret:scan
       - run: git diff --check

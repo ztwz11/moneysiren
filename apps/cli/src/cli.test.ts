@@ -303,7 +303,7 @@ describe("StackSpend CLI", () => {
     const persistedText = dumpSqlite(dbPath);
 
     expect(await fileExists(dbPath)).toBe(true);
-    expect(migrations).toEqual([{ id: "0001_init" }]);
+    expect(migrations).toEqual([{ id: "0001_init" }, { id: "0002_read_model_indexes" }]);
     expect(persistedText).not.toContain("sqlite-placeholder-v1");
     expect(persistedText).not.toMatch(/sk-|hooks\.slack|@/i);
   });
@@ -683,11 +683,15 @@ describe("StackSpend CLI", () => {
     expect(open.exitCode).toBe(0);
     expect(openStarts).toEqual([
       {
-        openBrowser: true,
         headless: true,
       },
     ]);
-    expect(openedUrls).toEqual(["http://127.0.0.1:47831"]);
+    expect(openedUrls).toEqual([]);
+    expect(open.stdout.join("\n")).toContain("StackSpend local API runtime ready");
+    expect(open.stdout.join("\n")).toContain("Local API URL: http://127.0.0.1:47831");
+    expect(open.stdout.join("\n")).toContain("Dashboard UI: not opened because this runtime URL is a JSON API.");
+    expect(open.stdout.join("\n")).not.toContain("StackSpend dashboard opened");
+    expect(open.stdout.join("\n")).not.toContain("Dashboard URL: http://127.0.0.1:47831");
     expect(status.exitCode).toBe(0);
     expect(status.stdout.join("\n")).toContain("Runtime: healthy");
     expect(status.stdout.join("\n")).toContain("Desktop shell: not detected by CLI");
@@ -745,6 +749,31 @@ describe("StackSpend CLI", () => {
     expect(persistedText).not.toContain("sqlite-placeholder-v1");
     expect(persistedText).not.toMatch(/rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@/i);
   }, 15000);
+
+  it("uses the Asia/Seoul calendar date for Korean daily reports", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const result = await runCli(["report", "daily", "--lang", "ko"], {
+      ...testContext(cwd),
+      now: () => new Date("2026-06-01T15:30:00.000Z"),
+    });
+    const stdout = result.stdout.join("\n");
+
+    expect(result.exitCode).toBe(0);
+    expect(stdout).toContain("2026-06-02");
+
+    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const reportRuns = querySqlite<{ report_date: string; created_at: string }>(
+      dbPath,
+      "SELECT report_date, created_at FROM report_runs ORDER BY created_at, id;",
+    );
+
+    expect(reportRuns).toEqual([
+      {
+        report_date: "2026-06-02",
+        created_at: "2026-06-01T15:30:00.000Z",
+      },
+    ]);
+  });
 
   it("sends the Korean daily report to Slack with an injected transport and records delivery status", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));

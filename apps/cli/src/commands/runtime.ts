@@ -50,7 +50,6 @@ export async function runOpenCommand(args: readonly string[], context: CliExecut
   const runtime = await findHealthyRuntime(adapter);
   const startResult = runtime === null
     ? await adapter.startRuntime({
-        openBrowser: true,
         headless: true,
       })
     : {
@@ -62,10 +61,13 @@ export async function runOpenCommand(args: readonly string[], context: CliExecut
     return writeStartRuntimeResult(context, startResult, "StackSpend open");
   }
 
-  await context.openUrl(startResult.runtime.baseUrl);
-  context.stdout("StackSpend dashboard opened");
+  context.stdout("StackSpend local API runtime ready");
   context.stdout(`Runtime: ${startResult.status}`);
-  context.stdout(`Dashboard URL: ${startResult.runtime.baseUrl}`);
+  context.stdout(`Local API URL: ${startResult.runtime.baseUrl}`);
+  context.stdout("Dashboard UI: not opened because this runtime URL is a JSON API.");
+  context.stdout("Start the web dashboard:");
+  context.stdout("  pnpm --filter @stackspend/web dev");
+  context.stdout("Then open: http://localhost:3000");
   return 0;
 }
 

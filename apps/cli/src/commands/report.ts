@@ -19,6 +19,9 @@ interface ParsedDailyReportArgs {
   deliveryTarget: ReportDeliveryTarget;
 }
 
+const DAILY_REPORT_TIME_ZONE_ENV_KEY = "STACKSPEND_REPORT_TIME_ZONE";
+const DEFAULT_DAILY_REPORT_TIME_ZONE = "Asia/Seoul";
+
 export async function runReportCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   const parsedArgs = parseDailyReportArgs(args);
 
@@ -33,7 +36,7 @@ export async function runReportCommand(args: readonly string[], context: CliExec
 
   const now = context.now();
   const generatedAt = now.toISOString();
-  const reportDate = generatedAt.slice(0, 10);
+  const reportDate = formatDailyReportDate(now, resolveDailyReportTimeZone(context.env));
   const store = await readLocalStore({ dbPath });
 
   const reportInput: DailyReportInput = {
@@ -131,6 +134,43 @@ function parseDailyReportArgs(args: readonly string[]): ParsedDailyReportArgs | 
   return {
     deliveryTarget,
   };
+}
+
+function resolveDailyReportTimeZone(env: Record<string, string | undefined>): string {
+  const configuredTimeZone = env[DAILY_REPORT_TIME_ZONE_ENV_KEY]?.trim();
+
+  return configuredTimeZone === undefined || configuredTimeZone.length === 0
+    ? DEFAULT_DAILY_REPORT_TIME_ZONE
+    : configuredTimeZone;
+}
+
+function formatDailyReportDate(date: Date, timeZone: string): string {
+  let parts: Intl.DateTimeFormatPart[];
+
+  try {
+    parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date);
+  } catch (error) {
+    if (error instanceof RangeError) {
+      throw new Error(`${DAILY_REPORT_TIME_ZONE_ENV_KEY} must be a valid IANA time zone.`);
+    }
+
+    throw error;
+  }
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (year === undefined || month === undefined || day === undefined) {
+    throw new Error(`Could not format daily report date for ${timeZone}.`);
+  }
+
+  return `${year}-${month}-${day}`;
 }
 
 async function sendDailyReportToSlack(input: {

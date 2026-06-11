@@ -144,6 +144,8 @@ export interface LocalCliUsageSummary {
   totalTokens: number | null;
   reasoningOutputTokens: number | null;
   logFileCount: number;
+  parsedUsageRecordCount: number;
+  searchedPathHint: string;
   latestActivityAt: string | null;
   topModels: readonly string[];
   statusLine: LocalCliStatusLineUsage;
@@ -157,10 +159,12 @@ export interface LocalCliStatusLineUsage {
   fiveHourUsedTokens: number | null;
   fiveHourLimitTokens: number | null;
   fiveHourLimitPercent: number | null;
+  fiveHourRemainingTokens: number | null;
   fiveHourResetAt: string | null;
   weeklyUsedTokens: number | null;
   weeklyLimitTokens: number | null;
   weeklyLimitPercent: number | null;
+  weeklyRemainingTokens: number | null;
   weeklyResetAt: string | null;
   lastInputTokens: number | null;
   lastOutputTokens: number | null;
@@ -172,7 +176,6 @@ export interface LocalCliStatusLineUsage {
   totalCacheTokens: number | null;
   totalReasoningTokens: number | null;
   totalTokens: number | null;
-  estimatedCostUsd: number | null;
 }
 
 export interface ReadLocalAiCliStatusOptions {
@@ -208,6 +211,15 @@ export function buildWindowsLocalToolPath(
     trimToNull(env.NVM_HOME),
     joinIfBase(env.APPDATA, "npm"),
     joinIfBase(env.USERPROFILE, "AppData", "Roaming", "npm"),
+    joinIfBase(env.LOCALAPPDATA, "pnpm"),
+    joinIfBase(env.VOLTA_HOME, "bin"),
+    joinIfBase(env.LOCALAPPDATA, "Volta", "bin"),
+    joinIfBase(env.USERPROFILE, ".volta", "bin"),
+    joinIfBase(env.SCOOP, "shims"),
+    joinIfBase(env.USERPROFILE, "scoop", "shims"),
+    joinIfBase(env.ChocolateyInstall, "bin"),
+    joinIfBase(env.ProgramData, "chocolatey", "bin"),
+    joinIfBase(env.USERPROFILE, ".bun", "bin"),
     joinIfBase(env.LOCALAPPDATA, "Microsoft", "WindowsApps"),
     joinIfBase(env["ProgramFiles"], "Amazon", "AWSCLIV2"),
     joinIfBase(env["ProgramFiles"], "Google", "Cloud SDK", "google-cloud-sdk", "bin"),
@@ -416,6 +428,7 @@ function localAiCliStatusCacheKey(
     claudeFiveHourLimit: trimToNull(env.STACKSPEND_CLAUDE_FIVE_HOUR_TOKEN_LIMIT),
     claudeWeeklyLimit: trimToNull(env.STACKSPEND_CLAUDE_WEEKLY_TOKEN_LIMIT),
     codexHome: trimToNull(env.CODEX_HOME),
+    codexSessionsDir: trimToNull(env.STACKSPEND_CODEX_SESSIONS_DIR),
     codexFiveHourLimit: trimToNull(env.STACKSPEND_CODEX_FIVE_HOUR_TOKEN_LIMIT),
     codexWeeklyLimit: trimToNull(env.STACKSPEND_CODEX_WEEKLY_TOKEN_LIMIT),
     homeDir,
@@ -482,11 +495,12 @@ async function readCodexCliUsage(context: {
   homeDir: string;
   now: Date;
 }): Promise<LocalCliUsageSummary> {
-  const codexHome = trimToNull(context.env.CODEX_HOME) ?? join(context.homeDir, ".codex");
-  const sessionsRoot = join(codexHome, "sessions");
+  const sessionsRoot = trimToNull(context.env.STACKSPEND_CODEX_SESSIONS_DIR) ??
+    join(trimToNull(context.env.CODEX_HOME) ?? join(context.homeDir, ".codex"), "sessions");
   const result = await readJsonlUsageFiles({
     env: context.env,
     root: sessionsRoot,
+    searchedPathHint: localPathHint(sessionsRoot, context.homeDir),
     now: context.now,
     providerKind: "codex",
     source: "codex_sessions",
@@ -497,7 +511,7 @@ async function readCodexCliUsage(context: {
     ? result
     : {
         ...result,
-        message: "Codex CLI usage is estimated from local session status metadata; billing cost is not exposed by local logs.",
+        message: "Codex CLI usage is estimated from local session status metadata.",
       };
 }
 
@@ -511,6 +525,7 @@ async function readClaudeCliUsage(context: {
   const result = await readJsonlUsageFiles({
     env: context.env,
     root: projectsRoot,
+    searchedPathHint: localPathHint(projectsRoot, context.homeDir),
     now: context.now,
     providerKind: "claude",
     source: "claude_projects",
@@ -521,13 +536,14 @@ async function readClaudeCliUsage(context: {
     ? result
     : {
         ...result,
-        message: "Claude CLI usage is estimated from local project logs; subscription billing cost is not exposed by local logs.",
+        message: "Claude CLI usage is estimated from local project logs.",
       };
 }
 
 async function readJsonlUsageFiles(options: {
   env: Record<string, string | undefined>;
   root: string;
+  searchedPathHint: string;
   now: Date;
   providerKind: LocalCliUsageSummary["providerKind"];
   source: LocalCliUsageSummary["source"];
@@ -547,7 +563,7 @@ async function readJsonlUsageFiles(options: {
   }
 
   if (accumulator.logFileCount === 0) {
-    return emptyLocalCliUsage(options.source, options.missingMessage);
+    return emptyLocalCliUsage(options.source, options.missingMessage, options.searchedPathHint);
   }
 
   return {
@@ -563,6 +579,8 @@ async function readJsonlUsageFiles(options: {
     totalTokens: accumulator.totalTokens === 0 ? null : accumulator.totalTokens,
     reasoningOutputTokens: accumulator.reasoningOutputTokens === 0 ? null : accumulator.reasoningOutputTokens,
     logFileCount: accumulator.logFileCount,
+    parsedUsageRecordCount: accumulator.parsedUsageRecordCount,
+    searchedPathHint: options.searchedPathHint,
     latestActivityAt: accumulator.latestActivityAt,
     topModels: topEntries(accumulator.models),
     statusLine: finalizeStatusLineUsage(accumulator.statusLine),
@@ -588,6 +606,7 @@ async function readJsonlUsageFile(path: string, accumulator: UsageAccumulator): 
 
     try {
       const value = JSON.parse(trimmed) as unknown;
+      accumulator.parsedUsageRecordCount += 1;
       accumulateRollingUsageFromValue(value, accumulator);
       accumulateLimitMetadataFromValue(value, accumulator.statusLine);
       accumulateUsageFromValue(value, accumulator);
@@ -775,14 +794,6 @@ function accumulateStatusLineUsage(record: Record<string, unknown>, accumulator:
     addTokenUsageToStatusLineTotals(messageUsage, accumulator.statusLine);
   }
 
-  const cost = readNumber(record.total_cost_usd) ??
-    readNumber(record.cost_usd) ??
-    readNumber(payload?.total_cost_usd) ??
-    readNumber(payload?.cost_usd);
-
-  if (cost !== null) {
-    accumulator.statusLine.estimatedCostUsd = cost;
-  }
 }
 
 function applyTokenUsageToStatusLine(
@@ -1195,18 +1206,6 @@ async function listJsonlFilesRecursive(root: string, periodStart: Date): Promise
     const fullPath = join(root, entry.name);
 
     if (entry.isDirectory()) {
-      let directoryStat;
-
-      try {
-        directoryStat = await stat(fullPath);
-      } catch {
-        continue;
-      }
-
-      if (directoryStat.mtime.getTime() < periodStartTime) {
-        continue;
-      }
-
       files.push(...await listJsonlFilesRecursive(fullPath, periodStart));
       continue;
     }
@@ -1249,6 +1248,7 @@ interface UsageAccumulator {
   totalTokens: number;
   reasoningOutputTokens: number;
   logFileCount: number;
+  parsedUsageRecordCount: number;
   latestActivityAt: string | null;
   statusLine: MutableLocalCliStatusLineUsage;
 }
@@ -1284,6 +1284,7 @@ function createUsageAccumulator(
     totalTokens: 0,
     reasoningOutputTokens: 0,
     logFileCount: 0,
+    parsedUsageRecordCount: 0,
     latestActivityAt: null,
     statusLine,
   };
@@ -1298,6 +1299,7 @@ function readConfiguredTokenLimit(value: unknown): number | null {
 function emptyLocalCliUsage(
   source: LocalCliUsageSummary["source"],
   message: string,
+  searchedPathHint: string,
 ): LocalCliUsageSummary {
   return {
     source,
@@ -1312,6 +1314,8 @@ function emptyLocalCliUsage(
     totalTokens: null,
     reasoningOutputTokens: null,
     logFileCount: 0,
+    parsedUsageRecordCount: 0,
+    searchedPathHint,
     latestActivityAt: null,
     topModels: [],
     statusLine: emptyStatusLineUsage(),
@@ -1327,10 +1331,12 @@ function emptyStatusLineUsage(): LocalCliStatusLineUsage {
     fiveHourUsedTokens: null,
     fiveHourLimitTokens: null,
     fiveHourLimitPercent: null,
+    fiveHourRemainingTokens: null,
     fiveHourResetAt: null,
     weeklyUsedTokens: null,
     weeklyLimitTokens: null,
     weeklyLimitPercent: null,
+    weeklyRemainingTokens: null,
     weeklyResetAt: null,
     lastInputTokens: null,
     lastOutputTokens: null,
@@ -1342,7 +1348,6 @@ function emptyStatusLineUsage(): LocalCliStatusLineUsage {
     totalCacheTokens: null,
     totalReasoningTokens: null,
     totalTokens: null,
-    estimatedCostUsd: null,
   };
 }
 
@@ -1365,11 +1370,21 @@ function finalizeStatusLineUsage(statusLine: LocalCliStatusLineUsage): LocalCliS
     contextWindowPercent: percentOf(statusLine.contextWindowTokens, statusLine.contextWindowLimit),
     fiveHourLimitPercent: statusLine.fiveHourLimitPercent ??
       percentOf(statusLine.fiveHourUsedTokens, statusLine.fiveHourLimitTokens),
+    fiveHourRemainingTokens: remainingTokens(statusLine.fiveHourUsedTokens, statusLine.fiveHourLimitTokens),
     weeklyLimitPercent: statusLine.weeklyLimitPercent ??
       percentOf(statusLine.weeklyUsedTokens, statusLine.weeklyLimitTokens),
+    weeklyRemainingTokens: remainingTokens(statusLine.weeklyUsedTokens, statusLine.weeklyLimitTokens),
     totalTokens: statusLine.totalTokens ?? (inferredTotalTokens === 0 ? null : inferredTotalTokens),
     lastTotalTokens: statusLine.lastTotalTokens ?? (inferredLastTotalTokens === 0 ? null : inferredLastTotalTokens),
   };
+}
+
+function remainingTokens(used: number | null, limit: number | null): number | null {
+  if (used === null || limit === null) {
+    return null;
+  }
+
+  return Math.max(limit - used, 0);
 }
 
 async function readAwsCliStatus(
@@ -1766,6 +1781,21 @@ function joinIfBase(base: string | undefined, ...segments: string[]): string | n
   const normalizedBase = trimToNull(base);
 
   return normalizedBase === null ? null : join(normalizedBase, ...segments);
+}
+
+function localPathHint(path: string, homeDir: string): string {
+  const normalizedHome = normalizeWindowsPathSegment(homeDir);
+  const normalizedPath = normalizeWindowsPathSegment(path);
+
+  if (normalizedPath === normalizedHome) {
+    return "~";
+  }
+
+  if (normalizedPath.startsWith(`${normalizedHome}\\`)) {
+    return `~${path.slice(homeDir.length)}`;
+  }
+
+  return path;
 }
 
 function windowsSystemExecutable(fileName: string, env: Record<string, string | undefined>): string {

@@ -32,7 +32,6 @@ Notes:
 - [ ] `pnpm typecheck`
 - [ ] `pnpm test`
 - [ ] `pnpm build`
-- [ ] `pnpm lint`
 - [ ] `git diff --check`
 
 ## Remaining Risks

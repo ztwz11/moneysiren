@@ -17,10 +17,12 @@ const ORIGINAL_ENV = {
   clientId: process.env.SUPABASE_OAUTH_CLIENT_ID,
   clientSecret: process.env.SUPABASE_OAUTH_CLIENT_SECRET,
   tokenUrl: process.env.SUPABASE_OAUTH_TOKEN_URL,
+  credentialWrites: process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES,
 };
 
 beforeEach(() => {
   clearLocalSecurityState();
+  delete process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES;
 });
 
 afterEach(() => {
@@ -31,10 +33,11 @@ afterEach(() => {
   restoreEnv("SUPABASE_OAUTH_CLIENT_ID", ORIGINAL_ENV.clientId);
   restoreEnv("SUPABASE_OAUTH_CLIENT_SECRET", ORIGINAL_ENV.clientSecret);
   restoreEnv("SUPABASE_OAUTH_TOKEN_URL", ORIGINAL_ENV.tokenUrl);
+  restoreEnv("STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES", ORIGINAL_ENV.credentialWrites);
 });
 
 describe("GET /api/auth/callback/[provider]", () => {
-  it("accepts only a matching localhost OAuth transaction", async () => {
+  it("rejects matching OAuth callbacks by default without exchanging or storing tokens", async () => {
     const session = createLocalSession();
     const transaction = createOAuthTransaction({
       provider: "supabase",
@@ -60,16 +63,18 @@ describe("GET /api/auth/callback/[provider]", () => {
     });
     const payload = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(409);
     expect(payload).toMatchObject({
       provider: "supabase",
-      status: "oauth_callback_received",
+      status: "oauth_disabled",
       credentialStored: false,
       secretsReturned: false,
+      error: expect.stringContaining("environment variables only"),
     });
   });
 
   it("exchanges configured Supabase OAuth callbacks and stores only validated credential status", async () => {
+    process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
     const dir = await mkdtemp(join(tmpdir(), "stackspend-oauth-callback-"));
     process.env.STACKSPEND_CREDENTIAL_BACKEND = "vault";
     process.env.STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE = "fake local passphrase";

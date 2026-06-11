@@ -90,12 +90,13 @@ export interface Messages {
     weeklyLimit: string;
     fiveHourTokens: string;
     weeklyTokens: string;
+    fiveHourRemainingTokens: string;
+    weeklyRemainingTokens: string;
     lastRequestTokens: string;
     totalTokens: string;
     reasoningTokens: string;
-    estimatedCost: string;
     noCurrentUsage: string;
-    localCliBillingNote: string;
+    localCliUsageNote: string;
   };
   catalog: {
     title: string;
@@ -171,6 +172,7 @@ export interface Messages {
     credentialSecret: string;
     accountIds: string;
     openAiAdminKeyHint: string;
+    envOnlySecrets: string;
     credentialSaveError: string;
     credentialDeleteError: string;
     saveCredential: string;
@@ -226,11 +228,15 @@ export interface Messages {
     localCliContextWindow: string;
     localCliFiveHourLimit: string;
     localCliWeeklyLimit: string;
+    localCliFiveHourWindow: string;
+    localCliWeeklyWindow: string;
+    localCliRemaining: string;
+    localCliResetAt: string;
+    localCliLearnMore: string;
     localCliLastRequest: string;
     localCliSessionTokens: string;
     localCliCurrentUsage: string;
     localCliReasoning: string;
-    localCliEstimatedCost: string;
     localCliLogFiles: string;
     refreshLocalCliStatus: string;
     defaultLocale: string;
@@ -359,16 +365,17 @@ export const messages = {
       logFiles: "Log files",
       contextTokens: "Context tokens",
       contextPercent: "Context used",
-      fiveHourLimit: "5-hour limit",
-      weeklyLimit: "Weekly limit",
+      fiveHourLimit: "5-hour usage",
+      weeklyLimit: "Weekly usage",
       fiveHourTokens: "5-hour tokens",
       weeklyTokens: "Weekly tokens",
+      fiveHourRemainingTokens: "5-hour remaining",
+      weeklyRemainingTokens: "Weekly remaining",
       lastRequestTokens: "Last request",
       totalTokens: "Total tokens",
       reasoningTokens: "Reasoning tokens",
-      estimatedCost: "Estimated cost",
       noCurrentUsage: "No current usage",
-      localCliBillingNote: "Local CLI usage from statusline and session logs, not API billing.",
+      localCliUsageNote: "Local CLI token usage from statusline and local session logs.",
     },
     catalog: {
       title: "Provider catalog",
@@ -444,6 +451,7 @@ export const messages = {
       credentialSecret: "Credential",
       accountIds: "Account IDs",
       openAiAdminKeyHint: "Use an OpenAI Admin API key with organization usage and costs access.",
+      envOnlySecrets: "StackSpend v0.1 uses environment variables only. New API keys and OAuth tokens are not saved locally.",
       credentialSaveError: "Credential was not saved.",
       credentialDeleteError: "Credential was not removed.",
       saveCredential: "Save",
@@ -497,13 +505,17 @@ export const messages = {
       localCliNoUsage: "No local usage logs found.",
       localCliStatusLine: "Statusline usage",
       localCliContextWindow: "Context window",
-      localCliFiveHourLimit: "5-hour limit",
-      localCliWeeklyLimit: "Weekly limit",
+      localCliFiveHourLimit: "5-hour usage",
+      localCliWeeklyLimit: "Weekly usage",
+      localCliFiveHourWindow: "5 hours",
+      localCliWeeklyWindow: "1 week",
+      localCliRemaining: "Remaining",
+      localCliResetAt: "Reset",
+      localCliLearnMore: "Learn more",
       localCliLastRequest: "Last request",
       localCliSessionTokens: "Session tokens",
       localCliCurrentUsage: "Current usage",
       localCliReasoning: "Reasoning",
-      localCliEstimatedCost: "Estimated cost",
       localCliLogFiles: "Log files",
       refreshLocalCliStatus: "Check usage",
       defaultLocale: "Default locale",
@@ -662,16 +674,17 @@ export const messages = {
       logFiles: "로그 파일",
       contextTokens: "컨텍스트 토큰",
       contextPercent: "컨텍스트 사용률",
-      fiveHourLimit: "5시간 한도",
-      weeklyLimit: "주간 한도",
+      fiveHourLimit: "5시간 사용량",
+      weeklyLimit: "주간 사용량",
       fiveHourTokens: "5시간 토큰",
       weeklyTokens: "주간 토큰",
+      fiveHourRemainingTokens: "5시간 남은 토큰",
+      weeklyRemainingTokens: "주간 남은 토큰",
       lastRequestTokens: "마지막 요청",
       totalTokens: "전체 토큰",
       reasoningTokens: "Reasoning 토큰",
-      estimatedCost: "예상 비용",
       noCurrentUsage: "현재 사용량 없음",
-      localCliBillingNote: "API 청구 비용이 아니라 statusline과 로컬 세션 로그 기반 CLI 사용량입니다.",
+      localCliUsageNote: "statusline과 로컬 세션 로그 기반 CLI 토큰 사용량입니다.",
     },
     catalog: {
       title: "프로바이더 카탈로그",
@@ -747,6 +760,7 @@ export const messages = {
       credentialSecret: "자격 증명",
       accountIds: "계정 ID",
       openAiAdminKeyHint: "조직 사용량과 비용 조회 권한이 있는 OpenAI Admin API key가 필요합니다.",
+      envOnlySecrets: "StackSpend v0.1은 환경 변수만 사용합니다. 새 API key와 OAuth token은 로컬에 저장하지 않습니다.",
       credentialSaveError: "자격 증명이 저장되지 않았습니다.",
       credentialDeleteError: "자격 증명이 삭제되지 않았습니다.",
       saveCredential: "저장",
@@ -800,13 +814,17 @@ export const messages = {
       localCliNoUsage: "로컬 사용량 로그를 찾지 못했습니다.",
       localCliStatusLine: "Statusline 사용량",
       localCliContextWindow: "컨텍스트 창",
-      localCliFiveHourLimit: "5시간 한도",
-      localCliWeeklyLimit: "주간 한도",
+      localCliFiveHourLimit: "5시간 사용량",
+      localCliWeeklyLimit: "주간 사용량",
+      localCliFiveHourWindow: "5시간",
+      localCliWeeklyWindow: "1주",
+      localCliRemaining: "남은 사용량",
+      localCliResetAt: "초기화",
+      localCliLearnMore: "자세히 알아보기",
       localCliLastRequest: "마지막 요청",
       localCliSessionTokens: "세션 토큰",
       localCliCurrentUsage: "현재 사용량",
       localCliReasoning: "Reasoning",
-      localCliEstimatedCost: "예상 비용",
       localCliLogFiles: "로그 파일",
       refreshLocalCliStatus: "사용량 확인",
       defaultLocale: "기본 언어",
@@ -965,16 +983,17 @@ export const messages = {
       logFiles: "ログファイル",
       contextTokens: "コンテキストトークン",
       contextPercent: "コンテキスト使用率",
-      fiveHourLimit: "5時間上限",
-      weeklyLimit: "週間上限",
+      fiveHourLimit: "5時間使用量",
+      weeklyLimit: "週間使用量",
       fiveHourTokens: "5時間トークン",
       weeklyTokens: "週間トークン",
+      fiveHourRemainingTokens: "5時間残りトークン",
+      weeklyRemainingTokens: "週間残りトークン",
       lastRequestTokens: "直近リクエスト",
       totalTokens: "合計トークン",
       reasoningTokens: "Reasoning トークン",
-      estimatedCost: "推定コスト",
       noCurrentUsage: "現在の使用量なし",
-      localCliBillingNote: "API 請求ではなく、statusline とローカルセッションログに基づく CLI 使用量です。",
+      localCliUsageNote: "statusline とローカルセッションログに基づく CLI トークン使用量です。",
     },
     catalog: {
       title: "プロバイダーカタログ",
@@ -1050,6 +1069,7 @@ export const messages = {
       credentialSecret: "認証情報",
       accountIds: "アカウント ID",
       openAiAdminKeyHint: "組織の使用量とコストを読める OpenAI Admin API key が必要です。",
+      envOnlySecrets: "StackSpend v0.1 は環境変数のみを使用します。新しい API key と OAuth token はローカルに保存しません。",
       credentialSaveError: "認証情報は保存されませんでした。",
       credentialDeleteError: "認証情報は削除されませんでした。",
       saveCredential: "保存",
@@ -1103,13 +1123,17 @@ export const messages = {
       localCliNoUsage: "ローカル使用量ログが見つかりません。",
       localCliStatusLine: "Statusline 使用量",
       localCliContextWindow: "コンテキスト枠",
-      localCliFiveHourLimit: "5時間上限",
-      localCliWeeklyLimit: "週間上限",
+      localCliFiveHourLimit: "5時間使用量",
+      localCliWeeklyLimit: "週間使用量",
+      localCliFiveHourWindow: "5時間",
+      localCliWeeklyWindow: "1週間",
+      localCliRemaining: "残り使用量",
+      localCliResetAt: "リセット",
+      localCliLearnMore: "詳しく見る",
       localCliLastRequest: "直近リクエスト",
       localCliSessionTokens: "セッショントークン",
       localCliCurrentUsage: "現在の使用量",
       localCliReasoning: "Reasoning",
-      localCliEstimatedCost: "推定コスト",
       localCliLogFiles: "ログファイル",
       refreshLocalCliStatus: "使用量を確認",
       defaultLocale: "既定の言語",

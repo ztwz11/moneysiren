@@ -6,8 +6,10 @@ import { describe, expect, it } from "vitest";
 import {
   initializeLocalStore,
   recordLocalReportRun,
+  readLocalStore,
   saveLocalProviderCollection,
 } from "./local-store.js";
+import type { LocalBillingSnapshotInput, LocalCostEstimateInput } from "./local-store.js";
 import { REQUIRED_TABLES } from "./schema.js";
 import { resolveSqliteBin, SQLITE_BIN_ENV_KEY } from "./sqlite-bin.js";
 
@@ -30,11 +32,11 @@ describe("local SQLite store", () => {
     ).map((row) => row.name);
     const migrations = querySqlite<{ id: string }>(dbPath, "SELECT id FROM schema_migrations ORDER BY id;");
 
-    expect(result.appliedMigrationIds).toEqual(["0001_init"]);
+    expect(result.appliedMigrationIds).toEqual(["0001_init", "0002_read_model_indexes"]);
     expect(result.skippedMigrationIds).toEqual([]);
     expect(await fileExists(dbPath)).toBe(true);
     expect(tables).toEqual(expect.arrayContaining(["schema_migrations", ...REQUIRED_TABLES]));
-    expect(migrations).toEqual([{ id: "0001_init" }]);
+    expect(migrations).toEqual([{ id: "0001_init" }, { id: "0002_read_model_indexes" }]);
     expect(await fileExists(join(rootDir, ".env"))).toBe(false);
   });
 
@@ -120,6 +122,156 @@ describe("local SQLite store", () => {
     ).toBe(0);
     expect(persistedText).not.toContain("sqlite-placeholder-v1");
     expect(persistedText).not.toMatch(/rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@/i);
+  });
+
+  it("does not inflate the read model when the same cost estimate is collected twice", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "stackspend-db-"));
+    const dbPath = join(rootDir, ".stackspend", "stackspend.sqlite");
+    const costEstimate: LocalCostEstimateInput = {
+      provider: "mock",
+      collectedAt: FIXED_NOW,
+      periodStart: "2026-06-01",
+      periodEnd: "2026-06-30",
+      estimatedAmountMinor: 1500,
+      currency: "USD",
+      confidence: "medium",
+      providerAccountRef: "test-account-one",
+    };
+
+    const snapshots = {
+      usage: [],
+      billing: [],
+      serviceHealth: [],
+      costEstimates: [costEstimate],
+    };
+
+    await saveLocalProviderCollection({
+      dbPath,
+      provider: {
+        key: "mock",
+        displayName: "Mock Provider",
+        connectorVersion: "0.1.0-alpha.0",
+      },
+      collectedAt: FIXED_NOW,
+      status: "ok",
+      snapshots,
+      alerts: [],
+    });
+    await saveLocalProviderCollection({
+      dbPath,
+      provider: {
+        key: "mock",
+        displayName: "Mock Provider",
+        connectorVersion: "0.1.0-alpha.0",
+      },
+      collectedAt: "2026-06-02T09:10:00.000Z",
+      status: "ok",
+      snapshots: {
+        ...snapshots,
+        costEstimates: [
+          {
+            ...costEstimate,
+            collectedAt: "2026-06-02T09:10:00.000Z",
+          },
+        ],
+      },
+      alerts: [],
+    });
+
+    const store = await readLocalStore({ dbPath });
+    const persistedCostEstimateCount = querySqlite<{ count: number }>(
+      dbPath,
+      "SELECT count(*) AS count FROM cost_estimates;",
+    )[0]?.count;
+
+    expect(persistedCostEstimateCount).toBe(2);
+    expect(store.costEstimates).toEqual([
+      expect.objectContaining({
+        providerKey: "mock",
+        collectedAt: "2026-06-02T09:10:00.000Z",
+        periodStart: "2026-06-01",
+        periodEnd: "2026-06-30",
+        estimatedAmountMinor: 1500,
+        currency: "USD",
+        confidence: "medium",
+      }),
+    ]);
+    expect(store.costEstimates.reduce((total, estimate) => total + estimate.estimatedAmountMinor, 0)).toBe(1500);
+  });
+
+  it("does not inflate the read model when the same billing snapshot is collected twice", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "stackspend-db-"));
+    const dbPath = join(rootDir, ".stackspend", "stackspend.sqlite");
+    const billingSnapshot: LocalBillingSnapshotInput = {
+      provider: "mock",
+      collectedAt: FIXED_NOW,
+      periodStart: "2026-06-01",
+      periodEnd: "2026-06-30",
+      amountMinor: 900,
+      currency: "USD",
+      status: "confirmed",
+      providerAccountRef: "test-account-one",
+    };
+
+    const snapshots = {
+      usage: [],
+      billing: [billingSnapshot],
+      serviceHealth: [],
+      costEstimates: [],
+    };
+
+    await saveLocalProviderCollection({
+      dbPath,
+      provider: {
+        key: "mock",
+        displayName: "Mock Provider",
+        connectorVersion: "0.1.0-alpha.0",
+      },
+      collectedAt: FIXED_NOW,
+      status: "ok",
+      snapshots,
+      alerts: [],
+    });
+    await saveLocalProviderCollection({
+      dbPath,
+      provider: {
+        key: "mock",
+        displayName: "Mock Provider",
+        connectorVersion: "0.1.0-alpha.0",
+      },
+      collectedAt: "2026-06-02T09:10:00.000Z",
+      status: "ok",
+      snapshots: {
+        ...snapshots,
+        billing: [
+          {
+            ...billingSnapshot,
+            collectedAt: "2026-06-02T09:10:00.000Z",
+          },
+        ],
+      },
+      alerts: [],
+    });
+
+    const store = await readLocalStore({ dbPath });
+    const persistedBillingSnapshotCount = querySqlite<{ count: number }>(
+      dbPath,
+      "SELECT count(*) AS count FROM billing_snapshots;",
+    )[0]?.count;
+
+    expect(persistedBillingSnapshotCount).toBe(2);
+    expect(store.billingSnapshots).toEqual([
+      expect.objectContaining({
+        providerKey: "mock",
+        collectedAt: "2026-06-02T09:10:00.000Z",
+        periodStart: "2026-06-01",
+        periodEnd: "2026-06-30",
+        amountMinor: 900,
+        currency: "USD",
+        status: "confirmed",
+      }),
+    ]);
+    expect(store.billingSnapshots.reduce((total, snapshot) => total + snapshot.amountMinor, 0)).toBe(900);
   });
 });
 

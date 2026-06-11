@@ -1,16 +1,18 @@
 "use client";
 
-import { ExternalLink, RefreshCw, Terminal } from "lucide-react";
+import { ExternalLink, Gauge, RefreshCw, Terminal } from "lucide-react";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
-import type { ProviderKey } from "../lib/provider-catalog";
+import { findAvailableProvider, type ProviderKey } from "../lib/provider-catalog";
 
 interface CredentialControlLabels {
   savedConnections: string;
   connectionLabel: string;
   connectionId: string;
+  requiredEnv: string;
   credentialSecret: string;
   accountIds: string;
   openAiAdminKeyHint: string;
+  envOnlySecrets: string;
   credentialSaveError: string;
   credentialDeleteError: string;
   saveCredential: string;
@@ -66,11 +68,15 @@ interface CredentialControlLabels {
   localCliContextWindow: string;
   localCliFiveHourLimit: string;
   localCliWeeklyLimit: string;
+  localCliFiveHourWindow: string;
+  localCliWeeklyWindow: string;
+  localCliRemaining: string;
+  localCliResetAt: string;
+  localCliLearnMore: string;
   localCliLastRequest: string;
   localCliSessionTokens: string;
   localCliCurrentUsage: string;
   localCliReasoning: string;
-  localCliEstimatedCost: string;
   localCliLogFiles: string;
   refreshLocalCliStatus: string;
 }
@@ -158,6 +164,8 @@ interface LocalAiCliProviderStatusPayload {
     totalTokens: number | null;
     reasoningOutputTokens: number | null;
     logFileCount: number;
+    parsedUsageRecordCount: number;
+    searchedPathHint: string;
     latestActivityAt: string | null;
     topModels: readonly string[];
     statusLine: {
@@ -167,10 +175,12 @@ interface LocalAiCliProviderStatusPayload {
       fiveHourUsedTokens: number | null;
       fiveHourLimitTokens: number | null;
       fiveHourLimitPercent: number | null;
+      fiveHourRemainingTokens: number | null;
       fiveHourResetAt: string | null;
       weeklyUsedTokens: number | null;
       weeklyLimitTokens: number | null;
       weeklyLimitPercent: number | null;
+      weeklyRemainingTokens: number | null;
       weeklyResetAt: string | null;
       lastInputTokens: number | null;
       lastOutputTokens: number | null;
@@ -182,7 +192,6 @@ interface LocalAiCliProviderStatusPayload {
       totalCacheTokens: number | null;
       totalReasoningTokens: number | null;
       totalTokens: number | null;
-      estimatedCostUsd: number | null;
     };
     message: string;
   };
@@ -197,11 +206,9 @@ export function CredentialControls({
   connections: readonly CredentialConnectionView[];
   labels: CredentialControlLabels;
 }) {
-  const [label, setLabel] = useState(defaultLabel(providerKey));
-  const [secret, setSecret] = useState("");
-  const [accountIds, setAccountIds] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const catalog = findAvailableProvider(providerKey);
 
   if (providerKey === "aws") {
     return <AwsSetupPanel labels={labels} />;
@@ -263,134 +270,21 @@ export function CredentialControls({
           ))}
         </div>
       )}
-      <form
-        className="credential-form"
-        onSubmit={(event: FormEvent<HTMLFormElement>) => {
-          event.preventDefault();
-          setError(null);
-          startTransition(async () => {
-            try {
-              const session = await createSessionOrThrow(labels.credentialSaveError);
-              const response = await fetch(`/api/connections/${providerKey}/credentials`, {
-                method: "POST",
-                headers: {
-                  "content-type": "application/json",
-                  "x-stackspend-csrf": session.csrfToken,
-                },
-                body: JSON.stringify({
-                  label,
-                  secret,
-                  ...(providerKey === "cloudflare" ? { accountIds } : {}),
-                }),
-              });
-
-              if (response.ok) {
-                window.location.reload();
-                return;
-              }
-
-              setError(await responseError(response, labels.credentialSaveError));
-            } catch (caught) {
-              setError(caught instanceof Error ? caught.message : labels.credentialSaveError);
-            }
-          });
-        }}
-      >
-        <div className="credential-form-grid">
-          <label className="credential-field">
-            <span className="metric-label">{labels.connectionLabel}</span>
-            <input
-              autoComplete="off"
-              className="credential-input"
-              maxLength={80}
-              onChange={(event) => {
-                setLabel(event.target.value);
-                setError(null);
-              }}
-              placeholder={labels.connectionLabel}
-              type="text"
-              value={label}
-            />
-          </label>
-          <label className="credential-field">
-            <span className="metric-label">{labels.credentialSecret}</span>
-            <input
-              autoComplete="off"
-              className="credential-input"
-              onChange={(event) => {
-                setSecret(event.target.value);
-                setError(null);
-              }}
-              placeholder={labels.credentialSecret}
-              type="password"
-              value={secret}
-            />
-          </label>
-        </div>
+      <div className="credential-form" role="note">
+        <p className="credential-hint">{labels.envOnlySecrets}</p>
+        {(catalog?.requiredEnvKeys.length ?? 0) === 0 ? null : (
+          <div className="credential-field">
+            <span className="metric-label">{labels.requiredEnv}</span>
+            <div className="aws-command-strip" aria-label={labels.requiredEnv}>
+              {catalog?.requiredEnvKeys.map((envKey) => <code key={envKey}>{envKey}</code>)}
+            </div>
+          </div>
+        )}
         {providerKey === "openai" ? (
           <p className="credential-hint">{labels.openAiAdminKeyHint}</p>
         ) : null}
-        {providerKey === "cloudflare" ? (
-          <label className="credential-field">
-            <span className="metric-label">{labels.accountIds}</span>
-            <input
-              autoComplete="off"
-              className="credential-input"
-              onChange={(event) => {
-                setAccountIds(event.target.value);
-                setError(null);
-              }}
-              placeholder={labels.accountIds}
-              type="password"
-              value={accountIds}
-            />
-          </label>
-        ) : null}
-        <div className="credential-actions">
-          {providerKey === "supabase" ? (
-            <button
-              className="ghost-button"
-              disabled={isPending}
-              onClick={() => {
-                setError(null);
-                startTransition(async () => {
-                  const sessionResponse = await fetch("/api/auth/session", {
-                    method: "POST",
-                  });
-
-                  if (!sessionResponse.ok) {
-                    setError(await responseError(sessionResponse, labels.credentialSaveError));
-                    return;
-                  }
-
-                  const session = await sessionResponse.json() as { csrfToken?: string };
-                  const response = await fetch("/api/auth/start/supabase", {
-                    method: "POST",
-                    headers: {
-                      "x-stackspend-csrf": session.csrfToken ?? "",
-                    },
-                  });
-                  const payload = await response.json() as { authorizationUrl?: string | null };
-
-                  if (response.ok && typeof payload.authorizationUrl === "string") {
-                    window.location.href = payload.authorizationUrl;
-                    return;
-                  }
-
-                  setError(await responseError(response, labels.credentialSaveError));
-                });
-              }}
-              type="button"
-            >
-              {labels.startOAuth}
-            </button>
-          ) : null}
-          <button className="primary-button" disabled={isPending || secret.trim().length === 0} type="submit">
-            {labels.saveCredential}
-          </button>
-        </div>
         {error === null ? null : <p className="credential-error" role="alert">{error}</p>}
-      </form>
+      </div>
     </div>
   );
 }
@@ -439,7 +333,9 @@ function LocalCliSetupPanel({
 
   const cliState = provider?.cli.state ?? null;
   const hasUsage = provider !== null && provider.usage.logFileCount > 0;
+  const remainingRows = localCliRemainingRows(provider, labels);
   const usageRows = localCliUsageRows(provider, labels);
+  const learnMoreHref = findAvailableProvider(providerKey)?.setupLinks[0]?.href;
 
   return (
     <div className="aws-setup-panel">
@@ -463,6 +359,31 @@ function LocalCliSetupPanel({
         percent={loadingProgress.percent}
         task={loadingProgress.task}
       />
+      {remainingRows.length === 0 ? null : (
+        <section className="local-cli-usage-menu" aria-label={labels.localCliRemaining}>
+          <div className="local-cli-usage-header">
+            <span>
+              <Gauge aria-hidden="true" size={14} strokeWidth={1.9} />
+              <strong>{labels.localCliRemaining}</strong>
+            </span>
+          </div>
+          <div className="local-cli-usage-rows">
+            {remainingRows.map((row) => (
+              <div className="local-cli-usage-row" key={row.label}>
+                <span>{row.label}</span>
+                <span className="local-cli-usage-value">{row.percent}</span>
+                <span className="local-cli-usage-reset">{row.resetAt}</span>
+              </div>
+            ))}
+          </div>
+          {learnMoreHref === undefined ? null : (
+            <a className="local-cli-learn-more" href={learnMoreHref} rel="noreferrer" target="_blank">
+              <span>{labels.localCliLearnMore}</span>
+              <ExternalLink aria-hidden="true" size={13} strokeWidth={1.9} />
+            </a>
+          )}
+        </section>
+      )}
       <div className="aws-setup-grid">
         <div className="aws-setup-item">
           <span className="metric-label">{labels.awsCliVersion}</span>
@@ -596,16 +517,6 @@ function localCliUsageRows(
   const rows: Array<{ label: string; value: string; meta: string }> = [];
 
   rows.push({
-    label: labels.localCliFiveHourLimit,
-    value: formatTokenWindow(statusLine.fiveHourUsedTokens, statusLine.fiveHourLimitTokens, statusLine.fiveHourLimitPercent),
-    meta: labels.localCliCurrentUsage,
-  });
-  rows.push({
-    label: labels.localCliWeeklyLimit,
-    value: formatTokenWindow(statusLine.weeklyUsedTokens, statusLine.weeklyLimitTokens, statusLine.weeklyLimitPercent),
-    meta: labels.localCliCurrentUsage,
-  });
-  rows.push({
     label: labels.localCliContextWindow,
     value: formatTokenWindow(statusLine.contextWindowTokens, statusLine.contextWindowLimit, statusLine.contextWindowPercent),
     meta: provider.providerKey === "codex-cli" ? labels.localCliLastRequest : labels.localCliCurrentUsage,
@@ -654,11 +565,6 @@ function localCliUsageRows(
         ["cache", statusLine.totalCacheTokens ?? usage.cacheTokens],
       ]),
     });
-    rows.push({
-      label: labels.localCliEstimatedCost,
-      value: formatUsd(statusLine.estimatedCostUsd),
-      meta: "Claude Code statusline/log metadata",
-    });
   }
 
   rows.push({
@@ -668,6 +574,38 @@ function localCliUsageRows(
   });
 
   return rows;
+}
+
+function localCliRemainingRows(
+  provider: LocalAiCliProviderStatusPayload | null,
+  labels: CredentialControlLabels,
+): Array<{ label: string; percent: string; resetAt: string }> {
+  if (provider === null) {
+    return [];
+  }
+
+  const statusLine = provider.usage.statusLine;
+
+  return [
+    {
+      label: labels.localCliFiveHourWindow,
+      percent: formatRemainingPercent(
+        statusLine.fiveHourRemainingTokens,
+        statusLine.fiveHourLimitTokens,
+        statusLine.fiveHourLimitPercent,
+      ),
+      resetAt: formatResetAt(statusLine.fiveHourResetAt),
+    },
+    {
+      label: labels.localCliWeeklyWindow,
+      percent: formatRemainingPercent(
+        statusLine.weeklyRemainingTokens,
+        statusLine.weeklyLimitTokens,
+        statusLine.weeklyLimitPercent,
+      ),
+      resetAt: formatResetAt(statusLine.weeklyResetAt),
+    },
+  ];
 }
 
 function formatTokenWindow(tokens: number | null, limit: number | null, percent: number | null): string {
@@ -692,6 +630,48 @@ function tokenParts(parts: Array<[string, number | null]>): string {
   return values.length === 0 ? "-" : values.join(" · ");
 }
 
+function formatTokenWindowMeta(remaining: number | null, resetAt: string | null, labels: CredentialControlLabels): string {
+  const parts = [
+    remaining === null ? null : `${labels.localCliRemaining}: ${formatTokens(remaining)}`,
+    resetAt === null ? null : `${labels.localCliResetAt}: ${resetAt}`,
+  ].filter((part): part is string => part !== null);
+
+  return parts.length === 0 ? labels.localCliCurrentUsage : parts.join(" · ");
+}
+
+function formatRemainingPercent(remaining: number | null, limit: number | null, usedPercent: number | null): string {
+  if (remaining !== null && limit !== null && limit > 0) {
+    return formatPercent((remaining / limit) * 100);
+  }
+
+  if (usedPercent !== null) {
+    return formatPercent(Math.max(100 - usedPercent, 0));
+  }
+
+  return "-";
+}
+
+function formatResetAt(resetAt: string | null): string {
+  if (resetAt === null || resetAt.trim().length === 0) {
+    return "-";
+  }
+
+  const date = new Date(resetAt);
+
+  if (Number.isNaN(date.getTime())) {
+    return resetAt;
+  }
+
+  const now = new Date();
+  const sameDay = date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  return new Intl.DateTimeFormat(undefined, sameDay
+    ? { hour: "numeric", minute: "2-digit" }
+    : { month: "long", day: "numeric" }).format(date);
+}
+
 function formatTokens(value: number | null): string {
   if (value === null || value <= 0) {
     return "-";
@@ -702,18 +682,6 @@ function formatTokens(value: number | null): string {
 
 function formatPercent(value: number): string {
   return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)}%`;
-}
-
-function formatUsd(value: number | null): string {
-  if (value === null || value <= 0) {
-    return "-";
-  }
-
-  return new Intl.NumberFormat(undefined, {
-    currency: "USD",
-    maximumFractionDigits: 2,
-    style: "currency",
-  }).format(value);
 }
 
 function localCliStateLabel(state: LocalAiCliProviderStatusPayload["cli"]["state"], labels: CredentialControlLabels): string {
@@ -1131,34 +1099,6 @@ async function createSessionOrThrow(fallback: string): Promise<{ csrfToken: stri
     csrfToken,
   };
 }
-
-function defaultLabel(providerKey: ProviderKey): string {
-  return defaultProviderLabels[providerKey] ?? "Default";
-}
-
-const defaultProviderLabels: Record<ProviderKey, string> = {
-  aws: "AWS",
-  openai: "OpenAI",
-  supabase: "Supabase",
-  cloudflare: "Cloudflare",
-  gcp: "GCP",
-  azure: "Azure",
-  oracle: "Oracle Cloud",
-  anthropic: "Anthropic Claude",
-  gemini: "Google Gemini / Vertex AI",
-  vercel: "Vercel",
-  "github-actions": "GitHub Actions",
-  railway: "Railway",
-  fly: "Fly.io",
-  netlify: "Netlify",
-  render: "Render",
-  neon: "Neon",
-  "mongodb-atlas": "MongoDB Atlas",
-  datadog: "Datadog",
-  sentry: "Sentry",
-  "codex-cli": "Codex CLI",
-  "claude-cli": "Claude CLI",
-};
 
 function shortConnectionId(connectionId: string): string {
   return connectionId.length <= 10 ? connectionId : connectionId.slice(-8);

@@ -58,10 +58,25 @@ pnpm --filter @stackspend/cli dev -- doctor
 pnpm --filter @stackspend/cli dev -- init
 pnpm --filter @stackspend/cli dev -- sync --provider mock
 pnpm --filter @stackspend/cli dev -- report daily --lang ko
-pnpm --filter @stackspend/web dev
+npm run dev
 ```
 
-Open the dashboard at `http://localhost:3000`. The dashboard reads normalized local SQLite snapshots from `STACKSPEND_DB_PATH`, defaulting to `.stackspend/stackspend.sqlite`.
+`npm run dev` starts the local web dashboard, the native taskbar/tray layer, and the Tauri dashboard window together. Open the dashboard at `http://localhost:3000` or use the StackSpend Tauri window. The dashboard reads normalized local SQLite snapshots from `STACKSPEND_DB_PATH`, defaulting to `.stackspend/stackspend.sqlite`.
+
+Use `npm run dev:web` when you need only the web dashboard without the taskbar/tray layer.
+Use `npm run dev:tray` only when the local web dashboard is already running at `http://127.0.0.1:3000`.
+
+For a production-style local run after building the web app and unsigned native desktop layer:
+
+```bash
+npm run build:local
+npm start
+```
+
+`npm run build:local` runs the workspace build and then builds the unsigned Tauri desktop artifact. `npm start` starts the built Next.js dashboard, waits for `http://127.0.0.1:3000/ko/dashboard/overview`, and then launches the built StackSpend tray/Tauri executable.
+
+Use `npm run start:web` when you need only the built web dashboard.
+Use `npm run start:tray` only when the built web dashboard is already running at `http://127.0.0.1:3000`.
 
 In a second terminal, verify the local dashboard API and page URL:
 

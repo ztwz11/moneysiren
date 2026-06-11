@@ -19,7 +19,7 @@ The tray package must not collect, display, or persist provider credentials, pro
 
 ## Current Runtime Boundary
 
-The Rust entrypoint creates the native tray menu and exposes a local-safe native status command. The TypeScript model still owns local API polling, quiet-hour suppression, pause handling, and fingerprint suppression tests. OS toast delivery and start-at-login persistence are the next native integration layer.
+The Rust entrypoint creates the native tray menu, opens a Tauri dashboard window pointed at the local Next.js dashboard, and exposes a local-safe native status command. The TypeScript model still owns local API polling, quiet-hour suppression, pause handling, and fingerprint suppression tests. OS toast delivery and start-at-login persistence are the next native integration layer.
 
 No provider connector, credential store, or database dependency is imported by the tray package.
 
@@ -32,6 +32,10 @@ node tools/scripts/run-pnpm.mjs --filter @stackspend/tray native:check
 node tools/scripts/run-pnpm.mjs --filter @stackspend/tray tauri:dev
 node tools/scripts/run-pnpm.mjs --filter @stackspend/tray tauri:build:unsigned
 ```
+
+From the repository root, `npm run dev` starts the Next.js dashboard, waits for it to be ready, then starts this native taskbar/tray layer and Tauri dashboard window. Use `npm run dev:web` for a web-only session or `npm run dev:tray` for the tray layer only when the web dashboard is already running.
+
+For a production-style local run from the repository root, use `npm run build:local` and then `npm start`. This starts the built Next.js dashboard and launches the built unsigned Tauri executable from `src-tauri/target/release`. Use `npm run start:web` for only the built web dashboard or `npm run start:tray` for only the built tray/Tauri executable when the web dashboard is already running.
 
 `tauri:build:unsigned` creates platform-native unsigned development artifacts through Tauri. On Windows this produces the configured Windows bundle target for the local toolchain; on macOS this produces the app bundle/dmg targets when run on macOS. Signing remains a release-management step outside the local-first v0.1 runtime.
 

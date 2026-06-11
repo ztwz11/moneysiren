@@ -6,6 +6,7 @@ export interface SlackReportPayload {
 export interface SlackReportTransportRequest {
   webhookUrl: string;
   payload: SlackReportPayload;
+  signal: AbortSignal;
 }
 
 export interface SlackReportTransportResponse {
@@ -22,6 +23,7 @@ export interface SendSlackReportOptions {
   webhookUrl: string;
   text: string;
   transport?: SlackReportTransport;
+  timeoutMs?: number;
 }
 
 export interface SlackReportDeliveryResult {
@@ -42,6 +44,11 @@ export class SlackReportDeliveryError extends Error {
   }
 }
 
+const DEFAULT_SLACK_REPORT_TIMEOUT_MS = 5_000;
+const MAX_SLACK_ERROR_MESSAGE_LENGTH = 500;
+const MAX_SLACK_RESPONSE_BODY_LENGTH = 300;
+const TRUNCATED_SUFFIX = "... [truncated]";
+
 export function buildSlackReportPayload(text: string): SlackReportPayload {
   const trimmedText = text.trim();
 
@@ -59,23 +66,50 @@ export async function sendSlackReport(options: SendSlackReportOptions): Promise<
   const webhookUrl = normalizeWebhookUrl(options.webhookUrl);
   const payload = buildSlackReportPayload(options.text);
   const transport = options.transport ?? fetchSlackReportTransport;
+  const timeoutMs = resolveSlackReportTimeoutMs(options.timeoutMs);
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   let response: SlackReportTransportResponse;
 
   try {
-    response = await transport({
+    const transportPromise = transport({
       webhookUrl,
       payload,
+      signal: controller.signal,
     });
+    transportPromise.catch(() => undefined);
+
+    const timeoutPromise = new Promise<SlackReportTransportResponse>((_resolve, reject) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        reject(new SlackReportDeliveryError(`Slack report delivery timed out after ${timeoutMs}ms.`));
+      }, timeoutMs);
+    });
+
+    response = await Promise.race([transportPromise, timeoutPromise]);
   } catch (error) {
+    const message = error instanceof SlackReportDeliveryError
+      ? error.message
+      : `Slack report delivery failed: ${errorMessage(error)}`;
+    const errorOptions = error instanceof SlackReportDeliveryError && error.statusCode !== undefined
+      ? { statusCode: error.statusCode }
+      : {};
+
     throw new SlackReportDeliveryError(
-      sanitizeWebhookMessage(`Slack report delivery failed: ${errorMessage(error)}`, webhookUrl),
+      sanitizeWebhookMessage(message, webhookUrl),
+      errorOptions,
     );
+  } finally {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
   }
 
   if (!response.ok) {
-    const responseDetail = response.body === undefined || response.body.trim().length === 0
+    const responseBody = formatResponseBodyDetail(response.body, webhookUrl);
+    const responseDetail = responseBody === undefined
       ? ""
-      : ` Response: ${response.body.trim()}`;
+      : ` Response: ${responseBody}`;
 
     throw new SlackReportDeliveryError(
       sanitizeWebhookMessage(
@@ -103,6 +137,7 @@ async function fetchSlackReportTransport(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(request.payload),
+    signal: request.signal,
   });
   const body = await response.text();
 
@@ -123,10 +158,46 @@ function normalizeWebhookUrl(webhookUrl: string): string {
   return trimmed;
 }
 
+function resolveSlackReportTimeoutMs(timeoutMs: number | undefined): number {
+  if (timeoutMs === undefined) {
+    return DEFAULT_SLACK_REPORT_TIMEOUT_MS;
+  }
+
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new SlackReportDeliveryError("Slack report timeout must be a positive safe integer.");
+  }
+
+  return timeoutMs;
+}
+
+function formatResponseBodyDetail(body: string | undefined, webhookUrl: string): string | undefined {
+  const trimmedBody = body?.trim();
+
+  if (trimmedBody === undefined || trimmedBody.length === 0) {
+    return undefined;
+  }
+
+  return limitText(redactSensitiveText(trimmedBody, webhookUrl), MAX_SLACK_RESPONSE_BODY_LENGTH);
+}
+
 function sanitizeWebhookMessage(message: string, webhookUrl: string): string {
+  return limitText(redactSensitiveText(message, webhookUrl), MAX_SLACK_ERROR_MESSAGE_LENGTH);
+}
+
+function redactSensitiveText(message: string, webhookUrl: string): string {
   return message
     .replaceAll(webhookUrl, "[REDACTED:webhook_url]")
-    .replace(/https:\/\/hooks\.slack\.com\/services\/[^\s"')]+/gi, "[REDACTED:webhook_url]");
+    .replace(/https:\/\/hooks\.slack\.com\/services\/[^\s"')]+/gi, "[REDACTED:webhook_url]")
+    .replace(/\bsk-[A-Za-z0-9_-]+/g, "[REDACTED:token]")
+    .replace(/\bxox[baprs]-[A-Za-z0-9-]+/gi, "[REDACTED:token]");
+}
+
+function limitText(message: string, maxLength: number): string {
+  if (message.length <= maxLength) {
+    return message;
+  }
+
+  return `${message.slice(0, maxLength - TRUNCATED_SUFFIX.length)}${TRUNCATED_SUFFIX}`;
 }
 
 function errorMessage(error: unknown): string {

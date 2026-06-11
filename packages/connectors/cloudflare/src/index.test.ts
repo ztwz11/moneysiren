@@ -109,6 +109,64 @@ describe("createCloudflareBillingUsageConnector", () => {
     ]);
   });
 
+  it("falls back to PayGo when billable usage returns an empty record set", async () => {
+    const requests: CloudflareApiRequest[] = [];
+    const transport: CloudflareApiTransport = {
+      async getJson(request) {
+        requests.push(request);
+
+        if (request.path.endsWith("/billable/usage")) {
+          return {
+            result: [],
+          };
+        }
+
+        if (request.path.endsWith("/paygo-usage")) {
+          return [
+            {
+              BillingAccountId: "FAKE_CLOUDFLARE_ACCOUNT_EMPTY_BILLABLE",
+              BillingCurrency: "USD",
+              ChargePeriodStart: "2026-06-01T00:00:00Z",
+              ChargePeriodEnd: "2026-06-02T00:00:00Z",
+              ContractedCost: "0.03",
+              ConsumedQuantity: "42",
+              ConsumedUnit: "GB-seconds",
+              ServiceName: "Workers KV",
+            },
+          ];
+        }
+
+        throw new Error(`Unexpected request path: ${request.path}`);
+      },
+    };
+    const client = createCloudflareBillingUsageClient({
+      apiToken: "FAKE_CLOUDFLARE_API_TOKEN_FOR_TESTS",
+      accountIds: ["FAKE_CLOUDFLARE_ACCOUNT_EMPTY_BILLABLE"],
+      transport,
+    });
+    const payload = await client.fetchBillingUsage();
+
+    expect(payload.billableUsage).toEqual([]);
+    expect(payload.paygoUsage).toHaveLength(1);
+    expect(payload.unavailable).toEqual([]);
+    expect(requests).toEqual([
+      {
+        path: "/accounts/FAKE_CLOUDFLARE_ACCOUNT_EMPTY_BILLABLE/billable/usage",
+        query: {},
+        headers: {
+          Authorization: "Bearer FAKE_CLOUDFLARE_API_TOKEN_FOR_TESTS",
+        },
+      },
+      {
+        path: "/accounts/FAKE_CLOUDFLARE_ACCOUNT_EMPTY_BILLABLE/paygo-usage",
+        query: {},
+        headers: {
+          Authorization: "Bearer FAKE_CLOUDFLARE_API_TOKEN_FOR_TESTS",
+        },
+      },
+    ]);
+  });
+
   it("returns a sanitized alert when Cloudflare collection fails before normalization", async () => {
     const connector = createCloudflareBillingUsageConnector({
       client: {

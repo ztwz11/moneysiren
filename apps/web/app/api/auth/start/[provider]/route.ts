@@ -1,4 +1,8 @@
 import { createOAuthTransaction, requireLocalSession } from "../../../../../lib/local-security";
+import {
+  CREDENTIAL_WRITES_DISABLED_MESSAGE,
+  credentialWritesEnabled,
+} from "../../../../../lib/credential-write-policy";
 
 type OAuthProviderKey = "supabase";
 
@@ -14,6 +18,23 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   try {
     const provider = await readProvider(context.params);
     const session = requireLocalSession(request);
+
+    if (!credentialWritesEnabled()) {
+      return Response.json(
+        {
+          provider,
+          oauthConfigured: false,
+          error: CREDENTIAL_WRITES_DISABLED_MESSAGE,
+        },
+        {
+          status: 409,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
+
     const transaction = createOAuthTransaction({
       provider,
       request,

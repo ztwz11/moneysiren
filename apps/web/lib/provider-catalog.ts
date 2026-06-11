@@ -24,7 +24,11 @@ export const PROVIDER_KEYS = [
 
 export const LIVE_PROVIDER_KEYS = ["aws", "openai", "supabase", "cloudflare"] as const;
 export const AVAILABLE_PROVIDER_KEYS = LIVE_PROVIDER_KEYS;
-export const CONNECTABLE_PROVIDER_KEYS = PROVIDER_KEYS;
+export const LOCAL_PROVIDER_KEYS = ["codex-cli", "claude-cli"] as const;
+export const CONNECTABLE_PROVIDER_KEYS = [
+  ...AVAILABLE_PROVIDER_KEYS,
+  ...LOCAL_PROVIDER_KEYS,
+] as const satisfies readonly ProviderKey[];
 
 export type ProviderKey = (typeof PROVIDER_KEYS)[number];
 export type LiveProviderKey = (typeof LIVE_PROVIDER_KEYS)[number];
@@ -625,14 +629,14 @@ export const providerCatalog: readonly ProviderCatalogItem[] = [
     authMethods: ["Local CLI"],
     dataSurfaces: ["usage", "health"],
     liveGranularity: "usage_only",
-    requiredEnvKeys: ["STACKSPEND_CODEX_CLI_USAGE"],
-    credentialRequirements: ["Local codex command or Codex session logs"],
+    requiredEnvKeys: [],
+    credentialRequirements: ["Local codex command, STACKSPEND_CODEX_SESSIONS_DIR, CODEX_HOME, or Codex session logs"],
     setupLinks: [
       {
         label: "Codex CLI command",
         href: "https://help.openai.com/en/articles/11096431",
         description: "Install or inspect the local Codex CLI used for local usage estimates.",
-        valueHints: ["codex --version", "CODEX_HOME", ".codex/sessions"],
+        valueHints: ["codex --version", "STACKSPEND_CODEX_SESSIONS_DIR", "CODEX_HOME", ".codex/sessions"],
       },
     ],
   },
@@ -644,8 +648,8 @@ export const providerCatalog: readonly ProviderCatalogItem[] = [
     authMethods: ["Local CLI"],
     dataSurfaces: ["usage", "health"],
     liveGranularity: "usage_only",
-    requiredEnvKeys: ["STACKSPEND_CLAUDE_CLI_USAGE"],
-    credentialRequirements: ["Local claude command or Claude Code project logs"],
+    requiredEnvKeys: [],
+    credentialRequirements: ["Local claude command, CLAUDE_CONFIG_DIR, or Claude Code project logs"],
     setupLinks: [
       {
         label: "Claude CLI command",
@@ -667,4 +671,8 @@ export function isProviderKey(value: string): value is ProviderKey {
 
 export function isLiveProviderKey(value: string): value is LiveProviderKey {
   return (LIVE_PROVIDER_KEYS as readonly string[]).includes(value);
+}
+
+export function isConnectableProviderKey(value: string): value is (typeof CONNECTABLE_PROVIDER_KEYS)[number] {
+  return (CONNECTABLE_PROVIDER_KEYS as readonly string[]).includes(value);
 }

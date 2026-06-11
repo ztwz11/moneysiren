@@ -50,4 +50,24 @@ describe("loadStackSpendConfig", () => {
   it("rejects telemetry opt-in during v0.1", () => {
     expect(() => loadStackSpendConfig({ STACKSPEND_TELEMETRY: "true" })).toThrow(/telemetry/i);
   });
+
+  it("does not mark local CLI providers configured from unused required env flags", () => {
+    const config = loadStackSpendConfig({
+      STACKSPEND_CODEX_CLI_USAGE: "deprecated",
+      STACKSPEND_CLAUDE_CLI_USAGE: "deprecated",
+    });
+
+    expect(config.providers["codex-cli"]).toMatchObject({
+      configured: false,
+      requiredEnvKeys: [],
+      configuredEnvKeys: [],
+      missingEnvKeys: [],
+    });
+    expect(config.providers["claude-cli"]).toMatchObject({
+      configured: false,
+      requiredEnvKeys: [],
+      configuredEnvKeys: [],
+      missingEnvKeys: [],
+    });
+  });
 });

@@ -3,13 +3,18 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Emitter, Wry,
+    AppHandle, Emitter, Manager, Wry,
 };
 
+const DASHBOARD_BASE_URL: &str = "http://127.0.0.1:3000";
 const TRAY_ACTIONS: [TrayAction; 10] = [
     TrayAction::new("open-dashboard", "Open Dashboard", "/ko/dashboard/overview"),
     TrayAction::new("open-today-live", "Open Today Live", "/ko/dashboard/today"),
-    TrayAction::new("open-connections", "Open Connections", "/ko/settings/connections"),
+    TrayAction::new(
+        "open-connections",
+        "Open Connections",
+        "/ko/settings/connections",
+    ),
     TrayAction::new("refresh-now", "Refresh Now", ""),
     TrayAction::new("pause-30m", "Pause Notifications 30m", ""),
     TrayAction::new("pause-1h", "Pause Notifications 1h", ""),
@@ -35,7 +40,11 @@ struct TrayAction {
 
 impl TrayAction {
     const fn new(id: &'static str, label: &'static str, url_path: &'static str) -> Self {
-        Self { id, label, url_path }
+        Self {
+            id,
+            label,
+            url_path,
+        }
     }
 }
 
@@ -93,7 +102,28 @@ fn handle_tray_action(app: &AppHandle, action_id: &str) {
         return;
     }
 
+    if let Some(action) = TRAY_ACTIONS.iter().find(|action| action.id == action_id) {
+        if !action.url_path.is_empty() {
+            open_dashboard_route(app, action.url_path);
+            return;
+        }
+    }
+
     let _ = app.emit("stackspend://tray-action", action_id);
+}
+
+fn open_dashboard_route(app: &AppHandle, url_path: &str) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let url = format!("{}{}", DASHBOARD_BASE_URL, url_path);
+    let Ok(serialized_url) = serde_json::to_string(&url) else {
+        return;
+    };
+
+    let _ = window.eval(&format!("window.location.href = {};", serialized_url));
+    let _ = window.show();
+    let _ = window.set_focus();
 }
 
 #[tauri::command]

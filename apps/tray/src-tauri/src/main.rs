@@ -98,7 +98,10 @@ fn main() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![tray_native_status])
+        .invoke_handler(tauri::generate_handler![
+            tray_native_status,
+            hud_window_action
+        ])
         .run(tauri::generate_context!())
         .expect("failed to run StackSpend tray");
 }
@@ -207,5 +210,18 @@ fn tray_native_status() -> TrayNativeStatus {
         notifications_available: true,
         actions: &TRAY_ACTIONS,
         allowed_local_api_endpoints: &LOCAL_API_ENDPOINTS,
+    }
+}
+
+#[tauri::command]
+fn hud_window_action(app: AppHandle, action: String) -> Result<(), String> {
+    let Some(window) = app.get_webview_window("stackspend-hud") else {
+        return Err("StackSpend HUD window is not available.".to_string());
+    };
+
+    match action.as_str() {
+        "close" => window.close().map_err(|error| error.to_string()),
+        "minimize" => window.minimize().map_err(|error| error.to_string()),
+        _ => Err("Unsupported StackSpend HUD window action.".to_string()),
     }
 }

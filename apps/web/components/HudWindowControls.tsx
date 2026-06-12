@@ -7,6 +7,7 @@ import type { Locale } from "../lib/i18n";
 import type { NotificationPreferences } from "./NotificationSettingsModel";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+type HudWindowAction = "close" | "minimize";
 const HUD_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 interface HudWindowControlsProps {
@@ -40,7 +41,6 @@ export function HudWindowControls({ initialPreferences, labels, locale }: HudWin
   const [draftFontScale, setDraftFontScale] = useState(initialPreferences.hud.fontScale);
   const [draftOpacity, setDraftOpacity] = useState(initialPreferences.hud.opacity);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [tauriAvailable, setTauriAvailable] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -50,18 +50,13 @@ export function HudWindowControls({ initialPreferences, labels, locale }: HudWin
         return;
       }
 
-      setTauriAvailable(true);
       await hudWindow.setAlwaysOnTop(initialPreferences.hud.alwaysOnTop);
       const currentAlwaysOnTop = await hudWindow.isAlwaysOnTop();
 
       if (mounted) {
         setDraftAlwaysOnTop(currentAlwaysOnTop);
       }
-    }).catch(() => {
-      if (mounted) {
-        setTauriAvailable(false);
-      }
-    });
+    }).catch(() => {});
 
     return () => {
       mounted = false;
@@ -121,9 +116,8 @@ export function HudWindowControls({ initialPreferences, labels, locale }: HudWin
         <button
           aria-label={labels.minimize}
           className="hud-control-button"
-          disabled={!tauriAvailable}
           onClick={() => {
-            void runWindowAction((hudWindow) => hudWindow.minimize());
+            void handleWindowAction("minimize");
           }}
           title={labels.minimize}
           type="button"
@@ -133,9 +127,8 @@ export function HudWindowControls({ initialPreferences, labels, locale }: HudWin
         <button
           aria-label={labels.close}
           className="hud-control-button hud-control-button-danger"
-          disabled={!tauriAvailable}
           onClick={() => {
-            void runWindowAction((hudWindow) => hudWindow.close());
+            void handleWindowAction("close");
           }}
           title={labels.close}
           type="button"
@@ -241,16 +234,34 @@ export function HudWindowControls({ initialPreferences, labels, locale }: HudWin
       setSaveState("error");
     }
   }
+
+  async function handleWindowAction(action: HudWindowAction): Promise<void> {
+    try {
+      await runWindowAction(action);
+    } catch (error) {
+      console.error(`StackSpend HUD ${action} action failed.`, error);
+    }
+  }
 }
 
-async function runWindowAction(action: (hudWindow: TauriWindow) => Promise<void>): Promise<void> {
-  const hudWindow = await getCurrentHudWindow();
+async function runWindowAction(action: HudWindowAction): Promise<void> {
+  try {
+    const hudWindow = await getCurrentHudWindow();
 
-  if (hudWindow === null) {
-    return;
+    if (hudWindow !== null) {
+      if (action === "close") {
+        await hudWindow.close();
+      } else {
+        await hudWindow.minimize();
+      }
+      return;
+    }
+  } catch (error) {
+    console.warn("Tauri window API action failed; falling back to native HUD command.", error);
   }
 
-  await action(hudWindow);
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("hud_window_action", { action });
 }
 
 async function getCurrentHudWindow(): Promise<TauriWindow | null> {

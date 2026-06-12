@@ -86,6 +86,8 @@ assert(mainRs.includes("/hud?locale=ko"), "Rust HUD action must open the local H
 assert(mainRs.includes("STACKSPEND_DESKTOP_MODE"), "Rust entrypoint must support HUD-only desktop mode.");
 assert(mainRs.includes("DesktopMode::Hud"), "Rust entrypoint must branch into HUD-only desktop mode.");
 assert(mainRs.includes(".skip_taskbar(true)"), "HUD window must stay out of the taskbar.");
+assert(mainRs.includes("hud_window_action"), "Rust entrypoint must expose HUD window controls to the webview.");
+assert(mainRs.includes("get_webview_window(\"stackspend-hud\")"), "HUD window controls must target the HUD window label.");
 assert(mainRs.includes("secrets_returned: false"), "Native status must declare secretsReturned=false.");
 for (const actionId of actionIds) {
   assert(mainRs.includes(actionId), `Rust tray menu is missing action: ${actionId}`);

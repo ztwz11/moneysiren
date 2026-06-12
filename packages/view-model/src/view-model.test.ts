@@ -218,25 +218,25 @@ describe("shared view model", () => {
     expect(parseNotificationPreferences({
       hud: {
         fontScale: 2,
-        opacity: 0.1,
+        opacity: -0.1,
       },
     }).hud).toEqual({
       alwaysOnTop: DEFAULT_NOTIFICATION_PREFERENCES.hud.alwaysOnTop,
       fontScale: 1.3,
-      opacity: 0.65,
+      opacity: 0,
       selectedWidgets: DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets,
     });
     expect(parseNotificationPreferences({
       hud: {
         alwaysOnTop: false,
         fontScale: 0.87,
-        opacity: 0.92,
+        opacity: 0,
         selectedWidgets: ["openai_today_tokens"],
       },
     }).hud).toEqual({
       alwaysOnTop: false,
       fontScale: 0.87,
-      opacity: 0.92,
+      opacity: 0,
       selectedWidgets: ["openai_today_tokens"],
     });
     expect(parseNotificationPreferences({

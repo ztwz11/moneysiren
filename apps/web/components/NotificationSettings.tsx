@@ -334,7 +334,7 @@ export function NotificationSettingsPanel({ messages }: { messages: Messages }) 
                 <input
                   className="notification-range"
                   max="100"
-                  min="65"
+                  min="0"
                   onChange={(event) => setHudOpacity(Number(event.currentTarget.value) / 100)}
                   step="5"
                   type="range"

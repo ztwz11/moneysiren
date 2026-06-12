@@ -150,7 +150,7 @@ function parseHudPreferences(
       ? record.alwaysOnTop
       : DEFAULT_NOTIFICATION_PREFERENCES.hud.alwaysOnTop,
     fontScale: clampNumber(record.fontScale, 0.8, 1.3, DEFAULT_NOTIFICATION_PREFERENCES.hud.fontScale),
-    opacity: clampNumber(record.opacity, 0.65, 1, DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity),
+    opacity: clampNumber(record.opacity, 0, 1, DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity),
     selectedWidgets: parseSelectedWidgets(record.selectedWidgets, fallbackSelectedWidgets),
   };
 }

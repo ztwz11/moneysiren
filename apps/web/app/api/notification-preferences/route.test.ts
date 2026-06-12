@@ -82,7 +82,7 @@ describe("notification preference route", () => {
         hud: {
           alwaysOnTop: false,
           fontScale: 0.9,
-          opacity: 0.8,
+          opacity: 0,
           selectedWidgets: ["today_live_cost"],
         },
       }),
@@ -100,7 +100,7 @@ describe("notification preference route", () => {
         hud: {
           alwaysOnTop: false,
           fontScale: 0.9,
-          opacity: 0.8,
+          opacity: 0,
           selectedWidgets: ["today_live_cost"],
         },
       },

@@ -188,7 +188,7 @@ export function HudWindowControls({ initialPreferences, labels, locale }: HudWin
             <span>{labels.opacity}</span>
             <input
               max="100"
-              min="65"
+              min="0"
               onChange={(event) => {
                 setDraftOpacity(Number(event.currentTarget.value) / 100);
                 setSaveState("idle");

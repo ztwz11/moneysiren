@@ -69,6 +69,9 @@ assert(mainRs.includes("show_menu_on_left_click(true)"), "Tray menu should open 
 assert(mainRs.includes("get_webview_window(\"main\")"), "Tray menu actions must target the main Tauri GUI window.");
 assert(mainRs.includes("WebviewWindowBuilder"), "Rust entrypoint must build a HUD webview window.");
 assert(mainRs.includes("/hud?locale=ko"), "Rust HUD action must open the local HUD surface.");
+assert(mainRs.includes("STACKSPEND_DESKTOP_MODE"), "Rust entrypoint must support HUD-only desktop mode.");
+assert(mainRs.includes("DesktopMode::Hud"), "Rust entrypoint must branch into HUD-only desktop mode.");
+assert(mainRs.includes(".skip_taskbar(true)"), "HUD window must stay out of the taskbar.");
 assert(mainRs.includes("secrets_returned: false"), "Native status must declare secretsReturned=false.");
 for (const actionId of actionIds) {
   assert(mainRs.includes(actionId), `Rust tray menu is missing action: ${actionId}`);
@@ -83,6 +86,8 @@ for (const forbidden of ["provider credential", "raw SQLite", "OPENAI_ADMIN_KEY"
 const runWebWithTray = readFileSync(resolve(repoRoot, "tools/scripts/run-web-with-tray.mjs"), "utf8");
 assert(runWebWithTray.includes("stackspend-tray.exe"), "Built tray launcher must support the Windows executable.");
 assert(runWebWithTray.includes("StackSpend Tray.app/Contents/MacOS/StackSpend Tray"), "Built tray launcher must support the macOS .app executable.");
+assert(runWebWithTray.includes("STACKSPEND_DESKTOP_MODE"), "Runtime launcher must pass the desktop mode to Tauri.");
+assert(runWebWithTray.includes("--desktop-mode <tray|hud>"), "Runtime launcher usage must document HUD-only mode.");
 
 console.log("Tray native scaffold check passed.");
 

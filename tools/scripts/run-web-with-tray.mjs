@@ -11,12 +11,12 @@ let shuttingDown = false;
 const options = parseArgs(process.argv.slice(2));
 
 if (options === null) {
-  console.error("Usage: node tools/scripts/run-web-with-tray.mjs [--web-script <dev|start>] [--tray-mode <dev|built>] [--skip-web] [--dashboard-url <url>]");
+  console.error("Usage: node tools/scripts/run-web-with-tray.mjs [--web-script <dev|start>] [--tray-mode <dev|built>] [--desktop-mode <tray|hud>] [--skip-web] [--dashboard-url <url>]");
   process.exit(1);
 }
 
 if (options.help) {
-  console.log("Usage: node tools/scripts/run-web-with-tray.mjs [--web-script <dev|start>] [--tray-mode <dev|built>] [--skip-web] [--dashboard-url <url>]");
+  console.log("Usage: node tools/scripts/run-web-with-tray.mjs [--web-script <dev|start>] [--tray-mode <dev|built>] [--desktop-mode <tray|hud>] [--skip-web] [--dashboard-url <url>]");
   process.exit(0);
 }
 
@@ -26,7 +26,9 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
   });
 }
 
-const dashboardUrl = options.dashboardUrl ?? process.env.STACKSPEND_WEB_URL ?? "http://127.0.0.1:3000/ko/dashboard/overview";
+const dashboardUrl = options.dashboardUrl ??
+  process.env.STACKSPEND_WEB_URL ??
+  (options.desktopMode === "hud" ? "http://127.0.0.1:3000/hud?locale=ko" : "http://127.0.0.1:3000/ko/dashboard/overview");
 
 if (!options.skipWeb) {
   children.push(startProcess({
@@ -37,7 +39,7 @@ if (!options.skipWeb) {
 
 await waitForDashboard(dashboardUrl);
 
-const trayProcess = startTrayProcess(options.trayMode);
+const trayProcess = startTrayProcess(options.trayMode, options.desktopMode);
 if (trayProcess !== null) {
   children.push(trayProcess);
 }
@@ -45,7 +47,7 @@ if (trayProcess !== null) {
 function startProcess(processSpec) {
   const child = spawn(processSpec.command ?? process.execPath, processSpec.args, {
     cwd: repoRoot,
-    env: process.env,
+    env: processSpec.env ?? process.env,
     stdio: ["inherit", "pipe", "pipe"],
     windowsHide: false,
   });
@@ -71,11 +73,17 @@ function startProcess(processSpec) {
   return child;
 }
 
-function startTrayProcess(trayMode) {
+function startTrayProcess(trayMode, desktopMode) {
+  const trayEnv = {
+    ...process.env,
+    STACKSPEND_DESKTOP_MODE: desktopMode,
+  };
+
   if (trayMode === "dev") {
     return startProcess({
       name: "tray",
       args: [runPnpmScript, "--filter", "@stackspend/tray", "tauri:dev"],
+      env: trayEnv,
     });
   }
 
@@ -94,6 +102,7 @@ function startTrayProcess(trayMode) {
     name: "tray",
     command: executablePath,
     args: [],
+    env: trayEnv,
   });
 }
 
@@ -127,6 +136,7 @@ function builtTrayExecutableCandidates(platform) {
 function parseArgs(args) {
   const parsed = {
     dashboardUrl: null,
+    desktopMode: "tray",
     help: false,
     skipWeb: false,
     trayMode: "dev",
@@ -143,6 +153,29 @@ function parseArgs(args) {
 
     if (arg === "--skip-web") {
       parsed.skipWeb = true;
+      continue;
+    }
+
+    if (arg === "--desktop-mode") {
+      const value = args[index + 1];
+
+      if (value !== "tray" && value !== "hud") {
+        return null;
+      }
+
+      parsed.desktopMode = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg?.startsWith("--desktop-mode=")) {
+      const value = arg.slice("--desktop-mode=".length);
+
+      if (value !== "tray" && value !== "hud") {
+        return null;
+      }
+
+      parsed.desktopMode = value;
       continue;
     }
 

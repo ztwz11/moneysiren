@@ -35,6 +35,8 @@ node tools/scripts/run-pnpm.mjs --filter @stackspend/tray tauri:build:unsigned
 
 From the repository root, `npm run dev` starts the Next.js dashboard, waits for it to be ready, then starts this native taskbar/tray layer and Tauri dashboard window. Use `npm run dev:web` for a web-only session or `npm run dev:tray` for the tray layer only when the web dashboard is already running.
 
+Use `npm run dev:hud` for HUD-only desktop mode. This still starts the local web dashboard as the data/rendering source, but the visible desktop surface is the native Tauri HUD window: transparent, undecorated, always on top, and hidden from the taskbar. The normal dashboard window is hidden in this mode.
+
 For a production-style local run from the repository root, use `npm run build:local` and then `npm start`. This starts the built Next.js dashboard and launches the built unsigned Tauri executable for the current OS: `src-tauri/target/release/stackspend-tray.exe` on Windows, or the macOS `.app` executable under `src-tauri/target/release/bundle/macos/StackSpend Tray.app/Contents/MacOS/` with a release-binary fallback on macOS. Use `npm run start:web` for only the built web dashboard or `npm run start:tray` for only the built tray/Tauri executable when the web dashboard is already running.
 
 `tauri:build:unsigned` creates platform-native unsigned development artifacts through Tauri from the same source tree. On Windows this produces the configured Windows bundle target for the local toolchain; on macOS this produces the app bundle target when run on macOS. Signing remains a release-management step outside the local-first v0.1 runtime.

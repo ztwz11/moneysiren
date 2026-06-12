@@ -7,6 +7,7 @@ use tauri::{
 };
 
 const DASHBOARD_BASE_URL: &str = "http://127.0.0.1:3000";
+const DESKTOP_MODE_ENV_KEY: &str = "STACKSPEND_DESKTOP_MODE";
 const TRAY_ACTIONS: [TrayAction; 12] = [
     TrayAction::new("show-hud", "Show HUD", "/hud?locale=ko"),
     TrayAction::new("open-dashboard", "Open Dashboard", "/ko/dashboard/overview"),
@@ -72,10 +73,15 @@ fn main() {
             let handle = app.handle().clone();
             let menu = build_tray_menu(app.handle())?;
             let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
+            let desktop_mode = desktop_mode();
 
             TrayIconBuilder::with_id("stackspend-tray")
                 .icon(icon)
-                .tooltip("StackSpend")
+                .tooltip(if desktop_mode == DesktopMode::Hud {
+                    "StackSpend HUD"
+                } else {
+                    "StackSpend"
+                })
                 .menu(&menu)
                 .show_menu_on_left_click(true)
                 .on_menu_event(move |app_handle, event| {
@@ -83,11 +89,31 @@ fn main() {
                 })
                 .build(&handle)?;
 
+            if desktop_mode == DesktopMode::Hud {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+                open_hud_window(app.handle());
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![tray_native_status])
         .run(tauri::generate_context!())
         .expect("failed to run StackSpend tray");
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum DesktopMode {
+    Tray,
+    Hud,
+}
+
+fn desktop_mode() -> DesktopMode {
+    match std::env::var(DESKTOP_MODE_ENV_KEY) {
+        Ok(value) if value.trim().eq_ignore_ascii_case("hud") => DesktopMode::Hud,
+        _ => DesktopMode::Tray,
+    }
 }
 
 fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
@@ -152,20 +178,19 @@ fn open_hud_window(app: &AppHandle) {
     let Ok(parsed_url) = url.parse() else {
         return;
     };
-    let Ok(window) = WebviewWindowBuilder::new(
-        app,
-        "stackspend-hud",
-        WebviewUrl::External(parsed_url),
-    )
-    .title("StackSpend HUD")
-    .inner_size(340.0, 360.0)
-    .min_inner_size(280.0, 240.0)
-    .resizable(true)
-    .decorations(false)
-    .transparent(true)
-    .always_on_top(true)
-    .visible(true)
-    .build() else {
+    let Ok(window) =
+        WebviewWindowBuilder::new(app, "stackspend-hud", WebviewUrl::External(parsed_url))
+            .title("StackSpend HUD")
+            .inner_size(340.0, 360.0)
+            .min_inner_size(280.0, 240.0)
+            .resizable(true)
+            .decorations(false)
+            .transparent(true)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .visible(true)
+            .build()
+    else {
         return;
     };
 

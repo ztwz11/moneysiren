@@ -320,6 +320,20 @@ describe("local tool status", () => {
           },
           max_tokens: 200000,
         },
+        rate_limits: {
+          five_hour: {
+            used_tokens: 42000,
+            limit_tokens: 100000,
+            used_percentage: 42,
+            resets_at: "2026-06-09T04:00:00.000Z",
+          },
+          seven_day: {
+            used_tokens: 180000,
+            limit_tokens: 300000,
+            used_percentage: 60,
+            resets_at: "2026-06-16T00:00:00.000Z",
+          },
+        },
       }),
       JSON.stringify({
         type: "assistant",
@@ -414,14 +428,16 @@ describe("local tool status", () => {
           contextWindowTokens: 51000,
           contextWindowLimit: 200000,
           contextWindowPercent: 25.5,
-          fiveHourUsedTokens: 130,
+          fiveHourUsedTokens: 42130,
           fiveHourLimitTokens: 100000,
-          fiveHourLimitPercent: 0.13,
-          fiveHourRemainingTokens: 99870,
-          weeklyUsedTokens: 130,
+          fiveHourLimitPercent: 42,
+          fiveHourRemainingTokens: 57870,
+          weeklyUsedTokens: 180130,
           weeklyLimitTokens: 300000,
-          weeklyLimitPercent: 0.04,
-          weeklyRemainingTokens: 299870,
+          weeklyLimitPercent: 60,
+          weeklyRemainingTokens: 119870,
+          fiveHourResetAt: "2026-06-09T04:00:00.000Z",
+          weeklyResetAt: "2026-06-16T00:00:00.000Z",
           lastInputTokens: 80,
           lastOutputTokens: 20,
           lastCacheTokens: 30,
@@ -433,6 +449,125 @@ describe("local tool status", () => {
     });
     expect(JSON.stringify(status)).not.toContain("FAKE_SECRET_PROMPT_TEXT");
     expect(JSON.stringify(status)).not.toContain("FAKE_CLAUDE_PROMPT_TEXT");
+  });
+
+  it("maps Codex primary and secondary rate limit windows to five-hour and weekly status line metrics", async () => {
+    const homeDir = await mkdtemp(join(tmpdir(), "stackspend-codex-rate-limits-"));
+    const codexSessionDir = join(homeDir, ".codex", "sessions", "2026", "06", "10");
+    await mkdir(codexSessionDir, { recursive: true });
+    await writeFile(join(codexSessionDir, "rollout-rate-limits.jsonl"), JSON.stringify({
+      timestamp: "2026-06-10T01:00:00.000Z",
+      type: "turn_context",
+      turn_id: "turn_codex_rate_limits",
+      payload: {
+        model: "gpt-5",
+        rate_limits: {
+          primary: {
+            used_percent: 12.5,
+            window_minutes: 300,
+            resets_at: "2026-06-10T05:00:00.000Z",
+          },
+          secondary: {
+            used_percent: 34.25,
+            window_minutes: 10080,
+            resets_at: "2026-06-17T00:00:00.000Z",
+          },
+        },
+        info: {
+          model_context_window: 200000,
+          last_token_usage: {
+            input_tokens: 1200,
+            output_tokens: 100,
+            total_tokens: 1300,
+          },
+        },
+      },
+    }), "utf8");
+
+    const status = await readLocalAiCliStatus({
+      homeDir,
+      now: () => new Date("2026-06-10T01:30:00.000Z"),
+      providerKeys: ["codex-cli"],
+      runCommand: async (file) => ({
+        stdout: `${file} 1.2.3`,
+      }),
+    });
+    const codex = status.providers.find((provider) => provider.providerKey === "codex-cli");
+
+    expect(codex?.usage.statusLine).toMatchObject({
+      fiveHourLimitPercent: 12.5,
+      fiveHourResetAt: "2026-06-10T05:00:00.000Z",
+      weeklyLimitPercent: 34.25,
+      weeklyResetAt: "2026-06-17T00:00:00.000Z",
+      fiveHourLimitTokens: null,
+      fiveHourRemainingTokens: null,
+      weeklyLimitTokens: null,
+      weeklyRemainingTokens: null,
+      contextWindowTokens: 1200,
+      contextWindowLimit: 200000,
+      contextWindowPercent: 0.6,
+    });
+  });
+
+  it("uses the latest Codex rate limit snapshot instead of the highest historical percent", async () => {
+    const homeDir = await mkdtemp(join(tmpdir(), "stackspend-codex-latest-rate-limit-"));
+    const codexSessionDir = join(homeDir, ".codex", "sessions", "2026", "06", "10");
+    await mkdir(codexSessionDir, { recursive: true });
+    await writeFile(join(codexSessionDir, "rollout-rate-limit-history.jsonl"), [
+      JSON.stringify({
+        timestamp: "2026-06-10T01:00:00.000Z",
+        type: "turn_context",
+        payload: {
+          rate_limits: {
+            primary: {
+              used_percent: 100,
+              window_minutes: 300,
+              resets_at: "2026-06-10T02:00:00.000Z",
+            },
+            secondary: {
+              used_percent: 64,
+              window_minutes: 10080,
+              resets_at: "2026-06-17T00:00:00.000Z",
+            },
+          },
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-06-10T03:00:00.000Z",
+        type: "turn_context",
+        payload: {
+          rate_limits: {
+            primary: {
+              used_percent: 0,
+              window_minutes: 300,
+              resets_at: "2026-06-10T08:00:00.000Z",
+            },
+            secondary: {
+              used_percent: 13,
+              window_minutes: 10080,
+              resets_at: "2026-06-17T00:00:00.000Z",
+            },
+          },
+        },
+      }),
+    ].join("\n"), "utf8");
+
+    const status = await readLocalAiCliStatus({
+      homeDir,
+      now: () => new Date("2026-06-10T03:30:00.000Z"),
+      providerKeys: ["codex-cli"],
+      runCommand: async (file) => ({
+        stdout: `${file} 1.2.3`,
+      }),
+    });
+    const codex = status.providers.find((provider) => provider.providerKey === "codex-cli");
+
+    expect(codex?.usage.statusLine).toMatchObject({
+      fiveHourLimitPercent: 0,
+      fiveHourResetAt: "2026-06-10T08:00:00.000Z",
+      weeklyLimitPercent: 13,
+      weeklyResetAt: "2026-06-17T00:00:00.000Z",
+    });
   });
 
   it("does not skip current Codex logs when parent directory mtime is older than the month window", async () => {

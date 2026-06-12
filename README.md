@@ -50,11 +50,14 @@ Codex CLI and Claude CLI are local usage providers, not API billing providers. S
 
 ## Local Quickstart
 
+For platform-specific setup, npm CLI installation, source builds, and English mock-data screenshots, see the [Windows and macOS install guide](docs/install.md).
+
 ```bash
 pnpm install
 pnpm --filter @stackspend/cli dev
 pnpm --filter @stackspend/cli dev -- /doctor
 pnpm --filter @stackspend/cli dev -- doctor
+pnpm --filter @stackspend/cli dev -- modes
 pnpm --filter @stackspend/cli dev -- init
 pnpm --filter @stackspend/cli dev -- sync --provider mock
 pnpm --filter @stackspend/cli dev -- report daily --lang ko
@@ -103,9 +106,12 @@ npm install -g @stackspend/cli@alpha
 stackspend
 stackspend --version
 stackspend /version
+stackspend modes
+stackspend /modes
 stackspend doctor
 stackspend /doctor
 npx --package @stackspend/cli@alpha stackspend --version
+npx --package @stackspend/cli@alpha stackspend modes
 ```
 
 For local tarball review without publishing:
@@ -122,6 +128,7 @@ npm install "$TARBALL_PATH"
 npm exec stackspend
 npm exec stackspend -- --version
 npm exec stackspend -- /version
+npm exec stackspend -- modes
 npm exec stackspend -- doctor
 npm exec stackspend -- /doctor
 ```
@@ -134,6 +141,8 @@ Alpha CLI requirements:
 - Environment variables only for secrets; do not create `.env` or commit live credentials.
 - `stackspend --version`, `stackspend doctor`, and `stackspend sync --provider mock` do not require live provider credentials.
 
+`stackspend modes` shows the three runtime surfaces after npm installation: CLI automation, local web dashboard/runtime, and desktop tray/notifier. On macOS, the shared runtime lock defaults to `~/Library/Application Support/StackSpend/runtime.json` so the npm CLI and the native tray can discover the same local runtime.
+
 ## CLI Commands
 
 Running `stackspend` without subcommands prints a slash-command home guide. In a local TTY it may continue into a minimal line-based slash prompt; in CI or non-TTY package review it prints the guide and exits `0`.
@@ -143,6 +152,7 @@ pnpm --filter @stackspend/cli dev
 pnpm --filter @stackspend/cli dev -- --help
 pnpm --filter @stackspend/cli dev -- --version
 pnpm --filter @stackspend/cli dev -- doctor
+pnpm --filter @stackspend/cli dev -- modes
 pnpm --filter @stackspend/cli dev -- init
 pnpm --filter @stackspend/cli dev -- sync --provider mock
 pnpm --filter @stackspend/cli dev -- dashboard check
@@ -155,6 +165,7 @@ Slash aliases are thin wrappers around the same commands:
 pnpm --filter @stackspend/cli dev -- /help
 pnpm --filter @stackspend/cli dev -- /version
 pnpm --filter @stackspend/cli dev -- /doctor
+pnpm --filter @stackspend/cli dev -- /modes
 pnpm --filter @stackspend/cli dev -- /init
 pnpm --filter @stackspend/cli dev -- /dashboard
 pnpm --filter @stackspend/cli dev -- /dashboard check
@@ -203,6 +214,32 @@ pnpm --filter @stackspend/cli dev -- dashboard check --url http://localhost:3000
 ```
 
 The check command sanitizes the printed dashboard URL and ignores path, query, and hash values. It rejects URL credentials and does not start, package, or serve the Next.js app.
+
+## Desktop Tray, Notifications, and HUD
+
+The desktop tray/notifier opens the same local dashboard runtime and a compact always-on-top HUD at `/hud`. The HUD is a native desktop window, not a web page overlay. It is designed for long-running visibility with a compact row layout, configurable font size, configurable opacity, and a separate HUD widget list.
+
+Notification digest widgets and HUD widgets are configured independently:
+
+- Digest widgets control scheduled/local notification content.
+- HUD widgets control what stays visible in the floating desktop HUD.
+- Turning the digest off does not blank the HUD; the HUD reads `hud.selectedWidgets`.
+- HUD values are built from sanitized local dashboard/live usage models and do not expose provider secrets.
+
+From the web dashboard, open `Settings -> Notifications` and use the `Desktop app` section to set:
+
+- desktop app enabled/disabled state
+- HUD font size
+- HUD opacity
+- exactly which HUD items should stay visible
+
+From the CLI, inspect or update the same local preference file:
+
+```bash
+stackspend notify prefs list
+stackspend notify prefs hud-enable codex_weekly_percent
+stackspend notify prefs hud-disable month_forecast
+```
 
 ## Slack Report
 

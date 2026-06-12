@@ -4,9 +4,11 @@ import { buildTrayActions, DEFAULT_TRAY_ACTIONS, isTrayActionId, TRAY_ACTION_IDS
 describe("tray action model", () => {
   it("keeps the EPIC-08 action ids in the expected order", () => {
     expect(TRAY_ACTION_IDS).toEqual([
+      "show-hud",
       "open-dashboard",
       "open-today-live",
       "open-connections",
+      "open-notification-settings",
       "refresh-now",
       "pause-30m",
       "pause-1h",
@@ -25,7 +27,9 @@ describe("tray action model", () => {
     });
 
     expect(actions.map((action) => action.id)).toEqual(TRAY_ACTION_IDS);
+    expect(actions.find((action) => action.id === "show-hud")?.urlPath).toBe("/hud?locale=en");
     expect(actions.find((action) => action.id === "open-dashboard")?.urlPath).toBe("/en/dashboard/overview");
+    expect(actions.find((action) => action.id === "open-today-live")?.urlPath).toBe("/en/dashboard/today");
     expect(actions.find((action) => action.id === "start-at-login-toggle")?.label).toBe("Start at Login: On");
   });
 

@@ -14,6 +14,8 @@ stackspend open
 stackspend summary --json
 stackspend notify once --dry-run
 stackspend notify prefs list
+stackspend notify prefs hud-enable <widget>
+stackspend notify prefs hud-disable <widget>
 stackspend desktop status
 ```
 

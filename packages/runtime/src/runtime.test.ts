@@ -7,6 +7,7 @@ import {
   findRuntime,
   isLoopbackHost,
   readRuntimeLock,
+  resolveRuntimeLockPath,
   writeRuntimeLock,
   type LocalRuntime,
 } from "./index.js";
@@ -30,14 +31,33 @@ describe("runtime helpers", () => {
 
   it("writes and discovers a local-safe runtime lock", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "stackspend-runtime-"));
-    const lockPath = await writeRuntimeLock(RUNTIME, { cwd });
-    const found = await findRuntime({ cwd });
-    const serialized = JSON.stringify(await readRuntimeLock({ cwd }));
+    const lockOptions = {
+      cwd,
+      lockPath: ".stackspend/runtime.json",
+    };
+    const lockPath = await writeRuntimeLock(RUNTIME, lockOptions);
+    const found = await findRuntime(lockOptions);
+    const serialized = JSON.stringify(await readRuntimeLock(lockOptions));
 
     expect(lockPath.endsWith(join(".stackspend", "runtime.json"))).toBe(true);
     expect(found).toEqual(RUNTIME);
     expect(serialized).not.toContain("sk-");
     expect(serialized).not.toContain("hooks.slack.com");
+  });
+
+  it("uses the macOS Application Support runtime lock by default on darwin", async () => {
+    if (process.platform !== "darwin") {
+      return;
+    }
+
+    const home = await mkdtemp(join(tmpdir(), "stackspend-runtime-home-"));
+    const lockPath = resolveRuntimeLockPath({
+      env: {
+        HOME: home,
+      },
+    });
+
+    expect(lockPath).toBe(join(home, "Library", "Application Support", "StackSpend", "runtime.json"));
   });
 
   it("does not accept non-loopback lock URLs", async () => {

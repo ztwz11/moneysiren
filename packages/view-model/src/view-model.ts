@@ -158,10 +158,13 @@ export interface NotificationDigest extends LocalSafeEnvelope {
 
 export interface NotificationDigestItem {
   widgetKey: NotificationWidgetKey;
-  kind: "summary" | "live" | "risk";
+  kind: "summary" | "live" | "risk" | "usage" | "health";
   severity: ViewModelRiskSeverity;
   label: string;
   value: string;
+  freshness?: TodayLiveProviderView["freshness"];
+  confidence?: TodayLiveProviderView["confidence"];
+  clickPath?: string;
 }
 
 export interface TrayMenuModel extends LocalSafeEnvelope {
@@ -176,6 +179,9 @@ export interface TrayMenuItem {
   label: string;
   enabled: boolean;
   kind: "command" | "separator" | "status";
+  action?: string;
+  urlPath?: string;
+  durationMinutes?: number;
 }
 
 export interface ReadOperationsOverviewOptions {
@@ -200,6 +206,12 @@ export interface ReadTrayMenuModelOptions extends ReadNotificationDigestOptions 
 }
 
 const DEFAULT_CURRENCY = "USD";
+const OPENAI_PROVIDER_KEY = "openai";
+const AWS_PROVIDER_KEY = "aws";
+const SUPABASE_PROVIDER_KEY = "supabase";
+const CLOUDFLARE_PROVIDER_KEY = "cloudflare";
+const CODEX_CLI_PROVIDER_KEY = "codex-cli";
+const CLAUDE_CLI_PROVIDER_KEY = "claude-cli";
 const SENSITIVE_TEXT_PATTERN =
   /(https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]+|\b(?:sk|sbp|xox[baprs])[-_][A-Za-z0-9_-]+\b|\bacct[_-][A-Za-z0-9_-]+\b|\b(?:proj|project)[_-][A-Za-z0-9_-]+\b|\b(?:in|invoice)[_-][A-Za-z0-9_-]+\b|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/gi;
 
@@ -391,42 +403,10 @@ export function buildNotificationDigest(
     : warningAlerts > 0 || overview.summary.healthStatus !== "ok"
       ? "attention"
       : "ok";
-  const items: NotificationDigestItem[] = [
-    {
-      widgetKey: "month_forecast",
-      kind: "summary",
-      severity: "info",
-      label: "Month estimate",
-      value: formatMinorAmount(overview.summary.totalEstimatedAmountMinor, overview.summary.currency),
-    },
-    {
-      widgetKey: "today_live_cost",
-      kind: "live",
-      severity: "info",
-      label: "Today live",
-      value: todayLive.summary.todayLiveAmountMinor === null
-        ? "Not available"
-        : formatMinorAmount(todayLive.summary.todayLiveAmountMinor, todayLive.summary.currency),
-    },
-  ];
-
-  if (criticalAlerts > 0) {
-    items.push({
-      widgetKey: "risk_high_count",
-      kind: "risk",
-      severity: "critical",
-      label: "Critical alerts",
-      value: String(criticalAlerts),
-    });
-  } else if (warningAlerts > 0) {
-    items.push({
-      widgetKey: "risk_high_count",
-      kind: "risk",
-      severity: "warning",
-      label: "Warnings",
-      value: String(warningAlerts),
-    });
-  }
+  const items = buildDigestItems(overview, todayLive, {
+    criticalAlerts,
+    warningAlerts,
+  });
 
   return {
     generatedAt: overview.generatedAt,
@@ -457,9 +437,13 @@ function filterDigestItems(
   items: readonly NotificationDigestItem[],
   selectedWidgets: readonly NotificationWidgetKey[],
 ): NotificationDigestItem[] {
-  const selected = new Set(selectedWidgets);
+  const itemsByWidget = new Map(items.map((item) => [item.widgetKey, item]));
 
-  return items.filter((item) => selected.has(item.widgetKey));
+  return selectedWidgets.flatMap((widgetKey) => {
+    const item = itemsByWidget.get(widgetKey);
+
+    return item === undefined ? [] : [item];
+  });
 }
 
 export function buildTrayMenuModel(digest: NotificationDigest): TrayMenuModel {
@@ -486,17 +470,51 @@ export function buildTrayMenuModel(digest: NotificationDigest): TrayMenuModel {
         enabled: false,
         kind: "status",
       },
+      ...digest.items.map((item) => ({
+        id: `widget-${item.widgetKey}`,
+        label: `${item.label}: ${item.value}`,
+        enabled: false,
+        kind: "status" as const,
+        ...(item.clickPath === undefined ? {} : { urlPath: item.clickPath }),
+      })),
+      ...(digest.items.length === 0
+        ? []
+        : [{
+            id: "separator-widgets",
+            label: "",
+            enabled: false,
+            kind: "separator" as const,
+          }]),
+      {
+        id: "show-hud",
+        label: "Show HUD",
+        enabled: true,
+        kind: "command",
+        action: "show_hud",
+        urlPath: "/hud?locale=ko",
+      },
       {
         id: "open-dashboard",
         label: "Open Dashboard",
         enabled: true,
         kind: "command",
+        action: "open_url",
+        urlPath: "/ko/dashboard/overview",
+      },
+      {
+        id: "open-notification-settings",
+        label: "Notification Settings",
+        enabled: true,
+        kind: "command",
+        action: "open_url",
+        urlPath: "/ko/settings/notifications",
       },
       {
         id: "refresh-now",
         label: "Refresh Now",
         enabled: true,
         kind: "command",
+        action: "refresh_live",
       },
       {
         id: "separator-main",
@@ -509,8 +527,197 @@ export function buildTrayMenuModel(digest: NotificationDigest): TrayMenuModel {
         label: "Quit",
         enabled: true,
         kind: "command",
+        action: "quit",
       },
     ],
+  };
+}
+
+function buildDigestItems(
+  overview: OperationsOverview,
+  todayLive: TodayLiveView,
+  alerts: {
+    criticalAlerts: number;
+    warningAlerts: number;
+  },
+): NotificationDigestItem[] {
+  const riskCount = alerts.criticalAlerts + alerts.warningAlerts;
+  const staleConnectionCount = todayLive.providers.filter((provider) =>
+    provider.freshness === "stale" ||
+    provider.freshness === "error" ||
+    provider.freshness === "locked" ||
+    provider.freshness === "unavailable"
+  ).length;
+  const awsOverview = findOverviewProvider(overview, AWS_PROVIDER_KEY);
+  const openAiToday = amountFromTodayProviders(todayLive, OPENAI_PROVIDER_KEY);
+  const openAiTokens = tokenTotalFromProviders(todayProviders(todayLive, OPENAI_PROVIDER_KEY));
+  const supabaseOverview = findOverviewProvider(overview, SUPABASE_PROVIDER_KEY);
+  const supabaseToday = firstTodayProvider(todayLive, SUPABASE_PROVIDER_KEY);
+  const cloudflareOverview = findOverviewProvider(overview, CLOUDFLARE_PROVIDER_KEY);
+  const cloudflareToday = amountFromTodayProviders(todayLive, CLOUDFLARE_PROVIDER_KEY);
+
+  return [
+    {
+      widgetKey: "month_forecast",
+      kind: "summary",
+      severity: "info",
+      label: "Month estimate",
+      value: formatMinorAmount(overview.summary.totalEstimatedAmountMinor, overview.summary.currency),
+      clickPath: "/ko/dashboard/forecast",
+    },
+    {
+      widgetKey: "today_live_cost",
+      kind: "live",
+      severity: "info",
+      label: "Today live",
+      value: todayLive.summary.todayLiveAmountMinor === null
+        ? "Not available"
+        : formatMinorAmount(todayLive.summary.todayLiveAmountMinor, todayLive.summary.currency),
+      clickPath: "/ko/dashboard/today",
+    },
+    {
+      widgetKey: "risk_high_count",
+      kind: "risk",
+      severity: alerts.criticalAlerts > 0 ? "critical" : alerts.warningAlerts > 0 ? "warning" : "info",
+      label: "High risks",
+      value: String(riskCount),
+      clickPath: "/ko/dashboard/risks",
+    },
+    {
+      widgetKey: "stale_connection_count",
+      kind: "risk",
+      severity: staleConnectionCount > 0 ? "warning" : "info",
+      label: "Stale connections",
+      value: String(staleConnectionCount),
+      clickPath: "/ko/settings/connections",
+    },
+    {
+      widgetKey: "aws_month_forecast",
+      kind: "summary",
+      severity: providerRiskSeverity(awsOverview),
+      label: "AWS month estimate",
+      value: awsOverview === undefined
+        ? "Not available"
+        : formatMinorAmount(awsOverview.estimatedAmountMinor, awsOverview.currency),
+      clickPath: "/ko/services/aws",
+    },
+    {
+      widgetKey: "openai_today_cost",
+      kind: "live",
+      severity: "info",
+      label: "OpenAI today",
+      value: openAiToday === null ? "Not available" : formatMinorAmount(openAiToday.amountMinor, openAiToday.currency),
+      clickPath: "/ko/services/openai",
+    },
+    {
+      widgetKey: "openai_today_tokens",
+      kind: "usage",
+      severity: "info",
+      label: "OpenAI tokens",
+      value: openAiTokens === null ? "Not available" : formatTokens(openAiTokens),
+      clickPath: "/ko/services/openai",
+    },
+    cliRemainingPercentItem({
+      widgetKey: "claude_five_hour_percent",
+      label: "Claude 5h remaining",
+      providerKey: CLAUDE_CLI_PROVIDER_KEY,
+      todayLive,
+      usedPercentMetricKey: "five_hour_limit_percent",
+      remainingTokensMetricKey: "five_hour_remaining_tokens",
+      usedTokensMetricKey: "five_hour_tokens",
+      clickPath: "/ko/services/claude-cli",
+    }),
+    cliRemainingPercentItem({
+      widgetKey: "claude_weekly_percent",
+      label: "Claude weekly remaining",
+      providerKey: CLAUDE_CLI_PROVIDER_KEY,
+      todayLive,
+      usedPercentMetricKey: "weekly_limit_percent",
+      remainingTokensMetricKey: "weekly_remaining_tokens",
+      usedTokensMetricKey: "weekly_tokens",
+      clickPath: "/ko/services/claude-cli",
+    }),
+    cliRemainingPercentItem({
+      widgetKey: "codex_five_hour_percent",
+      label: "Codex 5h remaining",
+      providerKey: CODEX_CLI_PROVIDER_KEY,
+      todayLive,
+      usedPercentMetricKey: "five_hour_limit_percent",
+      remainingTokensMetricKey: "five_hour_remaining_tokens",
+      usedTokensMetricKey: "five_hour_tokens",
+      clickPath: "/ko/services/codex-cli",
+    }),
+    cliRemainingPercentItem({
+      widgetKey: "codex_weekly_percent",
+      label: "Codex weekly remaining",
+      providerKey: CODEX_CLI_PROVIDER_KEY,
+      todayLive,
+      usedPercentMetricKey: "weekly_limit_percent",
+      remainingTokensMetricKey: "weekly_remaining_tokens",
+      usedTokensMetricKey: "weekly_tokens",
+      clickPath: "/ko/services/codex-cli",
+    }),
+    {
+      widgetKey: "supabase_usage_health",
+      kind: "health",
+      severity: healthSeverity(supabaseOverview?.healthStatus),
+      label: "Supabase health",
+      value: providerHealthValue(supabaseOverview, supabaseToday),
+      ...(supabaseToday === undefined
+        ? {}
+        : {
+            freshness: supabaseToday.freshness,
+            confidence: supabaseToday.confidence,
+          }),
+      clickPath: "/ko/services/supabase",
+    },
+    {
+      widgetKey: "cloudflare_month_to_date",
+      kind: "summary",
+      severity: providerRiskSeverity(cloudflareOverview),
+      label: "Cloudflare MTD",
+      value: cloudflareOverview === undefined
+        ? cloudflareToday === null
+          ? "Not available"
+          : formatMinorAmount(cloudflareToday.amountMinor, cloudflareToday.currency)
+        : formatMinorAmount(cloudflareOverview.estimatedAmountMinor, cloudflareOverview.currency),
+      clickPath: "/ko/services/cloudflare",
+    },
+  ];
+}
+
+function cliRemainingPercentItem(options: {
+  widgetKey: NotificationWidgetKey;
+  label: string;
+  providerKey: string;
+  todayLive: TodayLiveView;
+  usedPercentMetricKey: string;
+  remainingTokensMetricKey: string;
+  usedTokensMetricKey: string;
+  clickPath: string;
+}): NotificationDigestItem {
+  const providers = todayProviders(options.todayLive, options.providerKey);
+  const percent = remainingPercentFromMetrics(
+    providers,
+    options.remainingTokensMetricKey,
+    options.usedTokensMetricKey,
+    options.usedPercentMetricKey,
+  );
+  const firstProvider = providers[0];
+
+  return {
+    widgetKey: options.widgetKey,
+    kind: "usage",
+    severity: remainingPercentSeverity(percent),
+    label: options.label,
+    value: percent === null ? "Not available" : formatPercent(percent),
+    ...(firstProvider === undefined
+      ? {}
+      : {
+          freshness: firstProvider.freshness,
+          confidence: firstProvider.confidence,
+        }),
+    clickPath: options.clickPath,
   };
 }
 
@@ -555,6 +762,170 @@ function todayProvidersFromStore(store: ViewModelStore, dateKey: string): TodayL
       };
     })
     .sort((first, second) => first.providerKey.localeCompare(second.providerKey));
+}
+
+function findOverviewProvider(
+  overview: OperationsOverview,
+  providerKey: string,
+): OperationsOverviewProvider | undefined {
+  return overview.providers.find((provider) => provider.providerKey === providerKey);
+}
+
+function todayProviders(todayLive: TodayLiveView, providerKey: string): TodayLiveProviderView[] {
+  return todayLive.providers.filter((provider) => provider.providerKey === providerKey);
+}
+
+function firstTodayProvider(todayLive: TodayLiveView, providerKey: string): TodayLiveProviderView | undefined {
+  return todayProviders(todayLive, providerKey)[0];
+}
+
+function amountFromTodayProviders(
+  todayLive: TodayLiveView,
+  providerKey: string,
+): { amountMinor: number; currency: string } | null {
+  const providers = todayProviders(todayLive, providerKey).filter((provider) =>
+    provider.included && provider.todayLiveAmountMinor !== null
+  );
+
+  if (providers.length === 0) {
+    return null;
+  }
+
+  const currency = singleCurrency(providers.map((provider) => provider.currency));
+
+  if (currency === null) {
+    return null;
+  }
+
+  return {
+    amountMinor: sum(providers.map((provider) => provider.todayLiveAmountMinor ?? 0)),
+    currency,
+  };
+}
+
+function tokenTotalFromProviders(providers: readonly TodayLiveProviderView[]): number | null {
+  const totalTokens = metricSum(providers, "total_tokens");
+
+  if (totalTokens !== null) {
+    return totalTokens;
+  }
+
+  const componentTokens = sumNullable([
+    metricSum(providers, "input_tokens"),
+    metricSum(providers, "output_tokens"),
+    metricSum(providers, "cache_tokens"),
+    metricSum(providers, "reasoning_tokens"),
+  ]);
+
+  return componentTokens === 0 ? null : componentTokens;
+}
+
+function metricSum(providers: readonly TodayLiveProviderView[], metricKey: string): number | null {
+  let found = false;
+  let total = 0;
+
+  for (const provider of providers) {
+    for (const metric of provider.metrics) {
+      if (metric.key !== metricKey) {
+        continue;
+      }
+
+      found = true;
+      total += metric.value;
+    }
+  }
+
+  return found ? total : null;
+}
+
+function metricFirst(providers: readonly TodayLiveProviderView[], metricKey: string): number | null {
+  for (const provider of providers) {
+    const metric = provider.metrics.find((item) => item.key === metricKey);
+
+    if (metric !== undefined) {
+      return metric.value;
+    }
+  }
+
+  return null;
+}
+
+function remainingPercentFromMetrics(
+  providers: readonly TodayLiveProviderView[],
+  remainingTokensMetricKey: string,
+  usedTokensMetricKey: string,
+  usedPercentMetricKey: string,
+): number | null {
+  const remainingTokens = metricSum(providers, remainingTokensMetricKey);
+  const usedTokens = metricSum(providers, usedTokensMetricKey);
+
+  if (remainingTokens !== null && usedTokens !== null) {
+    const totalTokens = remainingTokens + usedTokens;
+
+    if (totalTokens > 0) {
+      return clampPercent((remainingTokens / totalTokens) * 100);
+    }
+  }
+
+  const usedPercent = metricFirst(providers, usedPercentMetricKey);
+
+  return usedPercent === null ? null : clampPercent(100 - usedPercent);
+}
+
+function providerRiskSeverity(provider: OperationsOverviewProvider | undefined): ViewModelRiskSeverity {
+  if (provider?.riskLevel === "critical") {
+    return "critical";
+  }
+
+  if (provider?.riskLevel === "warning") {
+    return "warning";
+  }
+
+  return "info";
+}
+
+function healthSeverity(status: ViewModelHealthStatus | undefined): ViewModelRiskSeverity {
+  if (status === "down") {
+    return "critical";
+  }
+
+  if (status === "degraded" || status === "unknown") {
+    return "warning";
+  }
+
+  return "info";
+}
+
+function remainingPercentSeverity(percent: number | null): ViewModelRiskSeverity {
+  if (percent === null) {
+    return "info";
+  }
+
+  if (percent <= 10) {
+    return "critical";
+  }
+
+  if (percent <= 25) {
+    return "warning";
+  }
+
+  return "info";
+}
+
+function providerHealthValue(
+  overviewProvider: OperationsOverviewProvider | undefined,
+  todayProvider: TodayLiveProviderView | undefined,
+): string {
+  if (overviewProvider === undefined && todayProvider === undefined) {
+    return "Not available";
+  }
+
+  const values = [
+    overviewProvider === undefined ? null : `health ${overviewProvider.healthStatus}`,
+    todayProvider === undefined ? null : `live ${todayProvider.freshness}`,
+  ].filter((value): value is string => value !== null);
+
+  return values.join(" / ");
 }
 
 function summarizeHealth(statuses: readonly ViewModelHealthStatus[]): ViewModelHealthStatus {
@@ -662,8 +1033,32 @@ function formatMinorAmount(amountMinor: number, currency: string): string {
   return `${currency} ${(amountMinor / 100).toFixed(2)}`;
 }
 
+function formatTokens(tokens: number): string {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(tokens);
+}
+
+function formatPercent(percent: number): string {
+  const rounded = Number.isInteger(percent) ? percent.toFixed(0) : percent.toFixed(1);
+
+  return `${rounded}%`;
+}
+
 function sum(values: readonly number[]): number {
   return values.reduce((total, value) => total + value, 0);
+}
+
+function sumNullable(values: readonly (number | null)[]): number {
+  return values.reduce<number>((total, value) => total + (value ?? 0), 0);
+}
+
+function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, value));
 }
 
 function safeText(value: string): string {

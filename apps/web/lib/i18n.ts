@@ -147,6 +147,12 @@ export interface Messages {
     desktopStatus: string;
     desktopNotConnected: string;
     desktopAppInfo: string;
+    hudSettingsTitle: string;
+    hudSettingsSubtitle: string;
+    hudFontSize: string;
+    hudOpacity: string;
+    hudWidgetsTitle: string;
+    hudWidgetsSubtitle: string;
     testNotification: string;
     testNotificationSent: string;
     notificationLocalOnly: string;
@@ -425,10 +431,16 @@ export const messages = {
       desktopStatusTitle: "Desktop app",
       desktopStatus: "Status",
       desktopNotConnected: "Not connected",
-      desktopAppInfo: "The tray app is planned as a thin local controller. It should read sanitized preferences and never collect secrets.",
+      desktopAppInfo: "The tray/HUD app reads this local preference and sanitized digest data. It never receives provider secrets.",
+      hudSettingsTitle: "HUD display",
+      hudSettingsSubtitle: "Tune the always-on-top HUD for compact, long-running desktop use.",
+      hudFontSize: "Font size",
+      hudOpacity: "Opacity",
+      hudWidgetsTitle: "HUD items",
+      hudWidgetsSubtitle: "Choose exactly what stays visible in the floating HUD.",
       testNotification: "Test notification",
       testNotificationSent: "Preview generated",
-      notificationLocalOnly: "Local preview only. No webhook, provider call, or desktop notification is sent.",
+      notificationLocalOnly: "Local preview only. No webhook or provider call is sent; the installed desktop app can consume the same digest.",
       notificationPreview: "Preview",
       saveNotifications: "Save notifications",
       notificationPrefsSaved: "Notification preferences saved locally.",
@@ -734,10 +746,16 @@ export const messages = {
       desktopStatusTitle: "Desktop app",
       desktopStatus: "상태",
       desktopNotConnected: "연결 안 됨",
-      desktopAppInfo: "Tray app은 얇은 로컬 컨트롤러로 계획되어 있습니다. 정리된 환경설정만 읽고 secret은 수집하지 않아야 합니다.",
+      desktopAppInfo: "Tray/HUD 앱은 이 로컬 설정과 정리된 digest 데이터만 읽습니다. provider secret은 받지 않습니다.",
+      hudSettingsTitle: "HUD 표시",
+      hudSettingsSubtitle: "항상 위에 띄워둘 수 있도록 작고 오래 보기 편하게 조절합니다.",
+      hudFontSize: "폰트 크기",
+      hudOpacity: "투명도",
+      hudWidgetsTitle: "HUD 표시 항목",
+      hudWidgetsSubtitle: "떠 있는 HUD에 계속 보여줄 항목을 고릅니다.",
       testNotification: "테스트 알림",
       testNotificationSent: "Preview 생성됨",
-      notificationLocalOnly: "로컬 미리보기 전용입니다. webhook, provider 호출, desktop 알림은 전송하지 않습니다.",
+      notificationLocalOnly: "로컬 미리보기 전용입니다. webhook이나 provider 호출은 보내지 않고, 설치된 데스크톱 앱이 같은 digest를 읽을 수 있습니다.",
       notificationPreview: "Preview",
       saveNotifications: "알림 저장",
       notificationPrefsSaved: "알림 환경설정을 로컬에 저장했습니다.",
@@ -1043,10 +1061,16 @@ export const messages = {
       desktopStatusTitle: "Desktop app",
       desktopStatus: "状態",
       desktopNotConnected: "未接続",
-      desktopAppInfo: "Tray app は薄いローカルコントローラーとして予定されています。整形済みの設定だけを読み、secret は収集しない設計です。",
+      desktopAppInfo: "Tray/HUD app はこのローカル設定と整形済み digest だけを読みます。provider secret は受け取りません。",
+      hudSettingsTitle: "HUD 表示",
+      hudSettingsSubtitle: "常時表示しやすい小さな HUD に調整します。",
+      hudFontSize: "フォントサイズ",
+      hudOpacity: "透明度",
+      hudWidgetsTitle: "HUD 表示項目",
+      hudWidgetsSubtitle: "浮かせた HUD に表示する項目を選びます。",
       testNotification: "テスト通知",
       testNotificationSent: "Preview 生成済み",
-      notificationLocalOnly: "ローカルプレビュー専用です。webhook、provider 呼び出し、desktop 通知は送信しません。",
+      notificationLocalOnly: "ローカルプレビュー専用です。webhook や provider 呼び出しは送信せず、インストール済み desktop app が同じ digest を読めます。",
       notificationPreview: "Preview",
       saveNotifications: "通知を保存",
       notificationPrefsSaved: "通知設定をローカルに保存しました。",

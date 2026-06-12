@@ -16,9 +16,11 @@ const expectedFiles = [
   "src-tauri/icons/tray-template.svg",
 ];
 const actionIds = [
+  "show-hud",
   "open-dashboard",
   "open-today-live",
   "open-connections",
+  "open-notification-settings",
   "refresh-now",
   "pause-30m",
   "pause-1h",
@@ -44,7 +46,11 @@ for (const scriptName of ["native:check", "icons:generate", "tauri:dev", "tauri:
 
 const config = JSON.parse(read("src-tauri/tauri.conf.json"));
 assert(config.bundle?.active === true, "Tauri bundle.active must be true for packaging.");
-assert(JSON.stringify(config.bundle?.targets) === '["nsis"]', "Tauri bundle.targets must default to NSIS on Windows.");
+const bundleTargets = config.bundle?.targets ?? [];
+assert(Array.isArray(bundleTargets), "Tauri bundle.targets must be a target list.");
+for (const target of ["app", "nsis"]) {
+  assert(bundleTargets.includes(target), `Tauri bundle.targets must include ${target}.`);
+}
 assert(Array.isArray(config.app?.windows) && config.app.windows.length === 1, "Tauri GUI must create one main window.");
 assert(config.app.windows[0]?.label === "main", "Tauri GUI window label must be main.");
 assert(config.app.windows[0]?.url === "http://127.0.0.1:3000/ko/dashboard/overview", "Tauri GUI window must open the local dashboard.");
@@ -59,6 +65,8 @@ const mainRs = read("src-tauri/src/main.rs");
 assert(mainRs.includes("TrayIconBuilder"), "Rust entrypoint must build a tray icon.");
 assert(mainRs.includes("show_menu_on_left_click(true)"), "Tray menu should open from the tray icon.");
 assert(mainRs.includes("get_webview_window(\"main\")"), "Tray menu actions must target the main Tauri GUI window.");
+assert(mainRs.includes("WebviewWindowBuilder"), "Rust entrypoint must build a HUD webview window.");
+assert(mainRs.includes("/hud?locale=ko"), "Rust HUD action must open the local HUD surface.");
 assert(mainRs.includes("secrets_returned: false"), "Native status must declare secretsReturned=false.");
 for (const actionId of actionIds) {
   assert(mainRs.includes(actionId), `Rust tray menu is missing action: ${actionId}`);

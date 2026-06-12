@@ -22,6 +22,8 @@ npm install -g @stackspend/cli@alpha
 stackspend
 stackspend --version
 stackspend /version
+stackspend modes
+stackspend /modes
 stackspend doctor
 stackspend /doctor
 stackspend dashboard check
@@ -33,6 +35,7 @@ One-off execution:
 npx --package @stackspend/cli@alpha stackspend
 npx --package @stackspend/cli@alpha stackspend --version
 npx --package @stackspend/cli@alpha stackspend /version
+npx --package @stackspend/cli@alpha stackspend modes
 npx --package @stackspend/cli@alpha stackspend doctor
 npx --package @stackspend/cli@alpha stackspend /doctor
 npx --package @stackspend/cli@alpha stackspend dashboard check
@@ -58,6 +61,7 @@ npm install /path/to/stackspend-cli-0.1.0-alpha.0.tgz
 npm exec stackspend
 npm exec stackspend -- --version
 npm exec stackspend -- /version
+npm exec stackspend -- modes
 npm exec stackspend -- doctor
 npm exec stackspend -- /doctor
 npm exec stackspend -- dashboard check
@@ -72,6 +76,7 @@ npm init -y
 npm install C:\path\to\stackspend-cli-0.1.0-alpha.0.tgz
 npm exec stackspend
 npm exec stackspend -- --version
+npm exec stackspend -- modes
 npm exec stackspend -- /doctor
 ```
 
@@ -89,6 +94,7 @@ Supported slash aliases:
 stackspend /help
 stackspend /version
 stackspend /doctor
+stackspend /modes
 stackspend /init
 stackspend /dashboard
 stackspend /dashboard check
@@ -102,6 +108,16 @@ stackspend /quit
 ```
 
 Slash aliases are thin wrappers around the existing CLI commands. Home/help does not call provider APIs, read secret values, create `.env`, or enable telemetry. ANSI color respects `NO_COLOR`, `FORCE_COLOR`, and `TERM=dumb`.
+
+## Runtime Modes
+
+`stackspend modes` prints the three supported surfaces after an npm install:
+
+- CLI automation from the npm package.
+- Local web dashboard/runtime, with `stackspend serve` providing the sanitized local API runtime.
+- Desktop tray/notifier status and notification preview commands, while the native Tauri tray binary remains a separate repo/native build artifact for this alpha.
+
+On macOS, the shared runtime lock defaults to `~/Library/Application Support/StackSpend/runtime.json` so a globally installed CLI and the desktop tray can discover the same local runtime. Set `STACKSPEND_RUNTIME_LOCK_PATH` only when you intentionally need an isolated runtime lock for testing.
 
 ## Dashboard Check
 

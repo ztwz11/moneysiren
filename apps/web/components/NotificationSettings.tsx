@@ -26,9 +26,15 @@ type SaveState = "idle" | "loading" | "saving" | "saved" | "error";
 export function NotificationSettingsPanel({ messages }: { messages: Messages }) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(DEFAULT_NOTIFICATION_PREFERENCES.enabled);
   const [digestEnabled, setDigestEnabled] = useState(DEFAULT_NOTIFICATION_PREFERENCES.digestEnabled);
+  const [desktopEnabled, setDesktopEnabled] = useState(DEFAULT_NOTIFICATION_PREFERENCES.desktopEnabled);
   const [digestInterval, setDigestInterval] = useState<DigestInterval>(DEFAULT_NOTIFICATION_PREFERENCES.digestInterval);
   const [quietStart, setQuietStart] = useState(DEFAULT_NOTIFICATION_PREFERENCES.quietHours.start);
   const [quietEnd, setQuietEnd] = useState(DEFAULT_NOTIFICATION_PREFERENCES.quietHours.end);
+  const [hudFontScale, setHudFontScale] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.fontScale);
+  const [hudOpacity, setHudOpacity] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity);
+  const [hudSelectedWidgets, setHudSelectedWidgets] = useState<NotificationWidgetKey[]>(
+    [...DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets],
+  );
   const [selectedWidgets, setSelectedWidgets] = useState<NotificationWidgetKey[]>(
     [...DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS],
   );
@@ -267,11 +273,92 @@ export function NotificationSettingsPanel({ messages }: { messages: Messages }) 
             <MonitorCheck aria-hidden="true" size={17} strokeWidth={1.9} />
             <h2 className="panel-title">{messages.settings.desktopStatusTitle}</h2>
           </div>
-          <span className="badge badge-warn">{messages.settings.desktopNotConnected}</span>
+          <span className={desktopEnabled ? "badge badge-ok" : "badge badge-neutral"}>
+            {desktopEnabled ? messages.settings.notificationEnabled : messages.settings.notificationDisabled}
+          </span>
         </div>
         <div className="panel-body notification-desktop-grid">
           <div className="notification-desktop-copy">
-            <KeyValueLine label={messages.settings.desktopStatus} value={messages.settings.desktopNotConnected} />
+            <label className="notification-toggle-card">
+              <input
+                checked={desktopEnabled}
+                onChange={(event) => setDesktopEnabled(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              <span className="toggle-switch" aria-hidden="true" />
+              <span>
+                <strong>{messages.settings.desktopStatusTitle}</strong>
+                <span className="metric-meta">{messages.settings.desktopAppInfo}</span>
+              </span>
+            </label>
+            <KeyValueLine
+              label={messages.settings.desktopStatus}
+              value={desktopEnabled ? messages.settings.notificationEnabled : messages.settings.notificationDisabled}
+            />
+            <div className="notification-hud-controls">
+              <div>
+                <strong>{messages.settings.hudSettingsTitle}</strong>
+                <span className="metric-meta">{messages.settings.hudSettingsSubtitle}</span>
+              </div>
+              <label className="notification-field">
+                <span className="metric-label">{messages.settings.hudFontSize}</span>
+                <input
+                  className="notification-range"
+                  max="130"
+                  min="80"
+                  onChange={(event) => setHudFontScale(Number(event.currentTarget.value) / 100)}
+                  step="5"
+                  type="range"
+                  value={Math.round(hudFontScale * 100)}
+                />
+                <span className="metric-meta">{Math.round(hudFontScale * 100)}%</span>
+              </label>
+              <label className="notification-field">
+                <span className="metric-label">{messages.settings.hudOpacity}</span>
+                <input
+                  className="notification-range"
+                  max="100"
+                  min="65"
+                  onChange={(event) => setHudOpacity(Number(event.currentTarget.value) / 100)}
+                  step="5"
+                  type="range"
+                  value={Math.round(hudOpacity * 100)}
+                />
+                <span className="metric-meta">{Math.round(hudOpacity * 100)}%</span>
+              </label>
+              <div className="notification-hud-widget-header">
+                <div>
+                  <strong>{messages.settings.hudWidgetsTitle}</strong>
+                  <span className="metric-meta">{messages.settings.hudWidgetsSubtitle}</span>
+                </div>
+                <span className="badge badge-live">{hudSelectedWidgets.length}</span>
+              </div>
+              <div className="notification-hud-widget-grid" aria-label={messages.settings.hudWidgetsTitle}>
+                {NOTIFICATION_WIDGET_KEYS.map((widgetKey) => {
+                  const selectedIndex = hudSelectedWidgets.indexOf(widgetKey);
+                  const selected = selectedIndex >= 0;
+
+                  return (
+                    <label
+                      className={selected ? "notification-hud-widget-card" : "notification-hud-widget-card notification-widget-card-muted"}
+                      key={widgetKey}
+                    >
+                      <input
+                        checked={selected}
+                        onChange={() => setHudSelectedWidgets((current) => toggleRequiredWidgetSelection(current, widgetKey))}
+                        type="checkbox"
+                      />
+                      <span>
+                        <strong>{messages.notificationWidgets[widgetKey]}</strong>
+                        <span className="metric-meta">
+                          {messages.settings.widgetOrder}: {selected ? selectedIndex + 1 : "-"}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
             <p className="metric-meta">{messages.settings.desktopAppInfo}</p>
           </div>
           <div className="notification-test-panel">
@@ -312,6 +399,10 @@ export function NotificationSettingsPanel({ messages }: { messages: Messages }) 
     setQuietEnd(preferences.quietHours.end);
     setSelectedWidgets([...preferences.selectedWidgets]);
     setThresholdRules(preferences.thresholdRules.map((rule) => ({ ...rule })));
+    setDesktopEnabled(preferences.desktopEnabled);
+    setHudFontScale(preferences.hud.fontScale);
+    setHudOpacity(preferences.hud.opacity);
+    setHudSelectedWidgets([...preferences.hud.selectedWidgets]);
   }
 
   function currentPreferences(): NotificationPreferences {
@@ -325,7 +416,12 @@ export function NotificationSettingsPanel({ messages }: { messages: Messages }) 
       },
       selectedWidgets,
       thresholdRules,
-      desktopEnabled: false,
+      desktopEnabled,
+      hud: {
+        fontScale: hudFontScale,
+        opacity: hudOpacity,
+        selectedWidgets: hudSelectedWidgets,
+      },
     };
   }
 
@@ -402,6 +498,17 @@ function toggleWidgetSelection(
   return current.includes(widgetKey)
     ? current.filter((item) => item !== widgetKey)
     : [...current, widgetKey];
+}
+
+function toggleRequiredWidgetSelection(
+  current: readonly NotificationWidgetKey[],
+  widgetKey: NotificationWidgetKey,
+): NotificationWidgetKey[] {
+  if (!current.includes(widgetKey)) {
+    return [...current, widgetKey];
+  }
+
+  return current.length <= 1 ? [...current] : current.filter((item) => item !== widgetKey);
 }
 
 function positiveNumber(value: string): number {

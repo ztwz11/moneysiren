@@ -20,6 +20,8 @@ const NOTIFY_USAGE = [
   "  stackspend notify prefs list",
   "  stackspend notify prefs enable <widget>",
   "  stackspend notify prefs disable <widget>",
+  "  stackspend notify prefs hud-enable <widget>",
+  "  stackspend notify prefs hud-disable <widget>",
   "  stackspend notify prefs threshold <widget> --gte|--lte|--eq <value> --cooldown <minutes>",
   "  stackspend notify prefs quiet-hours <start> <end>",
   "  stackspend notify test",
@@ -30,6 +32,8 @@ const NOTIFY_PREFS_USAGE = [
   "  stackspend notify prefs list",
   "  stackspend notify prefs enable <widget>",
   "  stackspend notify prefs disable <widget>",
+  "  stackspend notify prefs hud-enable <widget>",
+  "  stackspend notify prefs hud-disable <widget>",
   "  stackspend notify prefs threshold <widget> --gte|--lte|--eq <value> --cooldown <minutes>",
   "  stackspend notify prefs quiet-hours <start> <end>",
 ].join("\n");
@@ -101,6 +105,14 @@ async function runNotifyPrefs(args: readonly string[], context: CliExecutionCont
     return disableNotificationWidget(rest[0], context);
   }
 
+  if (subcommand === "hud-enable" && rest.length === 1) {
+    return enableHudWidget(rest[0], context);
+  }
+
+  if (subcommand === "hud-disable" && rest.length === 1) {
+    return disableHudWidget(rest[0], context);
+  }
+
   if (subcommand === "threshold") {
     return setNotificationThreshold(rest, context);
   }
@@ -117,6 +129,7 @@ async function listNotificationPreferences(context: CliExecutionContext): Promis
   const source = await notificationPreferencesSource(context);
   const preferences = await readPreferences(context);
   const selectedWidgets = new Set(preferences.selectedWidgets);
+  const hudWidgets = new Set(preferences.hud.selectedWidgets);
 
   context.stdout("StackSpend notification preferences");
   context.stdout(`Source: ${source}`);
@@ -124,11 +137,19 @@ async function listNotificationPreferences(context: CliExecutionContext): Promis
   context.stdout(`Notifications: ${enabledLabel(preferences.enabled)}`);
   context.stdout(`Digest: ${enabledLabel(preferences.digestEnabled)} (${preferences.digestInterval})`);
   context.stdout(`Desktop notifications: ${enabledLabel(preferences.desktopEnabled)}`);
+  context.stdout(`HUD font size: ${Math.round(preferences.hud.fontScale * 100)}%`);
+  context.stdout(`HUD opacity: ${Math.round(preferences.hud.opacity * 100)}%`);
   context.stdout(`Quiet hours: ${preferences.quietHours.start}-${preferences.quietHours.end}`);
   context.stdout("Widgets:");
 
   for (const widgetKey of NOTIFICATION_WIDGET_KEYS) {
     context.stdout(`- ${widgetKey}: ${selectedWidgets.has(widgetKey) ? "enabled" : "disabled"}`);
+  }
+
+  context.stdout("HUD widgets:");
+
+  for (const widgetKey of NOTIFICATION_WIDGET_KEYS) {
+    context.stdout(`- ${widgetKey}: ${hudWidgets.has(widgetKey) ? "enabled" : "disabled"}`);
   }
 
   if (preferences.thresholdRules.length === 0) {
@@ -196,6 +217,67 @@ async function disableNotificationWidget(widget: string | undefined, context: Cl
   }, context);
 
   context.stdout(`Notification widget disabled: ${widgetKey}`);
+  context.stdout("Secrets returned: false");
+  return 0;
+}
+
+async function enableHudWidget(widget: string | undefined, context: CliExecutionContext): Promise<number> {
+  const widgetKey = parseWidgetKey(widget);
+
+  if (widgetKey === undefined) {
+    context.stderr("Unknown notification widget.");
+    return 1;
+  }
+
+  const preferences = await readPreferences(context);
+  const selectedWidgets = new Set(preferences.hud.selectedWidgets);
+  selectedWidgets.add(widgetKey);
+  await writePreferences({
+    ...preferences,
+    hud: {
+      ...preferences.hud,
+      selectedWidgets: orderWidgetKeys([...selectedWidgets]),
+    },
+  }, context);
+
+  context.stdout(`HUD widget enabled: ${widgetKey}`);
+  context.stdout("Secrets returned: false");
+  return 0;
+}
+
+async function disableHudWidget(widget: string | undefined, context: CliExecutionContext): Promise<number> {
+  const widgetKey = parseWidgetKey(widget);
+
+  if (widgetKey === undefined) {
+    context.stderr("Unknown notification widget.");
+    return 1;
+  }
+
+  const preferences = await readPreferences(context);
+  const selectedWidgets = new Set(preferences.hud.selectedWidgets);
+
+  if (!selectedWidgets.has(widgetKey)) {
+    context.stdout(`HUD widget already disabled: ${widgetKey}`);
+    context.stdout("Secrets returned: false");
+    return 0;
+  }
+
+  selectedWidgets.delete(widgetKey);
+
+  if (selectedWidgets.size === 0) {
+    context.stderr("At least one HUD widget must remain enabled.");
+    return 1;
+  }
+
+  await writePreferences({
+    ...preferences,
+    hud: {
+      ...preferences.hud,
+      selectedWidgets: orderWidgetKeys([...selectedWidgets]),
+    },
+  }, context);
+
+  context.stdout(`HUD widget disabled: ${widgetKey}`);
   context.stdout("Secrets returned: false");
   return 0;
 }

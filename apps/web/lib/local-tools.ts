@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join, win32 } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -206,7 +206,7 @@ export function buildWindowsLocalToolPath(
   nodeExecutable: string,
 ): string {
   return appendUniqueWindowsPathSegments(currentPath, [
-    trimToNull(nodeExecutable) === null ? null : dirname(nodeExecutable),
+    trimToNull(nodeExecutable) === null ? null : win32.dirname(nodeExecutable),
     trimToNull(env.NVM_SYMLINK),
     trimToNull(env.NVM_HOME),
     joinIfBase(env.APPDATA, "npm"),
@@ -608,7 +608,7 @@ async function readJsonlUsageFile(path: string, accumulator: UsageAccumulator): 
       const value = JSON.parse(trimmed) as unknown;
       accumulator.parsedUsageRecordCount += 1;
       accumulateRollingUsageFromValue(value, accumulator);
-      accumulateLimitMetadataFromValue(value, accumulator.statusLine);
+      accumulateLimitMetadataFromValue(value, accumulator);
       accumulateUsageFromValue(value, accumulator);
     } catch {
       // Some local session files include non-JSON control lines; skip them without exposing content.
@@ -1014,17 +1014,81 @@ function tokenTotalFromUsage(usage: Record<string, unknown> | null): number | nu
   return total === 0 ? null : total;
 }
 
-function accumulateLimitMetadataFromValue(value: unknown, statusLine: MutableLocalCliStatusLineUsage): void {
+function accumulateLimitMetadataFromValue(value: unknown, accumulator: UsageAccumulator): void {
   const record = asRecord(value);
 
   if (record !== null) {
-    accumulateLimitMetadata(record, statusLine);
+    const observedAt = readTimestamp(value)?.getTime() ?? null;
+    applyWindowedRateLimits(record, accumulator, observedAt);
+    accumulateLimitMetadata(record, accumulator, observedAt);
   }
+}
+
+function applyWindowedRateLimits(
+  record: Record<string, unknown>,
+  accumulator: UsageAccumulator,
+  observedAt: number | null,
+): void {
+  const payload = asRecord(record.payload);
+  const rateLimits = asRecord(payload?.rate_limits) ?? asRecord(record.rate_limits);
+
+  if (rateLimits === null) {
+    return;
+  }
+
+  applyWindowedRateLimit(asRecord(rateLimits.primary), accumulator, observedAt);
+  applyWindowedRateLimit(asRecord(rateLimits.secondary), accumulator, observedAt);
+}
+
+function applyWindowedRateLimit(
+  rateLimit: Record<string, unknown> | null,
+  accumulator: UsageAccumulator,
+  observedAt: number | null,
+): void {
+  if (rateLimit === null) {
+    return;
+  }
+
+  const window = usageLimitWindowFromMinutes(readNumber(rateLimit.window_minutes ?? rateLimit.windowMinutes));
+
+  if (window === null) {
+    return;
+  }
+
+  const usedPercent = readNumber(
+    rateLimit.used_percent ??
+      rateLimit.used_percentage ??
+      rateLimit.percent ??
+      rateLimit.percentage,
+  );
+
+  if (usedPercent !== null && usedPercent >= 0) {
+    setUsageLimitPercent(accumulator, window, usedPercent, observedAt);
+  }
+
+  const resetAt = readTimestampValue(rateLimit.resets_at ?? rateLimit.reset_at ?? rateLimit.resetAt);
+
+  if (resetAt !== null) {
+    setUsageLimitResetAt(accumulator, window, resetAt.toISOString(), observedAt);
+  }
+}
+
+function usageLimitWindowFromMinutes(minutes: number | null): "fiveHour" | "weekly" | null {
+  if (minutes === 300) {
+    return "fiveHour";
+  }
+
+  if (minutes === 10_080) {
+    return "weekly";
+  }
+
+  return null;
 }
 
 function accumulateLimitMetadata(
   record: Record<string, unknown>,
-  statusLine: MutableLocalCliStatusLineUsage,
+  accumulator: UsageAccumulator,
+  observedAt: number | null,
   path: readonly string[] = [],
 ): void {
   for (const [key, nested] of Object.entries(record)) {
@@ -1032,13 +1096,13 @@ function accumulateLimitMetadata(
     const window = usageLimitWindowFromPath(nextPath);
 
     if (window !== null) {
-      applyUsageLimitMetadata(nextPath, nested, window, statusLine);
+      applyUsageLimitMetadata(nextPath, nested, window, accumulator, observedAt);
     }
 
     const nestedRecord = asRecord(nested);
 
     if (nestedRecord !== null) {
-      accumulateLimitMetadata(nestedRecord, statusLine, nextPath);
+      accumulateLimitMetadata(nestedRecord, accumulator, observedAt, nextPath);
     }
   }
 }
@@ -1061,6 +1125,9 @@ function usageLimitWindowFromPath(path: readonly string[]): "fiveHour" | "weekly
   if (
     normalizedPath.includes("weekly") ||
     normalizedPath.includes("week") ||
+    normalizedPath.includes("seven_day") ||
+    normalizedPath.includes("sevenday") ||
+    normalizedPath.includes("seven.day") ||
     normalizedPath.includes("7_day") ||
     normalizedPath.includes("7day")
   ) {
@@ -1074,68 +1141,79 @@ function applyUsageLimitMetadata(
   path: readonly string[],
   value: unknown,
   window: "fiveHour" | "weekly",
-  statusLine: MutableLocalCliStatusLineUsage,
+  accumulator: UsageAccumulator,
+  observedAt: number | null,
 ): void {
   const normalizedPath = path.map((item) => item.toLowerCase()).join(".");
+  const leafKey = path[path.length - 1]?.toLowerCase() ?? "";
   const numericValue = readNumber(value);
 
   if (numericValue !== null && numericValue >= 0) {
-    const hasTokenHint = normalizedPath.includes("token");
+    const hasTokenHint = leafKey.includes("token") || normalizedPath.includes("token");
 
     if (
-      normalizedPath.includes("percent") ||
-      normalizedPath.includes("percentage") ||
-      normalizedPath.includes("pct")
+      leafKey.includes("percent") ||
+      leafKey.includes("percentage") ||
+      leafKey.includes("pct")
     ) {
-      setUsageLimitPercent(statusLine, window, numericValue);
+      setUsageLimitPercent(accumulator, window, numericValue, observedAt);
       return;
     }
 
     if (
       hasTokenHint &&
       (
-        normalizedPath.includes("limit") ||
-        normalizedPath.includes("quota") ||
-        normalizedPath.includes("max")
+        leafKey.includes("limit") ||
+        leafKey.includes("quota") ||
+        leafKey.includes("max")
       )
     ) {
-      setUsageLimitTokenLimit(statusLine, window, numericValue);
+      setUsageLimitTokenLimit(accumulator.statusLine, window, numericValue);
       return;
     }
 
     if (
       hasTokenHint &&
       (
-        normalizedPath.includes("used") ||
-        normalizedPath.includes("usage") ||
-        normalizedPath.includes("current") ||
-        normalizedPath.includes("consumed")
+        leafKey.includes("used") ||
+        leafKey.includes("usage") ||
+        leafKey.includes("current") ||
+        leafKey.includes("consumed")
       )
     ) {
-      setUsageLimitTokenUsage(statusLine, window, numericValue);
+      setUsageLimitTokenUsage(accumulator, window, numericValue, observedAt);
     }
   }
 
-  if (typeof value === "string" && normalizedPath.includes("reset")) {
+  if (typeof value === "string" && leafKey.includes("reset")) {
     const resetAt = readTimestampValue(value);
 
     if (resetAt !== null) {
-      setUsageLimitResetAt(statusLine, window, resetAt.toISOString());
+      setUsageLimitResetAt(accumulator, window, resetAt.toISOString(), observedAt);
     }
   }
 }
 
 function setUsageLimitPercent(
-  statusLine: MutableLocalCliStatusLineUsage,
+  accumulator: UsageAccumulator,
   window: "fiveHour" | "weekly",
   value: number,
+  observedAt: number | null,
 ): void {
-  if (window === "fiveHour") {
-    statusLine.fiveHourLimitPercent = maxNullable(statusLine.fiveHourLimitPercent, value);
+  if (!shouldApplyUsageLimitMetadata(accumulator, window, observedAt)) {
     return;
   }
 
-  statusLine.weeklyLimitPercent = maxNullable(statusLine.weeklyLimitPercent, value);
+  const statusLine = accumulator.statusLine;
+
+  if (window === "fiveHour") {
+    statusLine.fiveHourLimitPercent = observedAt === null ? maxNullable(statusLine.fiveHourLimitPercent, value) : value;
+    noteUsageLimitMetadata(accumulator, window, observedAt);
+    return;
+  }
+
+  statusLine.weeklyLimitPercent = observedAt === null ? maxNullable(statusLine.weeklyLimitPercent, value) : value;
+  noteUsageLimitMetadata(accumulator, window, observedAt);
 }
 
 function setUsageLimitTokenLimit(
@@ -1152,29 +1230,73 @@ function setUsageLimitTokenLimit(
 }
 
 function setUsageLimitTokenUsage(
-  statusLine: MutableLocalCliStatusLineUsage,
+  accumulator: UsageAccumulator,
   window: "fiveHour" | "weekly",
   value: number,
+  observedAt: number | null,
 ): void {
-  if (window === "fiveHour") {
-    statusLine.fiveHourUsedTokens = maxNullable(statusLine.fiveHourUsedTokens, value);
+  if (!shouldApplyUsageLimitMetadata(accumulator, window, observedAt)) {
     return;
   }
 
-  statusLine.weeklyUsedTokens = maxNullable(statusLine.weeklyUsedTokens, value);
+  const statusLine = accumulator.statusLine;
+
+  if (window === "fiveHour") {
+    statusLine.fiveHourUsedTokens = observedAt === null ? maxNullable(statusLine.fiveHourUsedTokens, value) : value;
+    noteUsageLimitMetadata(accumulator, window, observedAt);
+    return;
+  }
+
+  statusLine.weeklyUsedTokens = observedAt === null ? maxNullable(statusLine.weeklyUsedTokens, value) : value;
+  noteUsageLimitMetadata(accumulator, window, observedAt);
 }
 
 function setUsageLimitResetAt(
-  statusLine: MutableLocalCliStatusLineUsage,
+  accumulator: UsageAccumulator,
   window: "fiveHour" | "weekly",
   value: string,
+  observedAt: number | null,
 ): void {
-  if (window === "fiveHour") {
-    statusLine.fiveHourResetAt = statusLine.fiveHourResetAt ?? value;
+  if (!shouldApplyUsageLimitMetadata(accumulator, window, observedAt)) {
     return;
   }
 
-  statusLine.weeklyResetAt = statusLine.weeklyResetAt ?? value;
+  const statusLine = accumulator.statusLine;
+
+  if (window === "fiveHour") {
+    statusLine.fiveHourResetAt = observedAt === null ? statusLine.fiveHourResetAt ?? value : value;
+    noteUsageLimitMetadata(accumulator, window, observedAt);
+    return;
+  }
+
+  statusLine.weeklyResetAt = observedAt === null ? statusLine.weeklyResetAt ?? value : value;
+  noteUsageLimitMetadata(accumulator, window, observedAt);
+}
+
+function shouldApplyUsageLimitMetadata(
+  accumulator: UsageAccumulator,
+  window: "fiveHour" | "weekly",
+  observedAt: number | null,
+): boolean {
+  if (observedAt === null) {
+    return true;
+  }
+
+  const current = accumulator.limitMetadataObservedAt[window];
+
+  return current === null || observedAt >= current;
+}
+
+function noteUsageLimitMetadata(
+  accumulator: UsageAccumulator,
+  window: "fiveHour" | "weekly",
+  observedAt: number | null,
+): void {
+  if (observedAt === null) {
+    return;
+  }
+
+  accumulator.limitMetadataObservedAt[window] = observedAt;
 }
 
 function maxNullable(left: number | null, right: number): number {
@@ -1251,6 +1373,7 @@ interface UsageAccumulator {
   parsedUsageRecordCount: number;
   latestActivityAt: string | null;
   statusLine: MutableLocalCliStatusLineUsage;
+  limitMetadataObservedAt: Record<"fiveHour" | "weekly", number | null>;
 }
 
 type MutableLocalCliStatusLineUsage = LocalCliStatusLineUsage;
@@ -1287,6 +1410,10 @@ function createUsageAccumulator(
     parsedUsageRecordCount: 0,
     latestActivityAt: null,
     statusLine,
+    limitMetadataObservedAt: {
+      fiveHour: null,
+      weekly: null,
+    },
   };
 }
 
@@ -1780,18 +1907,18 @@ function normalizeWindowsPathSegment(value: string): string {
 function joinIfBase(base: string | undefined, ...segments: string[]): string | null {
   const normalizedBase = trimToNull(base);
 
-  return normalizedBase === null ? null : join(normalizedBase, ...segments);
+  return normalizedBase === null ? null : win32.join(normalizedBase, ...segments);
 }
 
 function localPathHint(path: string, homeDir: string): string {
-  const normalizedHome = normalizeWindowsPathSegment(homeDir);
-  const normalizedPath = normalizeWindowsPathSegment(path);
+  const normalizedHome = normalizePathForHint(homeDir);
+  const normalizedPath = normalizePathForHint(path);
 
   if (normalizedPath === normalizedHome) {
     return "~";
   }
 
-  if (normalizedPath.startsWith(`${normalizedHome}\\`)) {
+  if (normalizedPath.startsWith(`${normalizedHome}/`)) {
     return `~${path.slice(homeDir.length)}`;
   }
 
@@ -1801,7 +1928,11 @@ function localPathHint(path: string, homeDir: string): string {
 function windowsSystemExecutable(fileName: string, env: Record<string, string | undefined>): string {
   const windowsRoot = trimToNull(env.SystemRoot) ?? trimToNull(env.WINDIR) ?? "C:\\Windows";
 
-  return join(windowsRoot, "System32", fileName);
+  return win32.join(windowsRoot, "System32", fileName);
+}
+
+function normalizePathForHint(value: string): string {
+  return value.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
 }
 
 function trimToNull(value: string | undefined): string | null {

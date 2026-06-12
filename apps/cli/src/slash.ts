@@ -54,6 +54,10 @@ export function resolveSlashCommand(args: readonly string[]): SlashDispatch {
     return noExtraArgs(command, rest, ["doctor"]);
   }
 
+  if (command === "/modes") {
+    return noExtraArgs(command, rest, ["modes"]);
+  }
+
   if (command === "/init") {
     return noExtraArgs(command, rest, ["init"]);
   }

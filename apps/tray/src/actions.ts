@@ -1,7 +1,9 @@
 export const TRAY_ACTION_IDS = [
+  "show-hud",
   "open-dashboard",
   "open-today-live",
   "open-connections",
+  "open-notification-settings",
   "refresh-now",
   "pause-30m",
   "pause-1h",
@@ -14,6 +16,7 @@ export const TRAY_ACTION_IDS = [
 export type TrayActionId = typeof TRAY_ACTION_IDS[number];
 
 export type TrayActionKind =
+  | "hud"
   | "navigation"
   | "refresh"
   | "pause"
@@ -22,6 +25,7 @@ export type TrayActionKind =
   | "quit";
 
 export type TrayActionIntent =
+  | "show_hud"
   | "open_url"
   | "refresh_live"
   | "pause_notifications"
@@ -46,6 +50,14 @@ export interface TrayActionBuildOptions {
 
 export const DEFAULT_TRAY_ACTIONS: readonly TrayAction[] = [
   {
+    id: "show-hud",
+    label: "Show HUD",
+    kind: "hud",
+    intent: "show_hud",
+    enabled: true,
+    urlPath: "/hud?locale=ko",
+  },
+  {
     id: "open-dashboard",
     label: "Open Dashboard",
     kind: "navigation",
@@ -59,7 +71,7 @@ export const DEFAULT_TRAY_ACTIONS: readonly TrayAction[] = [
     kind: "navigation",
     intent: "open_url",
     enabled: true,
-    urlPath: "/ko/dashboard/today-live",
+    urlPath: "/ko/dashboard/today",
   },
   {
     id: "open-connections",
@@ -68,6 +80,14 @@ export const DEFAULT_TRAY_ACTIONS: readonly TrayAction[] = [
     intent: "open_url",
     enabled: true,
     urlPath: "/ko/settings/connections",
+  },
+  {
+    id: "open-notification-settings",
+    label: "Notification Settings",
+    kind: "navigation",
+    intent: "open_url",
+    enabled: true,
+    urlPath: "/ko/settings/notifications",
   },
   {
     id: "refresh-now",
@@ -126,7 +146,7 @@ export function buildTrayActions(options: TrayActionBuildOptions = {}): readonly
   const locale = options.locale ?? "ko";
 
   return DEFAULT_TRAY_ACTIONS.map((action) => {
-    if (action.kind !== "navigation" || action.urlPath === undefined) {
+    if (action.urlPath === undefined) {
       if (action.id !== "start-at-login-toggle") {
         return { ...action };
       }
@@ -149,5 +169,9 @@ export function isTrayActionId(value: string): value is TrayActionId {
 }
 
 function localizePath(path: string, locale: "ko" | "en" | "ja"): string {
+  if (path.startsWith("/hud")) {
+    return `/hud?locale=${locale}`;
+  }
+
   return path.replace(/^\/(?:ko|en|ja)\//, `/${locale}/`);
 }

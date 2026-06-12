@@ -174,6 +174,8 @@ CLI 예시:
 stackspend notify prefs list
 stackspend notify prefs enable claude_five_hour_percent
 stackspend notify prefs disable today_live_cost
+stackspend notify prefs hud-enable codex_weekly_percent
+stackspend notify prefs hud-disable month_forecast
 stackspend notify prefs threshold claude_five_hour_percent --gte 80
 stackspend notify prefs interval 60
 stackspend notify prefs quiet-hours 22:00 08:00

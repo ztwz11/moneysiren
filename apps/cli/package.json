@@ -21,6 +21,9 @@
     },
     "./package.json": "./package.json"
   },
+  "dependencies": {
+    "@aws-sdk/client-cost-explorer": "^3.1061.0"
+  },
   "files": [
     "dist/apps/cli/src/**/*.js",
     "dist/apps/cli/src/**/*.d.ts",

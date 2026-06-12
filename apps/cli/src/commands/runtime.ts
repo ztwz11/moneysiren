@@ -91,8 +91,9 @@ export async function runDesktopCommand(args: readonly string[], context: CliExe
 
   if (runtime === null) {
     context.stdout("Runtime: not running");
-    context.stdout("Runtime adapter: pending packages/runtime integration");
+    context.stdout("Runtime lock: not found");
     context.stdout("Desktop shell: not detected by CLI");
+    context.stdout("Next step: run `stackspend serve` or start the native tray app.");
     return 0;
   }
 

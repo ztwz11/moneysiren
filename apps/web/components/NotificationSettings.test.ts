@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getMessages, LOCALES } from "../lib/i18n";
 import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
   DEFAULT_NOTIFICATION_THRESHOLD_RULES,
   DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
   NOTIFICATION_WIDGET_KEYS,
@@ -27,6 +28,10 @@ describe("notification settings defaults", () => {
     const widgetKeys = new Set(NOTIFICATION_WIDGET_KEYS);
 
     for (const widgetKey of DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS) {
+      expect(widgetKeys.has(widgetKey)).toBe(true);
+    }
+
+    for (const widgetKey of DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets) {
       expect(widgetKeys.has(widgetKey)).toBe(true);
     }
 

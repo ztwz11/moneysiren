@@ -1,4 +1,5 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 
 export interface LocalRuntime {
@@ -20,7 +21,6 @@ export interface RuntimeHealthCheckOptions {
   timeoutMs?: number;
 }
 
-const DEFAULT_RUNTIME_LOCK_PATH = ".stackspend/runtime.json";
 const RUNTIME_LOCK_ENV_KEY = "STACKSPEND_RUNTIME_LOCK_PATH";
 const DEFAULT_HEALTH_TIMEOUT_MS = 2_000;
 
@@ -52,7 +52,7 @@ export function resolveRuntimeLockPath(options: RuntimeLockOptions = {}): string
     return resolveRuntimePath(configuredPath, options.cwd);
   }
 
-  return resolveRuntimePath(DEFAULT_RUNTIME_LOCK_PATH, options.cwd);
+  return defaultRuntimeLockPath(options.env ?? process.env);
 }
 
 export async function readRuntimeLock(options: RuntimeLockOptions = {}): Promise<LocalRuntime | null> {
@@ -98,7 +98,7 @@ export async function findRuntime(options: RuntimeLockOptions = {}): Promise<Loc
   }
 
   if (!isProcessAlive(runtime.pid)) {
-    await removeRuntimeLock(options);
+    await removeStaleRuntimeLock(options);
     return null;
   }
 
@@ -132,6 +132,14 @@ export async function assertRuntimeHealthy(
     return false;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function removeStaleRuntimeLock(options: RuntimeLockOptions): Promise<void> {
+  try {
+    await removeRuntimeLock(options);
+  } catch {
+    // A stale lock must not make status commands fail, especially after npm/global installs.
   }
 }
 
@@ -187,6 +195,34 @@ function parseLoopbackUrl(value: string): URL {
 
 function resolveRuntimePath(path: string, cwd = process.cwd()): string {
   return isAbsolute(path) ? path : join(cwd, path);
+}
+
+function defaultRuntimeLockPath(env: Record<string, string | undefined>): string {
+  if (process.platform === "darwin") {
+    return join(resolveHomeDirectory(env), "Library", "Application Support", "StackSpend", "runtime.json");
+  }
+
+  if (process.platform === "win32") {
+    return join(resolveWindowsAppDataDirectory(env), "StackSpend", "runtime.json");
+  }
+
+  const configHome = trimToNull(env.XDG_CONFIG_HOME) ?? join(resolveHomeDirectory(env), ".config");
+
+  return join(configHome, "stackspend", "runtime.json");
+}
+
+function resolveWindowsAppDataDirectory(env: Record<string, string | undefined>): string {
+  return trimToNull(env.APPDATA) ?? join(resolveHomeDirectory(env), "AppData", "Roaming");
+}
+
+function resolveHomeDirectory(env: Record<string, string | undefined>): string {
+  return trimToNull(env.HOME) ?? trimToNull(env.USERPROFILE) ?? homedir();
+}
+
+function trimToNull(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+
+  return trimmed === undefined || trimmed.length === 0 ? null : trimmed;
 }
 
 function isProcessAlive(pid: number): boolean {

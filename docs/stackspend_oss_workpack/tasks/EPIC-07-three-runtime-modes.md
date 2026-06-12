@@ -68,6 +68,8 @@ stackspend notify once
 stackspend notify prefs list
 stackspend notify prefs enable <widget>
 stackspend notify prefs disable <widget>
+stackspend notify prefs hud-enable <widget>
+stackspend notify prefs hud-disable <widget>
 stackspend notify prefs threshold <widget> --gte <value>
 stackspend desktop status
 ```

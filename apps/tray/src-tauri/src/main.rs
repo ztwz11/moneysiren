@@ -3,17 +3,23 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Emitter, Manager, Wry,
+    AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry,
 };
 
 const DASHBOARD_BASE_URL: &str = "http://127.0.0.1:3000";
-const TRAY_ACTIONS: [TrayAction; 10] = [
+const TRAY_ACTIONS: [TrayAction; 12] = [
+    TrayAction::new("show-hud", "Show HUD", "/hud?locale=ko"),
     TrayAction::new("open-dashboard", "Open Dashboard", "/ko/dashboard/overview"),
     TrayAction::new("open-today-live", "Open Today Live", "/ko/dashboard/today"),
     TrayAction::new(
         "open-connections",
         "Open Connections",
         "/ko/settings/connections",
+    ),
+    TrayAction::new(
+        "open-notification-settings",
+        "Notification Settings",
+        "/ko/settings/notifications",
     ),
     TrayAction::new("refresh-now", "Refresh Now", ""),
     TrayAction::new("pause-30m", "Pause Notifications 30m", ""),
@@ -53,6 +59,9 @@ impl TrayAction {
 struct TrayNativeStatus {
     local_only: bool,
     secrets_returned: bool,
+    dashboard_base_url: &'static str,
+    hud_available: bool,
+    notifications_available: bool,
     actions: &'static [TrayAction],
     allowed_local_api_endpoints: &'static [&'static str],
 }
@@ -102,6 +111,12 @@ fn handle_tray_action(app: &AppHandle, action_id: &str) {
         return;
     }
 
+    if action_id == "show-hud" {
+        open_hud_window(app);
+        let _ = app.emit("stackspend://tray-action", action_id);
+        return;
+    }
+
     if let Some(action) = TRAY_ACTIONS.iter().find(|action| action.id == action_id) {
         if !action.url_path.is_empty() {
             open_dashboard_route(app, action.url_path);
@@ -126,11 +141,45 @@ fn open_dashboard_route(app: &AppHandle, url_path: &str) {
     let _ = window.set_focus();
 }
 
+fn open_hud_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("stackspend-hud") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+
+    let url = format!("{}/hud?locale=ko", DASHBOARD_BASE_URL);
+    let Ok(parsed_url) = url.parse() else {
+        return;
+    };
+    let Ok(window) = WebviewWindowBuilder::new(
+        app,
+        "stackspend-hud",
+        WebviewUrl::External(parsed_url),
+    )
+    .title("StackSpend HUD")
+    .inner_size(340.0, 360.0)
+    .min_inner_size(280.0, 240.0)
+    .resizable(true)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .visible(true)
+    .build() else {
+        return;
+    };
+
+    let _ = window.set_focus();
+}
+
 #[tauri::command]
 fn tray_native_status() -> TrayNativeStatus {
     TrayNativeStatus {
         local_only: true,
         secrets_returned: false,
+        dashboard_base_url: DASHBOARD_BASE_URL,
+        hud_available: true,
+        notifications_available: true,
         actions: &TRAY_ACTIONS,
         allowed_local_api_endpoints: &LOCAL_API_ENDPOINTS,
     }

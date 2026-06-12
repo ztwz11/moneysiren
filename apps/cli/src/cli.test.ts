@@ -46,7 +46,9 @@ describe("StackSpend CLI", () => {
     expect(stdout).toContain(`StackSpend ${CLI_VERSION}`);
     expect(stdout).toContain("Slash commands");
     expect(stdout).toContain("/doctor");
+    expect(stdout).toContain("/modes");
     expect(stdout).toContain("/sync mock");
+    expect(stdout).toContain("stackspend modes");
     expect(stdout).toContain("stackspend sync --provider mock");
     expect(stdout).toContain("Home/help does not call provider APIs");
     expect(stdout).not.toMatch(ANSI_PATTERN);
@@ -180,6 +182,7 @@ describe("StackSpend CLI", () => {
       packageManager?: string;
       engines?: Record<string, string>;
       bin?: Record<string, string>;
+      dependencies?: Record<string, string>;
       files?: string[];
       publishConfig?: Record<string, string>;
       scripts?: Record<string, string>;
@@ -191,6 +194,7 @@ describe("StackSpend CLI", () => {
     expect(packageJson.packageManager).toBe("pnpm@11.5.0");
     expect(packageJson.engines?.node).toBe(">=20.11.0");
     expect(packageJson.publishConfig?.access).toBe("public");
+    expect(packageJson.dependencies?.["@aws-sdk/client-cost-explorer"]).toBe("^3.1061.0");
     expect(packageJson.bin?.stackspend).toBe("dist/apps/cli/src/index.js");
     expect(packageJson.bin?.stackspend).not.toBe("src/index.ts");
     expect(packageJson.scripts?.build).toBe("node ../../tools/scripts/build-cli.mjs");
@@ -229,6 +233,10 @@ describe("StackSpend CLI", () => {
     expect(doctorOutput).toContain("StackSpend doctor");
     expect(doctorOutput).toContain("openai: configured");
     expect(doctorOutput).not.toContain("sk-fake-openai-admin-key");
+
+    const modes = await runCli(["/modes"], testContext(cwd));
+    expect(modes.exitCode).toBe(0);
+    expect(modes.stdout.join("\n")).toContain("StackSpend modes");
 
     const init = await runCli(["/init"], testContext(cwd));
     expect(init.exitCode).toBe(0);
@@ -322,6 +330,34 @@ describe("StackSpend CLI", () => {
     expect(stdout).toContain("mock provider: available");
     expect(stdout).toContain("openai: configured");
     expect(stdout).not.toContain("sk-fake-openai-admin-key");
+  });
+
+  it("prints npm-installable three-mode guidance with macOS-safe runtime lock hints", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const result = await runCli(["modes"], testContext(cwd, {
+      HOME: join(cwd, "home"),
+    }));
+    const stdout = result.stdout.join("\n");
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toEqual([]);
+    expect(stdout).toContain("StackSpend modes");
+    expect(stdout).toContain("npm install -g @stackspend/cli@alpha");
+    expect(stdout).toContain("1. CLI automation");
+    expect(stdout).toContain("2. Local web dashboard/runtime");
+    expect(stdout).toContain("3. Desktop tray/notifier");
+    expect(stdout).toContain("stackspend doctor");
+    expect(stdout).toContain("stackspend serve");
+    expect(stdout).toContain("stackspend desktop status");
+
+    if (process.platform === "darwin") {
+      expect(stdout).toContain("Platform: macOS");
+      expect(stdout).toContain("~/Library/Application Support/StackSpend/runtime.json");
+    }
+
+    expect(stdout).not.toContain(cwd);
+    expect(stdout).not.toContain("sk-");
+    expect(stdout).not.toContain("hooks.slack");
   });
 
   it("checks the default dashboard API and accepts the safe empty state", async () => {
@@ -501,6 +537,9 @@ describe("StackSpend CLI", () => {
     expect(stdout).toContain("StackSpend notification preferences");
     expect(stdout).toContain("Source: default preference template");
     expect(stdout).toContain("Secrets returned: false");
+    expect(stdout).toContain("HUD font size: 95%");
+    expect(stdout).toContain("HUD opacity: 94%");
+    expect(stdout).toContain("HUD widgets:");
     expect(stdout).toContain("Quiet hours: 22:00-08:00");
     expect(stdout).toContain("- openai_today_tokens: enabled");
     expect(stdout).toContain("- claude_five_hour_percent: disabled");
@@ -517,6 +556,8 @@ describe("StackSpend CLI", () => {
 
     const enable = await runCli(["notify", "prefs", "enable", "claude_five_hour_percent"], testContext(cwd, env));
     const disable = await runCli(["notify", "prefs", "disable", "openai_today_tokens"], testContext(cwd, env));
+    const hudEnable = await runCli(["notify", "prefs", "hud-enable", "codex_weekly_percent"], testContext(cwd, env));
+    const hudDisable = await runCli(["notify", "prefs", "hud-disable", "month_forecast"], testContext(cwd, env));
     const threshold = await runCli(
       ["notify", "prefs", "threshold", "claude_five_hour_percent", "--gte", "80", "--cooldown", "60"],
       testContext(cwd, env),
@@ -524,6 +565,7 @@ describe("StackSpend CLI", () => {
     const quietHours = await runCli(["notify", "prefs", "quiet-hours", "21:30", "07:15"], testContext(cwd, env));
     const list = await runCli(["notify", "prefs", "list"], testContext(cwd, env));
     const preferences = JSON.parse(await readFile(join(cwd, "prefs", "notifications.json"), "utf8")) as {
+      hud: { selectedWidgets: string[] };
       quietHours: { start: string; end: string };
       selectedWidgets: string[];
       thresholdRules: Array<{
@@ -536,11 +578,15 @@ describe("StackSpend CLI", () => {
     const allOutput = [
       ...enable.stdout,
       ...disable.stdout,
+      ...hudEnable.stdout,
+      ...hudDisable.stdout,
       ...threshold.stdout,
       ...quietHours.stdout,
       ...list.stdout,
       ...enable.stderr,
       ...disable.stderr,
+      ...hudEnable.stderr,
+      ...hudDisable.stderr,
       ...threshold.stderr,
       ...quietHours.stderr,
       ...list.stderr,
@@ -548,11 +594,15 @@ describe("StackSpend CLI", () => {
 
     expect(enable.exitCode).toBe(0);
     expect(disable.exitCode).toBe(0);
+    expect(hudEnable.exitCode).toBe(0);
+    expect(hudDisable.exitCode).toBe(0);
     expect(threshold.exitCode).toBe(0);
     expect(quietHours.exitCode).toBe(0);
     expect(list.exitCode).toBe(0);
     expect(preferences.selectedWidgets).toContain("claude_five_hour_percent");
     expect(preferences.selectedWidgets).not.toContain("openai_today_tokens");
+    expect(preferences.hud.selectedWidgets).toContain("codex_weekly_percent");
+    expect(preferences.hud.selectedWidgets).not.toContain("month_forecast");
     expect(preferences.quietHours).toEqual({
       start: "21:30",
       end: "07:15",
@@ -566,6 +616,9 @@ describe("StackSpend CLI", () => {
     expect(list.stdout.join("\n")).toContain("Source: local preference file");
     expect(list.stdout.join("\n")).toContain("- claude_five_hour_percent: enabled");
     expect(list.stdout.join("\n")).toContain("- openai_today_tokens: disabled");
+    expect(list.stdout.join("\n")).toContain("HUD widgets:");
+    expect(list.stdout.join("\n")).toContain("- codex_weekly_percent: enabled");
+    expect(list.stdout.join("\n")).toContain("- month_forecast: disabled");
     expect(list.stdout.join("\n")).toContain("- claude_five_hour_percent: gte 80 cooldown 60m");
     expect(allOutput).not.toContain(TEST_SLACK_WEBHOOK_URL);
   });
@@ -655,6 +708,20 @@ describe("StackSpend CLI", () => {
         };
       },
     };
+    const missingRuntime: CliLocalRuntimeAdapter = {
+      async findRuntime() {
+        return null;
+      },
+      async assertRuntimeHealthy() {
+        return false;
+      },
+      async startRuntime() {
+        return {
+          status: "running",
+          runtime,
+        };
+      },
+    };
 
     const serve = await runCli(["serve", "--port", "47831"], {
       ...testContext(cwd),
@@ -670,6 +737,10 @@ describe("StackSpend CLI", () => {
     const status = await runCli(["desktop", "status"], {
       ...testContext(cwd),
       localRuntime: statusRuntime,
+    });
+    const missingStatus = await runCli(["desktop", "status"], {
+      ...testContext(cwd),
+      localRuntime: missingRuntime,
     });
 
     expect(serve.exitCode).toBe(0);
@@ -695,6 +766,11 @@ describe("StackSpend CLI", () => {
     expect(status.exitCode).toBe(0);
     expect(status.stdout.join("\n")).toContain("Runtime: healthy");
     expect(status.stdout.join("\n")).toContain("Desktop shell: not detected by CLI");
+    expect(missingStatus.exitCode).toBe(0);
+    expect(missingStatus.stdout.join("\n")).toContain("Runtime: not running");
+    expect(missingStatus.stdout.join("\n")).toContain("Runtime lock: not found");
+    expect(missingStatus.stdout.join("\n")).toContain("run `stackspend serve`");
+    expect(missingStatus.stdout.join("\n")).not.toContain("pending packages/runtime integration");
   });
 
   it("syncs the mock provider and renders a Korean daily report from persisted normalized data", async () => {

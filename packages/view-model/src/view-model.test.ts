@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
   buildNotificationDigest,
   buildOperationsOverview,
   buildTodayLiveView,
   buildTrayMenuModel,
+  parseNotificationPreferences,
   readOperationsOverview,
   type ViewModelStore,
 } from "./index.js";
@@ -98,14 +100,151 @@ describe("shared view model", () => {
 
     expect(digest.secretsReturned).toBe(false);
     expect(tray.secretsReturned).toBe(false);
-    expect(digest.items.map((item) => item.kind)).toEqual(["summary", "live", "risk"]);
+    expect(digest.items.map((item) => item.widgetKey)).toEqual([
+      "month_forecast",
+      "today_live_cost",
+      "risk_high_count",
+      "stale_connection_count",
+      "openai_today_tokens",
+      "codex_five_hour_percent",
+    ]);
     expect(tray.items.map((item) => item.id)).toEqual([
       "status",
+      "widget-month_forecast",
+      "widget-today_live_cost",
+      "widget-risk_high_count",
+      "widget-stale_connection_count",
+      "widget-openai_today_tokens",
+      "widget-codex_five_hour_percent",
+      "separator-widgets",
+      "show-hud",
       "open-dashboard",
+      "open-notification-settings",
       "refresh-now",
       "separator-main",
       "quit",
     ]);
     expect(JSON.stringify({ digest, tray })).not.toContain("dev@example.com");
+  });
+
+  it("orders selected CLI and provider widgets for desktop HUD payloads", () => {
+    const overview = buildOperationsOverview({
+      ...STORE_WITH_SENSITIVE_VALUES,
+      providers: [
+        ...STORE_WITH_SENSITIVE_VALUES.providers,
+        {
+          key: "codex-cli",
+          displayName: "Codex CLI",
+        },
+      ],
+    }, {
+      generatedAt: NOW.toISOString(),
+    });
+    const todayLive = buildTodayLiveView(STORE_WITH_SENSITIVE_VALUES, {
+      generatedAt: NOW.toISOString(),
+      now: NOW,
+      timezone: "UTC",
+      liveProviders: [
+        {
+          providerKey: "openai",
+          displayName: "OpenAI",
+          checkedAt: NOW.toISOString(),
+          freshness: "live",
+          confidence: "low",
+          todayLiveAmountMinor: 420,
+          currency: "USD",
+          included: true,
+          metrics: [
+            {
+              key: "total_tokens",
+              value: 4200,
+              unit: "tokens",
+            },
+          ],
+        },
+        {
+          providerKey: "codex-cli",
+          displayName: "Codex CLI",
+          checkedAt: NOW.toISOString(),
+          freshness: "live",
+          confidence: "low",
+          todayLiveAmountMinor: null,
+          currency: "USD",
+          included: false,
+          metrics: [
+            {
+              key: "five_hour_limit_percent",
+              value: 12.5,
+              unit: "percent",
+            },
+            {
+              key: "weekly_tokens",
+              value: 130,
+              unit: "tokens",
+            },
+            {
+              key: "weekly_remaining_tokens",
+              value: 870,
+              unit: "tokens",
+            },
+          ],
+        },
+      ],
+    });
+    const digest = buildNotificationDigest(overview, todayLive, {
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      selectedWidgets: [
+        "codex_five_hour_percent",
+        "codex_weekly_percent",
+        "openai_today_tokens",
+      ],
+    });
+    const tray = buildTrayMenuModel(digest);
+
+    expect(digest.items.map((item) => [item.widgetKey, item.value])).toEqual([
+      ["codex_five_hour_percent", "87.5%"],
+      ["codex_weekly_percent", "87%"],
+      ["openai_today_tokens", "4,200"],
+    ]);
+    expect(tray.items.filter((item) => item.id.startsWith("widget-")).map((item) => item.label)).toEqual([
+      "Codex 5h remaining: 87.5%",
+      "Codex weekly remaining: 87%",
+      "OpenAI tokens: 4,200",
+    ]);
+  });
+
+  it("normalizes compact HUD display preferences", () => {
+    expect(parseNotificationPreferences({}).hud).toEqual(DEFAULT_NOTIFICATION_PREFERENCES.hud);
+    expect(parseNotificationPreferences({
+      hud: {
+        fontScale: 2,
+        opacity: 0.1,
+      },
+    }).hud).toEqual({
+      fontScale: 1.3,
+      opacity: 0.65,
+      selectedWidgets: DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets,
+    });
+    expect(parseNotificationPreferences({
+      hud: {
+        fontScale: 0.87,
+        opacity: 0.92,
+        selectedWidgets: ["openai_today_tokens"],
+      },
+    }).hud).toEqual({
+      fontScale: 0.87,
+      opacity: 0.92,
+      selectedWidgets: ["openai_today_tokens"],
+    });
+    expect(parseNotificationPreferences({
+      selectedWidgets: ["risk_high_count"],
+      hud: {
+        fontScale: 0.95,
+      },
+    }).hud).toEqual({
+      fontScale: 0.95,
+      opacity: DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity,
+      selectedWidgets: ["risk_high_count"],
+    });
   });
 });

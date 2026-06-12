@@ -36,6 +36,13 @@ export interface NotificationPreferences {
   selectedWidgets: readonly NotificationWidgetKey[];
   thresholdRules: readonly NotificationThresholdRule[];
   desktopEnabled: boolean;
+  hud: HudPreferences;
+}
+
+export interface HudPreferences {
+  fontScale: number;
+  opacity: number;
+  selectedWidgets: readonly NotificationWidgetKey[];
 }
 
 export interface NotificationPreferenceFileOptions {
@@ -85,12 +92,19 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   selectedWidgets: DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
   thresholdRules: DEFAULT_NOTIFICATION_THRESHOLD_RULES,
   desktopEnabled: false,
+  hud: {
+    fontScale: 0.95,
+    opacity: 0.94,
+    selectedWidgets: DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
+  },
 };
 
 export function parseNotificationPreferences(value: unknown): NotificationPreferences {
   if (!isRecord(value)) {
     return cloneNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
   }
+
+  const selectedWidgets = parseSelectedWidgets(value.selectedWidgets);
 
   return {
     enabled: typeof value.enabled === "boolean" ? value.enabled : DEFAULT_NOTIFICATION_PREFERENCES.enabled,
@@ -99,11 +113,12 @@ export function parseNotificationPreferences(value: unknown): NotificationPrefer
       : DEFAULT_NOTIFICATION_PREFERENCES.digestEnabled,
     digestInterval: parseDigestInterval(value.digestInterval),
     quietHours: parseQuietHours(value.quietHours),
-    selectedWidgets: parseSelectedWidgets(value.selectedWidgets),
+    selectedWidgets,
     thresholdRules: parseThresholdRules(value.thresholdRules),
     desktopEnabled: typeof value.desktopEnabled === "boolean"
       ? value.desktopEnabled
       : DEFAULT_NOTIFICATION_PREFERENCES.desktopEnabled,
+    hud: parseHudPreferences(value.hud, selectedWidgets),
   };
 }
 
@@ -118,6 +133,20 @@ export function cloneNotificationPreferences(preferences: NotificationPreference
     selectedWidgets: [...preferences.selectedWidgets],
     thresholdRules: preferences.thresholdRules.map((rule) => ({ ...rule })),
     desktopEnabled: preferences.desktopEnabled,
+    hud: parseHudPreferences(preferences.hud),
+  };
+}
+
+function parseHudPreferences(
+  value: unknown,
+  fallbackSelectedWidgets: readonly NotificationWidgetKey[] = DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets,
+): HudPreferences {
+  const record = isRecord(value) ? value : {};
+
+  return {
+    fontScale: clampNumber(record.fontScale, 0.8, 1.3, DEFAULT_NOTIFICATION_PREFERENCES.hud.fontScale),
+    opacity: clampNumber(record.opacity, 0.65, 1, DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity),
+    selectedWidgets: parseSelectedWidgets(record.selectedWidgets, fallbackSelectedWidgets),
   };
 }
 
@@ -136,13 +165,16 @@ function parseQuietHours(value: unknown): NotificationPreferences["quietHours"] 
   };
 }
 
-function parseSelectedWidgets(value: unknown): readonly NotificationWidgetKey[] {
+function parseSelectedWidgets(
+  value: unknown,
+  fallbackSelectedWidgets: readonly NotificationWidgetKey[] = DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
+): readonly NotificationWidgetKey[] {
   const widgetKeys = new Set(NOTIFICATION_WIDGET_KEYS);
   const selected = Array.isArray(value)
     ? value.filter((item): item is NotificationWidgetKey => typeof item === "string" && widgetKeys.has(item as NotificationWidgetKey))
-    : [...DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS];
+    : [...fallbackSelectedWidgets];
 
-  return selected.length === 0 ? [...DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS] : [...new Set(selected)];
+  return selected.length === 0 ? [...fallbackSelectedWidgets] : [...new Set(selected)];
 }
 
 function parseThresholdRules(value: unknown): readonly NotificationThresholdRule[] {
@@ -191,6 +223,14 @@ function parseNonNegativeNumber(value: unknown): number | null {
   }
 
   return Math.max(0, value);
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, Math.round(value * 100) / 100));
 }
 
 function parseTime(value: unknown, fallback: string): string {

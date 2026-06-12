@@ -23,13 +23,14 @@
         "visible": true
       }
     ],
+    "macOSPrivateApi": true,
     "security": {
       "csp": null
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": ["app", "nsis"],
     "category": "DeveloperTool",
     "shortDescription": "Local StackSpend tray notifier",
     "longDescription": "StackSpend Tray is a local-only desktop tray notifier that reads sanitized loopback StackSpend API responses.",

@@ -1,6 +1,7 @@
 import { runDashboardCommand } from "./commands/dashboard.js";
 import { runDoctorCommand } from "./commands/doctor.js";
 import { runInitCommand } from "./commands/init.js";
+import { runModesCommand } from "./commands/modes.js";
 import { runNotifyCommand } from "./commands/notify.js";
 import { runReportCommand } from "./commands/report.js";
 import { runDesktopCommand, runOpenCommand, runServeCommand } from "./commands/runtime.js";
@@ -190,6 +191,10 @@ async function dispatchCommand(args: readonly string[], context: CliExecutionCon
 
   if (command === "doctor") {
     return runDoctorCommand(rest, context);
+  }
+
+  if (command === "modes") {
+    return runModesCommand(rest, context);
   }
 
   if (command === "dashboard") {

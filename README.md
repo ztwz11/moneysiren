@@ -148,6 +148,8 @@ Alpha CLI requirements:
 - StackSpend uses the Node SQLite runtime when available. `sqlite3` on `PATH` or `STACKSPEND_SQLITE_BIN` is an optional fallback.
 - Environment variables only for secrets; do not create `.env` or commit live credentials.
 - `stackspend --version`, `stackspend doctor`, and `stackspend sync --provider mock` do not require live provider credentials.
+- AWS SSO login refreshes the profile cache, but it does not set the current shell's `AWS_PROFILE`.
+  Use `stackspend sync --provider aws --profile <profile>` or set `AWS_PROFILE` before syncing.
 
 `stackspend modes` shows the selected install profile and the three runtime surfaces after npm installation: CLI automation, local web dashboard/runtime, and desktop tray/notifier. The same source tree is used on Windows and macOS; local config paths and native desktop artifacts are selected per OS. The shared runtime lock defaults to `%APPDATA%\StackSpend\runtime.json` on Windows and `~/Library/Application Support/StackSpend/runtime.json` on macOS so the npm CLI and the native tray can discover the same local runtime.
 

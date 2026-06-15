@@ -47,7 +47,10 @@ npx --package @stackspend/cli@alpha stackspend modes
 npx --package @stackspend/cli@alpha stackspend doctor
 npx --package @stackspend/cli@alpha stackspend /doctor
 npx --package @stackspend/cli@alpha stackspend dashboard check
+npx --package @stackspend/cli@alpha stackspend sync --provider aws --profile <profile>
 ```
+
+`aws sso login --profile <profile>` refreshes AWS SSO credentials, but it does not set `AWS_PROFILE` in the current shell. Pass `--profile <profile>` or export `AWS_PROFILE` before live AWS sync.
 
 ## Local Tarball Review
 

@@ -86,10 +86,30 @@ export function normalizeCostExplorerResponse(
 
   for (const result of input.response.ResultsByTime ?? []) {
     const period = requireTimePeriod(result.TimePeriod);
-    const totalMetric = requireMetric(result.Total, UNBLENDED_COST_METRIC, "Cost Explorer total");
-    const currency = requireMetricCurrency(totalMetric, "Cost Explorer total");
-    const amountMinor = decimalAmountToMinorUnits(requireMetricAmount(totalMetric, "Cost Explorer total"));
+    const serviceCosts = normalizeServiceCosts(result.Groups ?? []);
+    const totalMetric = readMetric(result.Total, UNBLENDED_COST_METRIC);
+    const currency = totalMetric === undefined
+      ? requireInferredCurrency(serviceCosts)
+      : requireMetricCurrency(totalMetric, "Cost Explorer total");
+    const amountMinor = totalMetric === undefined
+      ? sumMinorUnits(serviceCosts.map((serviceCost) => serviceCost.amountMinor))
+      : decimalAmountToMinorUnits(requireMetricAmount(totalMetric, "Cost Explorer total"));
     const status = result.Estimated === true ? "estimated" : "final";
+
+    for (const serviceCost of serviceCosts) {
+      if (serviceCost.unit !== currency) {
+        throw new Error(`Cost Explorer currency mismatch for service ${serviceCost.service}.`);
+      }
+
+      usage.push({
+        provider: "aws",
+        collectedAt: input.collectedAt,
+        service: serviceCost.service,
+        metric: STACKSPEND_COST_METRIC,
+        unit: serviceCost.unit,
+        value: serviceCost.amountMinor / 100,
+      });
+    }
 
     billing.push({
       provider: "aws",
@@ -110,25 +130,6 @@ export function normalizeCostExplorerResponse(
       currency,
       confidence: result.Estimated === true ? "medium" : "high",
     });
-
-    for (const group of result.Groups ?? []) {
-      const service = requireServiceName(group);
-      const groupMetric = requireMetric(group.Metrics, UNBLENDED_COST_METRIC, `Cost Explorer service ${service}`);
-      const groupCurrency = requireMetricCurrency(groupMetric, `Cost Explorer service ${service}`);
-
-      if (groupCurrency !== currency) {
-        throw new Error(`Cost Explorer currency mismatch for service ${service}.`);
-      }
-
-      usage.push({
-        provider: "aws",
-        collectedAt: input.collectedAt,
-        service,
-        metric: STACKSPEND_COST_METRIC,
-        unit: groupCurrency,
-        value: decimalAmountToMinorUnits(requireMetricAmount(groupMetric, `Cost Explorer service ${service}`)) / 100,
-      });
-    }
   }
 
   return {
@@ -137,6 +138,40 @@ export function normalizeCostExplorerResponse(
     serviceHealth: [],
     costEstimates,
   };
+}
+
+function normalizeServiceCosts(
+  groups: readonly AwsCostExplorerGroup[],
+): Array<{ service: string; unit: string; amountMinor: number }> {
+  return groups.map((group) => {
+    const service = requireServiceName(group);
+    const context = `Cost Explorer service ${service}`;
+    const groupMetric = requireMetric(group.Metrics, UNBLENDED_COST_METRIC, context);
+
+    return {
+      service,
+      unit: requireMetricCurrency(groupMetric, context),
+      amountMinor: decimalAmountToMinorUnits(requireMetricAmount(groupMetric, context)),
+    };
+  });
+}
+
+function requireInferredCurrency(serviceCosts: readonly { unit: string }[]): string {
+  const currencies = new Set(serviceCosts.map((serviceCost) => serviceCost.unit));
+
+  if (currencies.size === 0) {
+    throw new Error("Cost Explorer total is missing UnblendedCost and service groups cannot infer a currency.");
+  }
+
+  if (currencies.size > 1) {
+    throw new Error("Cost Explorer service groups use multiple currencies.");
+  }
+
+  return [...currencies][0] ?? "USD";
+}
+
+function sumMinorUnits(amounts: readonly number[]): number {
+  return amounts.reduce((total, amount) => total + amount, 0);
 }
 
 export function decimalAmountToMinorUnits(amount: string): number {
@@ -183,13 +218,20 @@ function requireMetric(
   metricName: string,
   context: string,
 ): AwsCostExplorerMetricAmount {
-  const metric = metrics?.[metricName];
+  const metric = readMetric(metrics, metricName);
 
   if (metric === undefined) {
     throw new Error(`${context} is missing ${metricName}.`);
   }
 
   return metric;
+}
+
+function readMetric(
+  metrics: AwsCostExplorerMetrics | undefined,
+  metricName: string,
+): AwsCostExplorerMetricAmount | undefined {
+  return metrics?.[metricName];
 }
 
 function requireMetricAmount(metric: AwsCostExplorerMetricAmount, context: string): string {

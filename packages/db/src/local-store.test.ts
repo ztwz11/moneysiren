@@ -124,6 +124,65 @@ describe("local SQLite store", () => {
     expect(persistedText).not.toMatch(/rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@/i);
   });
 
+  it("clears stale provider-sync alerts after a successful provider collection", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "stackspend-db-"));
+    const dbPath = join(rootDir, ".stackspend", "stackspend.sqlite");
+    const provider = {
+      key: "mock",
+      displayName: "Mock Provider",
+      connectorVersion: "0.1.0-alpha.0",
+    };
+
+    await saveLocalProviderCollection({
+      dbPath,
+      provider,
+      collectedAt: FIXED_NOW,
+      status: "error",
+      snapshots: {
+        usage: [],
+        billing: [],
+        serviceHealth: [],
+        costEstimates: [],
+      },
+      alerts: [
+        {
+          provider: "mock",
+          createdAt: FIXED_NOW,
+          severity: "warning",
+          category: "provider-sync",
+          title: "Mock sync failed",
+          message: "Mock connector failed before snapshots were collected.",
+        },
+      ],
+    });
+    expect((await readLocalStore({ dbPath })).alerts).toHaveLength(1);
+
+    await saveLocalProviderCollection({
+      dbPath,
+      provider,
+      collectedAt: "2026-06-02T09:10:00.000Z",
+      status: "ok",
+      snapshots: {
+        usage: [
+          {
+            provider: "mock",
+            collectedAt: "2026-06-02T09:10:00.000Z",
+            service: "mock-api",
+            metric: "requests",
+            unit: "count",
+            value: 1,
+          },
+        ],
+        billing: [],
+        serviceHealth: [],
+        costEstimates: [],
+      },
+      alerts: [],
+    });
+
+    expect((await readLocalStore({ dbPath })).alerts).toEqual([]);
+  });
+
   it("does not inflate the read model when the same cost estimate is collected twice", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "stackspend-db-"));
     const dbPath = join(rootDir, ".stackspend", "stackspend.sqlite");

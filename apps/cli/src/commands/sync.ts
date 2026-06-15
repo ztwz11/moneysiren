@@ -43,24 +43,32 @@ const OPENAI_COSTS_FIXTURE_ENV_KEY = "STACKSPEND_OPENAI_COSTS_FIXTURE";
 const SUPABASE_FIXTURE_ENV_KEY = "STACKSPEND_SUPABASE_FIXTURE";
 const CLOUDFLARE_FIXTURE_ENV_KEY = "STACKSPEND_CLOUDFLARE_FIXTURE";
 const CLOUDFLARE_ACCOUNT_IDS_ENV_KEY = "CLOUDFLARE_ACCOUNT_IDS";
-const SYNC_USAGE = "Usage: stackspend sync --provider <mock|aws|openai|supabase|cloudflare>";
+const SYNC_USAGE = "Usage: stackspend sync --provider <mock|aws|openai|supabase|cloudflare> [--profile <aws-profile>]";
 
 export async function runSyncCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   const providerFlag = readFlag(args, "--provider");
+  const awsProfileOption = readAwsProfileOption(providerFlag.remainingArgs);
 
   if (
-    providerFlag.remainingArgs.length > 0 ||
+    awsProfileOption.error !== undefined ||
+    awsProfileOption.remainingArgs.length > 0 ||
     providerFlag.value === undefined ||
     !isSupportedSyncProvider(providerFlag.value)
   ) {
-    context.stderr(SYNC_USAGE);
+    context.stderr(awsProfileOption.error ?? SYNC_USAGE);
+    return 1;
+  }
+
+  if (providerFlag.value !== "aws" && awsProfileOption.profile !== undefined) {
+    context.stderr("--profile is only supported for AWS sync.");
     return 1;
   }
 
   const config = loadCliConfig(context.env);
 
   if (providerFlag.value === "aws") {
-    const fixturePath = readConfiguredEnvValue(context.env[AWS_COST_EXPLORER_FIXTURE_ENV_KEY]);
+    const awsEnv = applyAwsProfileOption(context.env, awsProfileOption.profile);
+    const fixturePath = readConfiguredEnvValue(awsEnv[AWS_COST_EXPLORER_FIXTURE_ENV_KEY]);
 
     if (fixturePath !== undefined) {
       return syncAwsProvider(
@@ -70,19 +78,23 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
       );
     }
 
-    if (!isAwsLiveConfigured(context.env) && context.liveClients?.awsCostExplorer === undefined) {
+    if (!isAwsLiveConfigured(awsEnv) && context.liveClients?.awsCostExplorer === undefined) {
       context.stderr(
-        `AWS sync requires AWS_PROFILE, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or ${AWS_COST_EXPLORER_FIXTURE_ENV_KEY}. ` +
-          `Set ${AWS_COST_EXPLORER_FIXTURE_ENV_KEY} for fixture mode.`,
+        `AWS sync requires AWS_PROFILE, --profile <profile>, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or ` +
+          `${AWS_COST_EXPLORER_FIXTURE_ENV_KEY}. If you ran aws sso login --profile <profile>, pass ` +
+          `--profile <profile> or set AWS_PROFILE in this shell.`,
       );
       return 1;
     }
 
-    return syncAwsProvider(
-      context,
-      config.dbPath,
-      context.liveClients?.awsCostExplorer ?? createAwsSdkCostExplorerClient(
-        awsSdkOptionsFromEnv(context.env),
+    return withAwsProfileOnProcessEnv(
+      awsProfileOption.profile,
+      () => syncAwsProvider(
+        context,
+        config.dbPath,
+        context.liveClients?.awsCostExplorer ?? createAwsSdkCostExplorerClient(
+          awsSdkOptionsFromEnv(awsEnv),
+        ),
       ),
     );
   }
@@ -478,6 +490,103 @@ function awsSdkOptionsFromEnv(env: Record<string, string | undefined>): { region
   const region = readConfiguredEnvValue(env[AWS_REGION_ENV_KEY]);
 
   return region === undefined ? {} : { region };
+}
+
+function readAwsProfileOption(args: readonly string[]): {
+  profile?: string;
+  remainingArgs: string[];
+  error?: string;
+} {
+  const remainingArgs: string[] = [];
+  let profile: string | undefined;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === "--profile" || arg === "--aws-profile") {
+      const value = args[index + 1];
+      const parsed = readConfiguredEnvValue(value);
+
+      if (parsed === undefined || value?.startsWith("--") === true) {
+        return {
+          remainingArgs,
+          error: `${arg} requires a profile name.`,
+        };
+      }
+
+      if (profile !== undefined && profile !== parsed) {
+        return {
+          remainingArgs,
+          error: "AWS profile was provided more than once with different values.",
+        };
+      }
+
+      profile = parsed;
+      index += 1;
+      continue;
+    }
+
+    if (arg?.startsWith("--profile=") || arg?.startsWith("--aws-profile=")) {
+      const [flagName, ...valueParts] = arg.split("=");
+      const parsed = readConfiguredEnvValue(valueParts.join("="));
+
+      if (parsed === undefined) {
+        return {
+          remainingArgs,
+          error: `${flagName} requires a profile name.`,
+        };
+      }
+
+      if (profile !== undefined && profile !== parsed) {
+        return {
+          remainingArgs,
+          error: "AWS profile was provided more than once with different values.",
+        };
+      }
+
+      profile = parsed;
+      continue;
+    }
+
+    if (arg !== undefined) {
+      remainingArgs.push(arg);
+    }
+  }
+
+  return profile === undefined ? { remainingArgs } : { profile, remainingArgs };
+}
+
+function applyAwsProfileOption(
+  env: Record<string, string | undefined>,
+  profile: string | undefined,
+): Record<string, string | undefined> {
+  if (profile === undefined) {
+    return env;
+  }
+
+  return {
+    ...env,
+    AWS_PROFILE: profile,
+  };
+}
+
+async function withAwsProfileOnProcessEnv<T>(profile: string | undefined, run: () => Promise<T>): Promise<T> {
+  if (profile === undefined) {
+    return run();
+  }
+
+  const previousProfile = process.env.AWS_PROFILE;
+  process.env.AWS_PROFILE = profile;
+
+  try {
+    return await run();
+  } finally {
+    if (previousProfile === undefined) {
+      delete process.env.AWS_PROFILE;
+    } else {
+      process.env.AWS_PROFILE = previousProfile;
+    }
+  }
 }
 
 function readCloudflareAccountIds(value: string | undefined): string[] {

@@ -235,6 +235,10 @@ export async function saveLocalProviderCollection(input: LocalProviderCollection
     }),
   ];
 
+  if (input.status === "ok") {
+    statements.push(deleteProviderSyncAlertsSql(providerId));
+  }
+
   for (const providerAccountRef of providerAccountRefs) {
     statements.push(upsertProviderAccountSql(providerId, input.provider.key, providerAccountRef, input.collectedAt));
   }
@@ -667,6 +671,14 @@ function insertAlertSql(alert: LocalAlertInput): string {
     ${sqlString(alert.message)},
     ${sqlString(EMPTY_METADATA_JSON)}
   );
+  `;
+}
+
+function deleteProviderSyncAlertsSql(providerId: string): string {
+  return `
+  DELETE FROM alerts
+  WHERE provider_id = ${sqlString(providerId)}
+    AND category = 'provider-sync';
   `;
 }
 

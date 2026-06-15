@@ -121,6 +121,8 @@ $env:CLOUDFLARE_ACCOUNT_IDS = "FAKE_STACKSPEND_INSTALL_GUIDE_ACCOUNT_ID"
 npm run dev:web
 ```
 
+For live AWS SSO, `aws sso login --profile <profile>` refreshes the SSO cache but does not set `AWS_PROFILE` in the current shell. Use `pnpm --filter @stackspend/cli dev -- sync --provider aws --profile <profile>` or set `$env:AWS_PROFILE` before syncing.
+
 Open:
 
 - `http://127.0.0.1:3000/en/dashboard/overview`
@@ -195,6 +197,8 @@ export CLOUDFLARE_ACCOUNT_IDS="FAKE_STACKSPEND_INSTALL_GUIDE_ACCOUNT_ID"
 
 npm run dev:web
 ```
+
+For live AWS SSO, `aws sso login --profile <profile>` refreshes the SSO cache but does not set `AWS_PROFILE` in the current shell. Use `pnpm --filter @stackspend/cli dev -- sync --provider aws --profile <profile>` or export `AWS_PROFILE` before syncing.
 
 Open:
 

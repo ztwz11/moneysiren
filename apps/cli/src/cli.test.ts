@@ -966,9 +966,47 @@ describe("StackSpend CLI", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr.join("\n")).toContain("AWS_PROFILE");
+    expect(result.stderr.join("\n")).toContain("--profile <profile>");
     expect(result.stderr.join("\n")).toContain("STACKSPEND_AWS_COST_EXPLORER_FIXTURE");
     expect(await fileExists(join(cwd, ".env"))).toBe(false);
     expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
+  });
+
+  it("syncs AWS with an explicit profile flag without requiring AWS_PROFILE in the shell", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const awsFixture = JSON.parse(await readFile(AWS_FIXTURE_PATH, "utf8"));
+    const sentCommands: string[] = [];
+    const result = await runCli(["sync", "--provider", "aws", "--profile", "fake-stackspend-live-profile"], {
+      ...testContext(cwd),
+      liveClients: {
+        awsCostExplorer: {
+          async send(command) {
+            sentCommands.push(command.name);
+            return awsFixture;
+          },
+        },
+      },
+    });
+
+    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const counts = querySqlite<{ providers: number; usage_snapshots: number; cost_estimates: number }>(
+      dbPath,
+      `
+      SELECT
+        (SELECT count(*) FROM providers) AS providers,
+        (SELECT count(*) FROM usage_snapshots) AS usage_snapshots,
+        (SELECT count(*) FROM cost_estimates) AS cost_estimates;
+      `,
+    )[0];
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toEqual([]);
+    expect(sentCommands).toEqual(["GetCostAndUsage"]);
+    expect(counts).toEqual({
+      providers: 1,
+      usage_snapshots: 4,
+      cost_estimates: 1,
+    });
   });
 
   it("records sanitized AWS Cost Explorer failures and exits non-zero", async () => {

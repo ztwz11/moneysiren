@@ -82,6 +82,35 @@ describe("normalizeCostExplorerResponse", () => {
     );
   });
 
+  it("infers the period total from grouped service costs when Cost Explorer omits Total", async () => {
+    const response = await loadFixture();
+    const resultsByTime = response.ResultsByTime ?? [];
+    const snapshots = normalizeCostExplorerResponse({
+      response: {
+        ResultsByTime: resultsByTime.map((result) => ({
+          ...(result.TimePeriod === undefined ? {} : { TimePeriod: result.TimePeriod }),
+          ...(result.Estimated === undefined ? {} : { Estimated: result.Estimated }),
+          ...(result.Groups === undefined ? {} : { Groups: result.Groups }),
+        })),
+      },
+      collectedAt: FIXED_NOW,
+    });
+
+    expect(snapshots.usage).toHaveLength(4);
+    expect(snapshots.billing).toEqual([
+      {
+        provider: "aws",
+        collectedAt: FIXED_NOW,
+        periodStart: "2026-06-01",
+        periodEnd: "2026-07-01",
+        amountMinor: 1234,
+        currency: "USD",
+        status: "estimated",
+      },
+    ]);
+    expect(snapshots.costEstimates[0]?.estimatedAmountMinor).toBe(1234);
+  });
+
   it("rounds AWS decimal currency amounts to minor units", () => {
     const snapshots = normalizeCostExplorerResponse({
       collectedAt: FIXED_NOW,

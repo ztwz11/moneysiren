@@ -231,6 +231,107 @@ describe("dashboard data adapter", () => {
     expectDashboardPayloadIsRedacted(snapshot);
   });
 
+  it("uses the latest collected snapshot per day for daily usage trends", () => {
+    const snapshot = buildDashboardSnapshot(
+      {
+        appliedMigrationIds: ["0001_init"],
+        providers: [
+          {
+            id: "provider:aws",
+            key: "aws",
+            displayName: "AWS Cost Explorer",
+            connectorVersion: "0.1.0-alpha.0",
+            createdAt: "2026-06-14T08:00:00.000Z",
+            updatedAt: "2026-06-15T08:00:00.000Z",
+          },
+        ],
+        usageSnapshots: [
+          {
+            id: "usage-1",
+            providerKey: "aws",
+            collectedAt: "2026-06-14T08:00:00.000Z",
+            service: "Amazon EC2",
+            metric: "unblended_cost",
+            unit: "USD",
+            value: 3,
+            metadataJson: {},
+          },
+          {
+            id: "usage-2",
+            providerKey: "aws",
+            collectedAt: "2026-06-15T06:09:00.000Z",
+            service: "Amazon EC2",
+            metric: "unblended_cost",
+            unit: "USD",
+            value: 7,
+            metadataJson: {},
+          },
+          {
+            id: "usage-3",
+            providerKey: "aws",
+            collectedAt: "2026-06-15T06:09:00.000Z",
+            service: "Amazon S3",
+            metric: "unblended_cost",
+            unit: "USD",
+            value: 2,
+            metadataJson: {},
+          },
+          {
+            id: "usage-4",
+            providerKey: "aws",
+            collectedAt: "2026-06-15T06:13:00.000Z",
+            service: "Amazon EC2",
+            metric: "unblended_cost",
+            unit: "USD",
+            value: 5,
+            metadataJson: {},
+          },
+          {
+            id: "usage-5",
+            providerKey: "aws",
+            collectedAt: "2026-06-15T06:13:00.000Z",
+            service: "Amazon S3",
+            metric: "unblended_cost",
+            unit: "USD",
+            value: 2.61,
+            metadataJson: {},
+          },
+        ],
+        billingSnapshots: [],
+        serviceHealthSnapshots: [],
+        costEstimates: [],
+        alerts: [],
+        reportRuns: [],
+      },
+      {
+        generatedAt: GENERATED_AT,
+      },
+    );
+
+    expect(snapshot.usage.dailyMetrics).toMatchObject([
+      {
+        date: "2026-06-14",
+        providerKey: "aws",
+        displayName: "AWS Cost Explorer",
+        metric: "unblended_cost",
+        unit: "USD",
+        value: 3,
+        sampleCount: 1,
+        latestCollectedAt: "2026-06-14T08:00:00.000Z",
+      },
+      {
+        date: "2026-06-15",
+        providerKey: "aws",
+        displayName: "AWS Cost Explorer",
+        metric: "unblended_cost",
+        unit: "USD",
+        sampleCount: 2,
+        latestCollectedAt: "2026-06-15T06:13:00.000Z",
+      },
+    ]);
+    expect(snapshot.usage.dailyMetrics[1]?.value).toBeCloseTo(7.61, 2);
+  });
+
   it("reads a temp SQLite database through the adapter", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "stackspend-web-db-"));
     const dbPath = join(rootDir, ".stackspend", "stackspend.sqlite");

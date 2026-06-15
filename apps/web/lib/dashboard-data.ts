@@ -370,6 +370,24 @@ function buildDailyUsageMetrics(
   usageSnapshots: readonly LocalStore["usageSnapshots"][number][],
   providerDisplayNames: ReadonlyMap<string, string>,
 ): DashboardDailyUsageMetric[] {
+  const latestCollectedAtByDayProvider = new Map<string, string>();
+
+  for (const snapshot of usageSnapshots) {
+    const date = dateKeyFromCollectedAt(snapshot.collectedAt);
+
+    if (date === null) {
+      continue;
+    }
+
+    const providerKey = safeText(snapshot.providerKey);
+    const key = [date, providerKey].join("\u001f");
+    const previousCollectedAt = latestCollectedAtByDayProvider.get(key);
+
+    if (previousCollectedAt === undefined || snapshot.collectedAt > previousCollectedAt) {
+      latestCollectedAtByDayProvider.set(key, snapshot.collectedAt);
+    }
+  }
+
   const metricsByKey = new Map<string, DashboardDailyUsageMetric>();
 
   for (const snapshot of usageSnapshots) {
@@ -380,6 +398,11 @@ function buildDailyUsageMetrics(
     }
 
     const providerKey = safeText(snapshot.providerKey);
+
+    if (latestCollectedAtByDayProvider.get([date, providerKey].join("\u001f")) !== snapshot.collectedAt) {
+      continue;
+    }
+
     const metric = safeText(snapshot.metric);
     const unit = safeText(snapshot.unit);
     const key = [date, providerKey, metric, unit].join("\u001f");

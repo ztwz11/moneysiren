@@ -14,7 +14,7 @@ const BASE_DASHBOARD: DashboardSnapshot = {
     totalEstimatedAmountMinor: 2000,
     totalBillingAmountMinor: 1100,
     currency: "USD",
-    usageSnapshotCount: 1,
+    usageSnapshotCount: 2,
     costEstimateCount: 1,
     alertCount: 0,
     criticalAlertCount: 0,
@@ -27,7 +27,7 @@ const BASE_DASHBOARD: DashboardSnapshot = {
       estimatedAmountMinor: 2000,
       billingAmountMinor: 1100,
       currency: "USD",
-      usageSnapshotCount: 1,
+      usageSnapshotCount: 2,
       billingSnapshotCount: 1,
       costEstimateCount: 1,
       healthStatus: "ok",
@@ -37,8 +37,28 @@ const BASE_DASHBOARD: DashboardSnapshot = {
     },
   ],
   usage: {
-    snapshotCount: 1,
+    snapshotCount: 2,
     topMetrics: [],
+    latestServiceMetrics: [
+      {
+        providerKey: "aws",
+        displayName: "AWS Cost Explorer",
+        service: "Amazon Elastic Compute Cloud - Compute",
+        metric: "unblended_cost",
+        unit: "USD",
+        value: 7.12,
+        collectedAt: "2026-06-04T15:00:00.000Z",
+      },
+      {
+        providerKey: "aws",
+        displayName: "AWS Cost Explorer",
+        service: "Amazon Simple Storage Service",
+        metric: "unblended_cost",
+        unit: "USD",
+        value: 3.34,
+        collectedAt: "2026-06-04T15:00:00.000Z",
+      },
+    ],
   },
   risks: [],
   health: [],
@@ -158,6 +178,38 @@ describe("operations dashboard data", () => {
       ]),
     });
     expect(JSON.stringify(dashboard)).not.toContain("FAKE_OPENAI_ADMIN_KEY_FOR_TESTS");
+  });
+
+  it("keeps overview totals aggregate while exposing AWS service cost details", () => {
+    const dashboard = buildOperationsDashboard(BASE_DASHBOARD, {
+      env: {
+        AWS_PROFILE: "fake-profile",
+      },
+      now: new Date("2026-06-05T03:00:00.000Z"),
+      timezone: "Asia/Seoul",
+    });
+    const awsProvider = dashboard.providers.find((provider) => provider.providerKey === "aws");
+
+    expect(dashboard.summary.confirmedThroughYesterdayAmountMinor).toBe(1100);
+    expect(dashboard.summary.monthForecastAmountMinor).toBe(7975);
+    expect(awsProvider?.serviceCostBreakdown).toEqual([
+      expect.objectContaining({
+        service: "Amazon Elastic Compute Cloud - Compute",
+        metric: "unblended_cost",
+        currency: "USD",
+        amountMinor: 712,
+        collectedAt: "2026-06-04T15:00:00.000Z",
+      }),
+      expect.objectContaining({
+        service: "Amazon Simple Storage Service",
+        metric: "unblended_cost",
+        currency: "USD",
+        amountMinor: 334,
+        collectedAt: "2026-06-04T15:00:00.000Z",
+      }),
+    ]);
+    expect(awsProvider?.serviceCostBreakdown[0]?.sharePercent).toBeCloseTo(68.0688, 4);
+    expect(awsProvider?.serviceCostBreakdown[1]?.sharePercent).toBeCloseTo(31.9312, 4);
   });
 
   it("falls back when an invalid dashboard timezone is configured", () => {

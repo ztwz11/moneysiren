@@ -62,6 +62,7 @@ export interface DashboardProviderRow {
 export interface DashboardUsageSummary {
   snapshotCount: number;
   topMetrics: DashboardUsageMetric[];
+  latestServiceMetrics: DashboardUsageMetric[];
 }
 
 export interface DashboardUsageMetric {
@@ -213,6 +214,7 @@ export function buildDashboardSnapshot(
           value: snapshot.value,
           collectedAt: snapshot.collectedAt,
         })),
+      latestServiceMetrics: buildLatestServiceMetrics(store.usageSnapshots, providerDisplayNames),
     },
     risks: buildRiskItems(alertItems, healthItems),
     health: healthItems,
@@ -243,6 +245,7 @@ function createEmptyDashboardSnapshot(generatedAt: string): DashboardSnapshot {
     usage: {
       snapshotCount: 0,
       topMetrics: [],
+      latestServiceMetrics: [],
     },
     risks: [],
     health: [],
@@ -347,6 +350,69 @@ async function pathExists(path: string): Promise<boolean> {
 
 function displayNameFor(providerKey: string, providerDisplayNames: ReadonlyMap<string, string>): string {
   return providerDisplayNames.get(providerKey) ?? safeText(providerKey);
+}
+
+function buildLatestServiceMetrics(
+  usageSnapshots: readonly LocalStore["usageSnapshots"][number][],
+  providerDisplayNames: ReadonlyMap<string, string>,
+): DashboardUsageMetric[] {
+  const latestCollectedAtByProvider = new Map<string, string>();
+
+  for (const snapshot of usageSnapshots) {
+    const providerKey = safeText(snapshot.providerKey);
+    const previousCollectedAt = latestCollectedAtByProvider.get(providerKey);
+
+    if (previousCollectedAt === undefined || snapshot.collectedAt > previousCollectedAt) {
+      latestCollectedAtByProvider.set(providerKey, snapshot.collectedAt);
+    }
+  }
+
+  const metricsByKey = new Map<string, DashboardUsageMetric>();
+
+  for (const snapshot of usageSnapshots) {
+    const providerKey = safeText(snapshot.providerKey);
+
+    if (latestCollectedAtByProvider.get(providerKey) !== snapshot.collectedAt) {
+      continue;
+    }
+
+    const service = safeText(snapshot.service);
+    const metric = safeText(snapshot.metric);
+    const unit = safeText(snapshot.unit);
+    const collectedAt = snapshot.collectedAt;
+    const key = [providerKey, service, metric, unit, collectedAt].join("\u001f");
+    const existing = metricsByKey.get(key);
+
+    if (existing === undefined) {
+      metricsByKey.set(key, {
+        providerKey,
+        displayName: displayNameFor(providerKey, providerDisplayNames),
+        service,
+        metric,
+        unit,
+        value: snapshot.value,
+        collectedAt,
+      });
+    } else {
+      existing.value += snapshot.value;
+    }
+  }
+
+  return [...metricsByKey.values()].sort((first, second) => {
+    const providerOrder = first.providerKey.localeCompare(second.providerKey);
+
+    if (providerOrder !== 0) {
+      return providerOrder;
+    }
+
+    const valueOrder = second.value - first.value;
+
+    if (valueOrder !== 0) {
+      return valueOrder;
+    }
+
+    return first.service.localeCompare(second.service);
+  });
 }
 
 function summarizeHealth(statuses: readonly DashboardHealthStatus[]): DashboardHealthStatus {

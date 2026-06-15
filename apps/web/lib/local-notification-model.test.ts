@@ -109,6 +109,7 @@ function dashboardSnapshot(): DashboardSnapshot {
     usage: {
       snapshotCount: 0,
       topMetrics: [],
+      latestServiceMetrics: [],
     },
     risks: [],
     health: [],

@@ -14,6 +14,7 @@ import type {
   DashboardRiskLevel,
   DashboardRiskSeverity,
   DashboardSnapshot,
+  DashboardUsageMetric,
 } from "./dashboard-data";
 import { readDashboardSnapshot, type ReadDashboardSnapshotOptions } from "./dashboard-data";
 import {
@@ -85,10 +86,20 @@ export interface OperationsProvider {
   todayLiveIncluded: boolean;
   currency: string;
   usageSnapshotCount: number;
+  serviceCostBreakdown: OperationsServiceCostRow[];
   healthStatus: DashboardHealthStatus;
   riskLevel: DashboardRiskLevel;
   alertCount: number;
   risks: DashboardAlertItem[];
+}
+
+export interface OperationsServiceCostRow {
+  service: string;
+  metric: string;
+  currency: string;
+  amountMinor: number;
+  collectedAt: string;
+  sharePercent: number;
 }
 
 export interface OperationsProviderConnection extends Omit<OperationsProvider, "connections" | "risks"> {
@@ -157,6 +168,7 @@ export function buildOperationsDashboard(
     const connectionState = connection?.connectionState ?? (providerConfig.configured ? "env_configured" : "not_configured");
     const canonicalFreshness = summarizeCanonicalFreshness(row, options.now, options.timezone);
     const risks = snapshot.alerts.filter((alert) => alert.providerKey === providerKey);
+    const serviceCostBreakdown = buildServiceCostBreakdown(snapshot.usage.latestServiceMetrics, providerKey);
 
     return {
       providerKey,
@@ -185,6 +197,7 @@ export function buildOperationsDashboard(
       todayLiveIncluded: liveSummary.included,
       currency: liveSummary.currency,
       usageSnapshotCount: row?.usageSnapshotCount ?? 0,
+      serviceCostBreakdown,
       healthStatus: row?.healthStatus ?? "unknown",
       riskLevel: row?.riskLevel ?? "warning",
       alertCount: row?.alertCount ?? 0,
@@ -269,6 +282,54 @@ function summarizeCanonicalFreshness(
   const yesterday = dateKeyInTimezone(new Date(now.getTime() - 24 * 60 * 60 * 1000), timezone);
 
   return latest >= yesterday ? "fresh" : "stale";
+}
+
+function buildServiceCostBreakdown(
+  metrics: readonly DashboardUsageMetric[],
+  providerKey: ProviderKey,
+): OperationsServiceCostRow[] {
+  const costRows = metrics
+    .filter((metric) => metric.providerKey === providerKey && metric.metric === "unblended_cost")
+    .map((metric) => ({
+      service: metric.service,
+      metric: metric.metric,
+      currency: metric.unit,
+      amountMinor: majorAmountToMinorUnits(metric.value),
+      collectedAt: metric.collectedAt,
+      sharePercent: 0,
+    }));
+  const totalByCurrency = new Map<string, number>();
+
+  for (const row of costRows) {
+    totalByCurrency.set(row.currency, (totalByCurrency.get(row.currency) ?? 0) + row.amountMinor);
+  }
+
+  return costRows
+    .map((row) => {
+      const currencyTotal = totalByCurrency.get(row.currency) ?? 0;
+
+      return {
+        ...row,
+        sharePercent: currencyTotal > 0 ? (row.amountMinor / currencyTotal) * 100 : 0,
+      };
+    })
+    .sort((first, second) => {
+      const amountOrder = second.amountMinor - first.amountMinor;
+
+      if (amountOrder !== 0) {
+        return amountOrder;
+      }
+
+      return first.service.localeCompare(second.service);
+    });
+}
+
+function majorAmountToMinorUnits(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.round(value * 100);
 }
 
 function summarizeLiveFreshness(connectionState: ConnectionState, liveGranularity: LiveGranularity): LiveFreshness {
@@ -413,6 +474,7 @@ function buildProviderConnectionRows(
       todayLiveIncluded: live?.included ?? false,
       currency: live?.currency ?? fallbackCurrency,
       usageSnapshotCount: 0,
+      serviceCostBreakdown: [],
       healthStatus: provider.healthStatus,
       riskLevel: provider.riskLevel,
       alertCount: provider.alertCount,

@@ -375,6 +375,14 @@ export function ServiceDetail({
           <UsageSummaryBlock summary={provider.currentUsageSummary} locale={locale} messages={messages} />
         </InfoPanel>
       </div>
+      {provider.providerKey === "aws" ? (
+        <AwsServiceCostBreakdown
+          locale={locale}
+          messages={messages}
+          provider={provider}
+          timezone={dashboard.timezone}
+        />
+      ) : null}
       <div className="two-column">
         <InfoPanel title={messages.services.healthRisk}>
           <BadgeLine messages={messages} states={[provider.healthStatus, provider.riskLevel]} />
@@ -406,6 +414,52 @@ export function ServiceDetail({
         </InfoPanel>
       </div>
     </div>
+  );
+}
+
+function AwsServiceCostBreakdown({
+  locale,
+  messages,
+  provider,
+  timezone,
+}: {
+  locale: Locale;
+  messages: Messages;
+  provider: OperationsProvider;
+  timezone: string;
+}) {
+  return (
+    <InfoPanel title={messages.services.serviceCostBreakdown}>
+      <p className="muted">{messages.services.serviceCostBreakdownNote}</p>
+      {provider.serviceCostBreakdown.length === 0 ? (
+        <p className="muted">{messages.services.noServiceCosts}</p>
+      ) : (
+        <div className="data-table-wrap">
+          <table className="data-table usage-service-table">
+            <thead>
+              <tr>
+                <th>{messages.dashboard.groupByService}</th>
+                <th>{messages.services.serviceMetric}</th>
+                <th>{messages.services.cost}</th>
+                <th>{messages.services.serviceCostShare}</th>
+                <th>{messages.services.latestCanonicalSync}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {provider.serviceCostBreakdown.map((row) => (
+                <tr key={`${row.service}:${row.metric}:${row.currency}:${row.collectedAt}`}>
+                  <td>{row.service}</td>
+                  <td>{row.metric}</td>
+                  <td>{formatMinorAmount(row.amountMinor, row.currency, locale)}</td>
+                  <td>{formatPercent(row.sharePercent, locale)}</td>
+                  <td>{formatOptionalDate(row.collectedAt, locale, timezone, messages)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </InfoPanel>
   );
 }
 
@@ -1907,6 +1961,12 @@ function formatMinorAmount(amountMinor: number, currency: string, locale: Locale
     style: "currency",
     currency,
   }).format(amountMinor / 100);
+}
+
+function formatPercent(value: number, locale: Locale): string {
+  return `${new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 1,
+  }).format(value)}%`;
 }
 
 function formatUsageMetric(

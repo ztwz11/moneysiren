@@ -65,6 +65,11 @@ export interface Messages {
     latestCanonicalSync: string;
     latestLiveCheck: string;
     cost: string;
+    serviceCostBreakdown: string;
+    serviceCostBreakdownNote: string;
+    serviceCostShare: string;
+    serviceMetric: string;
+    noServiceCosts: string;
     usage: string;
     healthRisk: string;
     dataConfidence: string;
@@ -354,6 +359,11 @@ export const messages = {
       latestCanonicalSync: "Latest canonical sync",
       latestLiveCheck: "Latest live check",
       cost: "Cost",
+      serviceCostBreakdown: "Service cost breakdown",
+      serviceCostBreakdownNote: "Latest AWS Cost Explorer service costs from the most recent canonical sync.",
+      serviceCostShare: "Share",
+      serviceMetric: "Metric",
+      noServiceCosts: "No service-level cost rows are available yet.",
       usage: "Usage",
       healthRisk: "Health and risk",
       dataConfidence: "Data confidence",
@@ -673,6 +683,11 @@ export const messages = {
       latestCanonicalSync: "최근 확정 sync",
       latestLiveCheck: "최근 실시간 조회",
       cost: "비용",
+      serviceCostBreakdown: "서비스별 비용 상세",
+      serviceCostBreakdownNote: "가장 최근 확정 sync의 AWS Cost Explorer 서비스별 비용입니다.",
+      serviceCostShare: "비중",
+      serviceMetric: "지표",
+      noServiceCosts: "아직 서비스별 비용 행이 없습니다.",
       usage: "사용량",
       healthRisk: "상태와 리스크",
       dataConfidence: "데이터 신뢰도",
@@ -992,6 +1007,11 @@ export const messages = {
       latestCanonicalSync: "最新の確定 sync",
       latestLiveCheck: "最新のライブ確認",
       cost: "コスト",
+      serviceCostBreakdown: "サービス別コスト詳細",
+      serviceCostBreakdownNote: "最新の確定 sync から取得した AWS Cost Explorer のサービス別コストです。",
+      serviceCostShare: "比率",
+      serviceMetric: "メトリック",
+      noServiceCosts: "サービス別コスト行はまだありません。",
       usage: "利用量",
       healthRisk: "ヘルスとリスク",
       dataConfidence: "データ信頼度",

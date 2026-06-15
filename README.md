@@ -64,7 +64,7 @@ pnpm --filter @stackspend/cli dev -- report daily --lang ko
 npm run dev
 ```
 
-`npm run dev` starts the local web dashboard, the native taskbar/tray layer, and the Tauri dashboard window together. Open the dashboard at `http://localhost:3000` or use the StackSpend Tauri window. The dashboard reads normalized local SQLite snapshots from `STACKSPEND_DB_PATH`, defaulting to `.stackspend/stackspend.sqlite`.
+`npm run dev` starts the local web dashboard, the native taskbar/tray layer, and the Tauri dashboard window together. Open the dashboard at `http://localhost:3000` or use the StackSpend Tauri window. Source-tree runtime scripts set `STACKSPEND_DB_PATH` to the repo-local `.stackspend/stackspend.sqlite` so CLI syncs and the web dashboard read the same normalized local SQLite snapshots.
 
 Use `npm run dev:web` when you need only the web dashboard without the taskbar/tray layer.
 Use `npm run dev:tray` only when the local web dashboard is already running at `http://127.0.0.1:3000`.
@@ -145,8 +145,7 @@ npm exec stackspend -- /doctor
 Alpha CLI requirements:
 
 - Node.js 20.11 or newer.
-- `sqlite3` CLI on `PATH`; Linux/Docker defaults to `/usr/bin/sqlite3`, and Windows can use `sqlite3.exe`.
-- `STACKSPEND_SQLITE_BIN` can point to a local SQLite CLI path when it is not on `PATH`.
+- StackSpend uses the Node SQLite runtime when available. `sqlite3` on `PATH` or `STACKSPEND_SQLITE_BIN` is an optional fallback.
 - Environment variables only for secrets; do not create `.env` or commit live credentials.
 - `stackspend --version`, `stackspend doctor`, and `stackspend sync --provider mock` do not require live provider credentials.
 

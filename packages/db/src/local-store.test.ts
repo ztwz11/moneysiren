@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
 import { mkdtemp, stat } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -14,7 +14,7 @@ import { REQUIRED_TABLES } from "./schema.js";
 import { resolveSqliteBin, SQLITE_BIN_ENV_KEY } from "./sqlite-bin.js";
 
 const FIXED_NOW = "2026-06-02T09:00:00.000Z";
-const SQLITE_BIN = resolveSqliteBin();
+const requireNodeModule = createRequire(import.meta.url);
 
 describe("local SQLite store", () => {
   it("resolves a configurable SQLite CLI path for Windows installs", () => {
@@ -96,7 +96,7 @@ describe("local SQLite store", () => {
       status: string;
       metadata_json: string;
     }>(dbPath, "SELECT report_date, language, delivery_target, status, metadata_json FROM report_runs;");
-    const persistedText = dumpSqlite(dbPath);
+    const persistedText = dumpPersistedProviderDataText(dbPath);
 
     expect(providerRows).toEqual([{ provider_key: "mock", display_name: "Mock Provider" }]);
     expect(usageRows).toEqual([
@@ -276,21 +276,57 @@ describe("local SQLite store", () => {
 });
 
 function querySqlite<T>(dbPath: string, sql: string): T[] {
-  const output = execFileSync(SQLITE_BIN, ["-json", dbPath, sql], {
-    encoding: "utf8",
-  }).trim();
+  const nodeSqlite = requireNodeModule("node:sqlite") as {
+    DatabaseSync: new (path: string) => NodeSqliteDatabase;
+  };
+  const database = new nodeSqlite.DatabaseSync(dbPath);
 
-  if (output.length === 0) {
-    return [];
+  try {
+    return database.prepare(sql).all() as T[];
+  } finally {
+    database.close();
   }
-
-  return JSON.parse(output) as T[];
 }
 
-function dumpSqlite(dbPath: string): string {
-  return execFileSync(SQLITE_BIN, [dbPath, ".dump"], {
-    encoding: "utf8",
-  });
+function dumpPersistedProviderDataText(dbPath: string): string {
+  const rows: SqliteValueRow[] = [
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT provider_key, display_name, connector_version FROM providers ORDER BY provider_key;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT account_label, account_ref FROM provider_accounts ORDER BY account_label, account_ref;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT service, metric, unit, metadata_json FROM usage_snapshots ORDER BY service, metric, unit;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT currency, status, metadata_json FROM billing_snapshots ORDER BY currency, status;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT service, region, status, message, metadata_json FROM service_health_snapshots ORDER BY service, status;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT currency, confidence, metadata_json FROM cost_estimates ORDER BY currency, confidence;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT severity, category, title, message, metadata_json FROM alerts ORDER BY severity, category, title;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT language, delivery_target, status, metadata_json FROM report_runs ORDER BY language, delivery_target, status;",
+    ),
+  ];
+
+  return rows
+    .flatMap((row) => Object.values(row).filter((value): value is string => typeof value === "string"))
+    .join("\n");
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -301,3 +337,12 @@ async function fileExists(path: string): Promise<boolean> {
     return false;
   }
 }
+
+interface NodeSqliteDatabase {
+  prepare(sql: string): {
+    all(): unknown[];
+  };
+  close(): void;
+}
+
+type SqliteValueRow = Record<string, string | number | null>;

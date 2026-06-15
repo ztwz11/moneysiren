@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const ALLOWED_WORKSPACE_SCRIPTS = new Set(["build", "test", "typecheck", "lint"]);
+const RUNTIME_WORKSPACE_PACKAGES = new Set(["@stackspend/cli", "@stackspend/web", "@stackspend/tray"]);
+const RUNTIME_WORKSPACE_SCRIPTS = new Set(["dev", "start", "tauri:dev", "tauri:build", "tauri:build:unsigned"]);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../..");
 const args = process.argv.slice(2);
@@ -13,6 +15,12 @@ const env = {
 
 if (env.COREPACK_HOME === undefined || env.COREPACK_HOME.trim().length === 0) {
   env.COREPACK_HOME = resolve(repoRoot, ".stackspend", "corepack");
+}
+
+if (env.STACKSPEND_DB_PATH === undefined || env.STACKSPEND_DB_PATH.trim().length === 0) {
+  if (usesRuntimeWorkspace(args)) {
+    env.STACKSPEND_DB_PATH = resolve(repoRoot, ".stackspend", "stackspend.sqlite");
+  }
 }
 
 let pnpmArgs = args;
@@ -64,6 +72,22 @@ function runCorepackPnpm(pnpmArgs, env) {
     env,
     stdio: "inherit",
   });
+}
+
+function usesRuntimeWorkspace(args) {
+  const filterIndex = args.indexOf("--filter");
+
+  if (filterIndex === -1) {
+    return false;
+  }
+
+  const packageName = args[filterIndex + 1];
+
+  if (!RUNTIME_WORKSPACE_PACKAGES.has(packageName)) {
+    return false;
+  }
+
+  return args.some((arg) => RUNTIME_WORKSPACE_SCRIPTS.has(arg));
 }
 
 function quoteWindowsArg(value) {

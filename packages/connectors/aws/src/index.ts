@@ -62,7 +62,7 @@ export interface AwsProviderAlert {
   severity: "warning";
   category: "provider-sync";
   title: "AWS Cost Explorer sync failed";
-  message: "AWS Cost Explorer request failed before normalized snapshots were collected.";
+  message: string;
 }
 
 export interface AwsCostExplorerConnectorOptions {
@@ -101,7 +101,9 @@ export function createAwsCostExplorerConnector(options: AwsCostExplorerConnector
           }),
           alerts: [],
         };
-      } catch {
+      } catch (caught) {
+        const message = `AWS Cost Explorer request failed: ${safeAwsErrorMessage(caught)}`;
+
         return {
           collectedAt,
           status: "error",
@@ -113,12 +115,25 @@ export function createAwsCostExplorerConnector(options: AwsCostExplorerConnector
               severity: "warning",
               category: "provider-sync",
               title: "AWS Cost Explorer sync failed",
-              message: "AWS Cost Explorer request failed before normalized snapshots were collected.",
+              message,
             },
           ],
-          errors: ["AWS Cost Explorer request failed."],
+          errors: [message],
         };
       }
     },
   };
+}
+
+function safeAwsErrorMessage(caught: unknown): string {
+  const rawMessage = caught instanceof Error && caught.message.trim().length > 0
+    ? caught.message
+    : "unknown AWS SDK error";
+
+  return rawMessage
+    .replace(/\b(AKIA[A-Z0-9]{16}|ASIA[A-Z0-9]{16})\b/g, "[redacted]")
+    .replace(/\b\d{12}\b/g, "[redacted]")
+    .replace(/\barn:aws[^\s,;)]*/gi, "[redacted]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted]")
+    .slice(0, 240);
 }

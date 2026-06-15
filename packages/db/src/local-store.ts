@@ -1,11 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { dirname } from "node:path";
 import { runMigrations, type MigrationRunResult } from "./migrate.js";
-import { resolveSqliteBin } from "./sqlite-bin.js";
+import { resolveSqliteBin, SQLITE_BIN_ENV_KEY } from "./sqlite-bin.js";
 
 const EMPTY_METADATA_JSON = "{}";
+const requireNodeModule = createRequire(import.meta.url);
 
 export interface LocalProviderRecord {
   id: string;
@@ -190,10 +192,10 @@ export async function initializeLocalStore(options: LocalStoreOptions): Promise<
       return getAppliedMigrationIds(dbPath);
     },
     async execute(sql) {
-      executeSqlite(dbPath, sql);
+      await executeSqlite(dbPath, sql);
     },
     async recordMigration(id) {
-      executeSqlite(
+      await executeSqlite(
         dbPath,
         `INSERT INTO schema_migrations (id) VALUES (${sqlString(id)}) ON CONFLICT(id) DO NOTHING;`,
       );
@@ -281,7 +283,7 @@ export async function recordLocalReportRun(input: LocalReportRunInput): Promise<
 }
 
 function getAppliedMigrationIds(dbPath: string): string[] {
-  const schemaMigrationTables = querySqliteRows<{ name: string }>(
+  const schemaMigrationTables = querySqliteRowsSync<{ name: string }>(
     dbPath,
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations';",
   );
@@ -290,13 +292,13 @@ function getAppliedMigrationIds(dbPath: string): string[] {
     return [];
   }
 
-  return querySqliteRows<{ id: string }>(dbPath, "SELECT id FROM schema_migrations ORDER BY id;").map(
+  return querySqliteRowsSync<{ id: string }>(dbPath, "SELECT id FROM schema_migrations ORDER BY id;").map(
     (row) => row.id,
   );
 }
 
 function readProviders(dbPath: string): LocalProviderRecord[] {
-  return querySqliteRows<ProviderRow>(
+  return querySqliteRowsSync<ProviderRow>(
     dbPath,
     `
     SELECT
@@ -313,7 +315,7 @@ function readProviders(dbPath: string): LocalProviderRecord[] {
 }
 
 function readUsageSnapshots(dbPath: string): LocalUsageSnapshotRecord[] {
-  return querySqliteRows<UsageSnapshotRow>(
+  return querySqliteRowsSync<UsageSnapshotRow>(
     dbPath,
     `
     SELECT
@@ -345,7 +347,7 @@ function readUsageSnapshots(dbPath: string): LocalUsageSnapshotRecord[] {
 }
 
 function readBillingSnapshots(dbPath: string): LocalBillingSnapshotRecord[] {
-  return querySqliteRows<BillingSnapshotRow>(
+  return querySqliteRowsSync<BillingSnapshotRow>(
     dbPath,
     `
     SELECT
@@ -395,7 +397,7 @@ function readBillingSnapshots(dbPath: string): LocalBillingSnapshotRecord[] {
 }
 
 function readServiceHealthSnapshots(dbPath: string): LocalServiceHealthSnapshotRecord[] {
-  return querySqliteRows<ServiceHealthSnapshotRow>(
+  return querySqliteRowsSync<ServiceHealthSnapshotRow>(
     dbPath,
     `
     SELECT
@@ -424,7 +426,7 @@ function readServiceHealthSnapshots(dbPath: string): LocalServiceHealthSnapshotR
 }
 
 function readCostEstimates(dbPath: string): LocalCostEstimateRecord[] {
-  return querySqliteRows<CostEstimateRow>(
+  return querySqliteRowsSync<CostEstimateRow>(
     dbPath,
     `
     SELECT
@@ -474,7 +476,7 @@ function readCostEstimates(dbPath: string): LocalCostEstimateRecord[] {
 }
 
 function readAlerts(dbPath: string): LocalAlertRecord[] {
-  return querySqliteRows<AlertRow>(
+  return querySqliteRowsSync<AlertRow>(
     dbPath,
     `
     SELECT
@@ -503,7 +505,7 @@ function readAlerts(dbPath: string): LocalAlertRecord[] {
 }
 
 function readReportRuns(dbPath: string): LocalReportRunRecord[] {
-  return querySqliteRows<ReportRunRow>(
+  return querySqliteRowsSync<ReportRunRow>(
     dbPath,
     `
     SELECT
@@ -696,28 +698,120 @@ function executeSqliteTransaction(dbPath: string, statements: readonly string[])
     return;
   }
 
-  executeSqlite(dbPath, ["BEGIN;", ...statements, "COMMIT;"].join("\n"));
+  executeSqliteSync(dbPath, ["BEGIN;", ...statements, "COMMIT;"].join("\n"));
 }
 
-function executeSqlite(dbPath: string, sql: string): void {
+async function executeSqlite(dbPath: string, sql: string): Promise<void> {
+  try {
+    executeSqliteWithCli(dbPath, sql);
+  } catch (caught) {
+    if (!shouldFallbackToNodeSqlite(caught)) {
+      throw caught;
+    }
+
+    executeSqliteWithNodeSync(dbPath, sql);
+  }
+}
+
+function executeSqliteSync(dbPath: string, sql: string): void {
+  try {
+    executeSqliteWithCli(dbPath, sql);
+  } catch (caught) {
+    if (!shouldFallbackToNodeSqlite(caught)) {
+      throw caught;
+    }
+
+    executeSqliteWithNodeSync(dbPath, sql);
+  }
+}
+
+function querySqliteRowsSync<T>(dbPath: string, sql: string): T[] {
+  try {
+    return querySqliteRowsWithCli<T>(dbPath, sql);
+  } catch (caught) {
+    if (!shouldFallbackToNodeSqlite(caught)) {
+      throw caught;
+    }
+
+    return querySqliteRowsWithNodeSync<T>(dbPath, sql);
+  }
+}
+
+function executeSqliteWithCli(dbPath: string, sql: string): void {
   execFileSync(resolveSqliteBin(), [dbPath], {
-    input: `PRAGMA foreign_keys = ON;\n${sql.trim()}\n`,
+    input: sqliteInput(sql),
     encoding: "utf8",
     maxBuffer: 1024 * 1024,
   });
 }
 
-function querySqliteRows<T>(dbPath: string, sql: string): T[] {
+function querySqliteRowsWithCli<T>(dbPath: string, sql: string): T[] {
   const output = execFileSync(resolveSqliteBin(), ["-json", dbPath, sql], {
     encoding: "utf8",
     maxBuffer: 1024 * 1024,
   }).trim();
 
+  return parseSqliteJsonRows<T>(output);
+}
+
+function executeSqliteWithNodeSync(dbPath: string, sql: string): void {
+  const database = createNodeSqliteDatabase(dbPath);
+
+  try {
+    database.exec(sqliteInput(sql));
+  } finally {
+    database.close();
+  }
+}
+
+function querySqliteRowsWithNodeSync<T>(dbPath: string, sql: string): T[] {
+  const database = createNodeSqliteDatabase(dbPath);
+
+  try {
+    database.exec("PRAGMA foreign_keys = ON;");
+    return database.prepare(sql).all() as T[];
+  } finally {
+    database.close();
+  }
+}
+
+function createNodeSqliteDatabase(dbPath: string): NodeSqliteDatabase {
+  try {
+    const nodeSqlite = requireNodeModule("node:sqlite") as {
+      DatabaseSync: new (path: string) => NodeSqliteDatabase;
+    };
+
+    return new nodeSqlite.DatabaseSync(dbPath);
+  } catch (caught) {
+    throw new Error(
+      `SQLite is unavailable. Install sqlite3 and put it on PATH, set ${SQLITE_BIN_ENV_KEY}, or run StackSpend with a Node.js version that includes node:sqlite. ${
+        caught instanceof Error ? caught.message : "node:sqlite could not be loaded."
+      }`,
+    );
+  }
+}
+
+function parseSqliteJsonRows<T>(output: string): T[] {
   if (output.length === 0) {
     return [];
   }
 
   return JSON.parse(output) as T[];
+}
+
+function sqliteInput(sql: string): string {
+  return `PRAGMA foreign_keys = ON;\n${sql.trim()}\n`;
+}
+
+function shouldFallbackToNodeSqlite(caught: unknown): boolean {
+  if (process.env[SQLITE_BIN_ENV_KEY]?.trim()) {
+    return false;
+  }
+
+  const error = caught as { code?: unknown; message?: unknown };
+  const message = typeof error.message === "string" ? error.message : "";
+
+  return error.code === "ENOENT" || /spawnSync .*ENOENT/i.test(message);
 }
 
 function normalizeDbPath(dbPath: string): string {
@@ -887,4 +981,12 @@ interface ReportRunRow {
   deliveryTarget: "stdout" | "local-file" | "slack";
   status: "rendered" | "sent" | "error";
   metadataJson: string;
+}
+
+interface NodeSqliteDatabase {
+  exec(sql: string): void;
+  prepare(sql: string): {
+    all(): unknown[];
+  };
+  close(): void;
 }

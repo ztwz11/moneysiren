@@ -68,6 +68,34 @@ describe("createAwsCostExplorerConnector", () => {
       /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b/i,
     );
   });
+
+  it("returns a sanitized provider-sync alert when Cost Explorer fails", async () => {
+    const fakeAccessKeyId = "AKIA" + "ABCDEFGHIJKLMNOP";
+    const client: AwsCostExplorerClientAdapter = {
+      async send() {
+        throw new Error(
+          `Token has expired and refresh failed for arn:aws:iam::123456789012:role/Admin using ${fakeAccessKeyId}`,
+        );
+      },
+    };
+    const connector = createAwsCostExplorerConnector({ costExplorerClient: client });
+    const result = await connector.collect({ now: () => new Date(FIXED_NOW) });
+
+    expect(result.status).toBe("error");
+    expect(result.snapshots.usage).toEqual([]);
+    expect(result.alerts).toEqual([
+      {
+        provider: "aws",
+        createdAt: FIXED_NOW,
+        severity: "warning",
+        category: "provider-sync",
+        title: "AWS Cost Explorer sync failed",
+        message: expect.stringContaining("Token has expired and refresh failed"),
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain(fakeAccessKeyId);
+    expect(JSON.stringify(result)).not.toMatch(/arn:aws|\b\d{12}\b/i);
+  });
 });
 
 async function loadFixture(): Promise<AwsCostExplorerGetCostAndUsageOutput> {

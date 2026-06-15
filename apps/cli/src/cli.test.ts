@@ -1,15 +1,15 @@
-import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { resolveSqliteBin } from "../../../packages/db/src/sqlite-bin.js";
 import type { SlackReportTransportRequest } from "../../../packages/report/src/slack.js";
 import { CLI_VERSION, runCli } from "./cli.js";
 import type { CliLocalRuntimeAdapter, LocalRuntime, StartRuntimeOptions } from "./runtime-adapter.js";
 
 const FIXED_NOW = "2026-06-02T09:00:00.000Z";
+const requireNodeModule = createRequire(import.meta.url);
 const AWS_FIXTURE_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../../tests/fixtures/providers/aws/cost-explorer-grouped-by-service.json",
@@ -28,7 +28,6 @@ const CLOUDFLARE_FIXTURE_PATH = resolve(
 );
 const CLI_PACKAGE_JSON_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "../package.json");
 const TEST_SLACK_WEBHOOK_URL = "fake-stackspend-slack-webhook-secret";
-const SQLITE_BIN = resolveSqliteBin();
 const ANSI_PATTERN = /\x1B\[[0-9;]*m/;
 const FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN =
   /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b|FAKE_CLOUDFLARE|fake-zone\.invalid|card_|payment_/i;
@@ -313,7 +312,7 @@ describe("StackSpend CLI", () => {
 
     const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
     const migrations = querySqlite<{ id: string }>(dbPath, "SELECT id FROM schema_migrations ORDER BY id;");
-    const persistedText = dumpSqlite(dbPath);
+    const persistedText = dumpPersistedProviderDataText(dbPath);
 
     expect(await fileExists(dbPath)).toBe(true);
     expect(migrations).toEqual([{ id: "0001_init" }, { id: "0002_read_model_indexes" }]);
@@ -844,7 +843,7 @@ describe("StackSpend CLI", () => {
         (SELECT count(*) FROM report_runs) AS report_runs;
       `,
     )[0];
-    const persistedText = dumpSqlite(dbPath);
+    const persistedText = dumpPersistedProviderDataText(dbPath);
 
     expect(counts).toEqual({
       providers: 1,
@@ -923,7 +922,7 @@ describe("StackSpend CLI", () => {
       dbPath,
       "SELECT delivery_target, status FROM report_runs ORDER BY created_at, id;",
     );
-    const persistedText = dumpSqlite(dbPath);
+    const persistedText = dumpPersistedProviderDataText(dbPath);
 
     expect(reportRuns).toEqual([
       {
@@ -950,7 +949,7 @@ describe("StackSpend CLI", () => {
       dbPath,
       "SELECT delivery_target, status FROM report_runs ORDER BY created_at, id;",
     );
-    const persistedText = dumpSqlite(dbPath);
+    const persistedText = dumpPersistedProviderDataText(dbPath);
 
     expect(reportRuns).toEqual([
       {
@@ -970,6 +969,45 @@ describe("StackSpend CLI", () => {
     expect(result.stderr.join("\n")).toContain("STACKSPEND_AWS_COST_EXPLORER_FIXTURE");
     expect(await fileExists(join(cwd, ".env"))).toBe(false);
     expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
+  });
+
+  it("records sanitized AWS Cost Explorer failures and exits non-zero", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const fakeAccessKeyId = "AKIA" + "ABCDEFGHIJKLMNOP";
+    const result = await runCli(["sync", "--provider", "aws"], {
+      ...testContext(cwd, {
+        AWS_PROFILE: "fake-stackspend-live-profile",
+      }),
+      liveClients: {
+        awsCostExplorer: {
+          async send() {
+            throw new Error(
+              `Token is expired for arn:aws:iam::123456789012:role/Admin using ${fakeAccessKeyId}`,
+            );
+          },
+        },
+      },
+    });
+    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const alerts = querySqlite<{ severity: string; title: string; message: string }>(
+      dbPath,
+      "SELECT severity, title, message FROM alerts;",
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout.join("\n")).toContain("Synced AWS Cost Explorer snapshots");
+    expect(result.stderr.join("\n")).toContain("Token is expired");
+    expect(result.stderr.join("\n")).not.toContain(fakeAccessKeyId);
+    expect(result.stderr.join("\n")).not.toMatch(/arn:aws|\b\d{12}\b/i);
+    expect(alerts).toEqual([
+      {
+        severity: "warning",
+        title: "AWS Cost Explorer sync failed",
+        message: expect.stringContaining("Token is expired"),
+      },
+    ]);
+    expect(JSON.stringify(alerts)).not.toContain(fakeAccessKeyId);
+    expect(JSON.stringify(alerts)).not.toMatch(/arn:aws|\b\d{12}\b/i);
   });
 
   it("fails OpenAI sync gracefully without admin key or fixture mode", async () => {
@@ -1517,15 +1555,16 @@ describe("StackSpend CLI", () => {
 type SqliteValueRow = Record<string, string | number | null>;
 
 function querySqlite<T>(dbPath: string, sql: string): T[] {
-  const output = execFileSync(SQLITE_BIN, ["-json", dbPath, sql], {
-    encoding: "utf8",
-  }).trim();
+  const nodeSqlite = requireNodeModule("node:sqlite") as {
+    DatabaseSync: new (path: string) => NodeSqliteDatabase;
+  };
+  const database = new nodeSqlite.DatabaseSync(dbPath);
 
-  if (output.length === 0) {
-    return [];
+  try {
+    return database.prepare(sql).all() as T[];
+  } finally {
+    database.close();
   }
-
-  return JSON.parse(output) as T[];
 }
 
 function dumpPersistedProviderDataText(dbPath: string): string {
@@ -1569,12 +1608,6 @@ function dumpPersistedProviderDataText(dbPath: string): string {
     .join("\n");
 }
 
-function dumpSqlite(dbPath: string): string {
-  return execFileSync(SQLITE_BIN, [dbPath, ".dump"], {
-    encoding: "utf8",
-  });
-}
-
 function testContext(cwd: string, env: Record<string, string | undefined> = {}) {
   const stdout: string[] = [];
   const stderr: string[] = [];
@@ -1597,4 +1630,11 @@ async function fileExists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+interface NodeSqliteDatabase {
+  prepare(sql: string): {
+    all(): unknown[];
+  };
+  close(): void;
 }

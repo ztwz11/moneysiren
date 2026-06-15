@@ -17,7 +17,7 @@ Required for the CLI and web dashboard:
 - Node.js 20.11 or newer.
 - pnpm 11.5.0 through Corepack.
 - Git.
-- `sqlite3` on `PATH`, or `STACKSPEND_SQLITE_BIN` pointing to a local SQLite CLI.
+- Node.js with the SQLite runtime, or `sqlite3` on `PATH`/`STACKSPEND_SQLITE_BIN` as a fallback.
 
 Required for the native desktop tray/HUD:
 

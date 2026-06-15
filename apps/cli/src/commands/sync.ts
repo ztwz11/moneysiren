@@ -267,6 +267,11 @@ async function syncAwsProvider(
     ].join(" "),
   );
 
+  if (collection.status === "error") {
+    context.stderr(collection.errors?.[0] ?? collection.alerts[0]?.message ?? "AWS Cost Explorer sync failed.");
+    return 1;
+  }
+
   return 0;
 }
 

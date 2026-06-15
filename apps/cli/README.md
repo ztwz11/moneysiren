@@ -7,8 +7,7 @@ StackSpend is local-first. The CLI reads configuration and secrets from the proc
 ## Requirements
 
 - Node.js 20.11 or newer.
-- `sqlite3` CLI on `PATH`; Linux/Docker defaults to `/usr/bin/sqlite3`, and Windows can use `sqlite3.exe`.
-- `STACKSPEND_SQLITE_BIN` can point to a local SQLite CLI path when it is not on `PATH`.
+- StackSpend uses the Node SQLite runtime when available. `sqlite3` on `PATH` or `STACKSPEND_SQLITE_BIN` is an optional fallback.
 - No live provider credentials are required for `stackspend --version`, `stackspend doctor`, or `stackspend sync --provider mock`.
 
 ## Published Alpha Usage

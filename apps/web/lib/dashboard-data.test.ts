@@ -50,6 +50,7 @@ describe("dashboard data adapter", () => {
         snapshotCount: 0,
         topMetrics: [],
         latestServiceMetrics: [],
+        dailyMetrics: [],
       },
       risks: [],
       health: [],
@@ -193,6 +194,18 @@ describe("dashboard data adapter", () => {
         unit: "hours",
         value: 12,
         collectedAt: "2026-06-02T08:30:00.000Z",
+      },
+    ]);
+    expect(snapshot.usage.dailyMetrics).toEqual([
+      {
+        date: "2026-06-02",
+        providerKey: "aws",
+        displayName: "AWS Cost Explorer",
+        metric: "usage-hours",
+        unit: "hours",
+        value: 12,
+        sampleCount: 1,
+        latestCollectedAt: "2026-06-02T08:30:00.000Z",
       },
     ]);
     expect(snapshot.risks).toEqual(

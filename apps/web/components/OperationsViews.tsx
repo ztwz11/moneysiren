@@ -16,6 +16,7 @@ import type {
   OperationsDashboard,
   OperationsProvider,
   OperationsProviderConnection,
+  OperationsUsageTrendPoint,
 } from "../lib/operations-data";
 import type { ProviderCatalogItem } from "../lib/provider-catalog";
 
@@ -151,6 +152,11 @@ export function OverviewView({ dashboard, locale, messages, grouping = "service"
           warning={dashboard.summary.providersNeedingAttention > 0}
         />
       </section>
+      <UsageTrendPanel
+        locale={locale}
+        messages={messages}
+        points={dashboard.usageTrend}
+      />
       <div className="view-switch-row">
         <GroupingToggle
           basePath={groupingBasePath}
@@ -362,6 +368,13 @@ export function ServiceDetail({
           meta={`${messages.dashboard.todayLive}: ${liveAmountLabel(provider, locale, messages)}`}
         />
       </section>
+      {provider.usageTrend.length === 0 ? null : (
+        <UsageTrendPanel
+          locale={locale}
+          messages={messages}
+          points={provider.usageTrend}
+        />
+      )}
       <div className="two-column">
         <InfoPanel title={messages.services.cost}>
           <KeyValue label={messages.dashboard.confirmedThroughYesterday} value={formatMinorAmount(provider.confirmedAmountMinor, provider.currency, locale)} />
@@ -936,6 +949,249 @@ function StatusMetric({
       <StatusBadge messages={messages} state={state} />
     </div>
   );
+}
+
+interface UsageTrendSeries {
+  metric: string;
+  unit: string;
+  points: UsageTrendSeriesPoint[];
+}
+
+interface UsageTrendSeriesPoint {
+  date: string;
+  value: number;
+  sampleCount: number;
+  latestCollectedAt: string;
+}
+
+function UsageTrendPanel({
+  locale,
+  messages,
+  points,
+}: {
+  locale: Locale;
+  messages: Messages;
+  points: readonly OperationsUsageTrendPoint[];
+}) {
+  const series = selectUsageTrendSeries(points);
+
+  return (
+    <section className="panel usage-trend-panel">
+      <div className="panel-header compact-header">
+        <div className="usage-trend-title">
+          <h2 className="panel-title">{messages.dashboard.dailyUsageTrend}</h2>
+          <p className="metric-meta">
+            {series === null
+              ? messages.dashboard.dailyUsageTrendNote
+              : `${usageMetricLabel(series.metric, messages)} · ${series.unit}`}
+          </p>
+        </div>
+        <StatusBadge messages={messages} state={series === null ? "missing" : "fresh"} />
+      </div>
+      <div className="panel-body">
+        {series === null ? (
+          <p className="muted">{messages.dashboard.noDailyUsageTrend}</p>
+        ) : (
+          <DailyUsageChart
+            locale={locale}
+            series={series}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DailyUsageChart({
+  locale,
+  series,
+}: {
+  locale: Locale;
+  series: UsageTrendSeries;
+}) {
+  const width = 640;
+  const height = 214;
+  const chartLeft = 46;
+  const chartRight = 14;
+  const chartTop = 14;
+  const chartBottom = 48;
+  const chartWidth = width - chartLeft - chartRight;
+  const chartHeight = height - chartTop - chartBottom;
+  const maxValue = Math.max(...series.points.map((point) => Math.max(point.value, 0)), 1);
+  const step = chartWidth / Math.max(series.points.length, 1);
+  const barWidth = Math.min(42, Math.max(12, step * 0.58));
+  const labelEvery = Math.max(1, Math.ceil(series.points.length / 7));
+  const latestPoint = series.points[series.points.length - 1];
+
+  return (
+    <div className="usage-trend-chart">
+      {latestPoint === undefined ? null : (
+        <div className="usage-trend-summary">
+          <strong>{formatTrendValue(latestPoint.value, series.unit, locale)}</strong>
+          <span>{formatDateKey(latestPoint.date, locale)}</span>
+        </div>
+      )}
+      <svg
+        aria-label={messagesForChart(series, locale)}
+        className="usage-trend-svg"
+        role="img"
+        viewBox={`0 0 ${width} ${height}`}
+      >
+        {[0.5, 1].map((ratio) => {
+          const y = chartTop + chartHeight - chartHeight * ratio;
+
+          return (
+            <g key={ratio}>
+              <line
+                className="usage-trend-grid"
+                x1={chartLeft}
+                x2={width - chartRight}
+                y1={y}
+                y2={y}
+              />
+              <text className="usage-trend-axis" textAnchor="end" x={chartLeft - 8} y={y + 4}>
+                {formatTrendAxisValue(maxValue * ratio, series.unit, locale)}
+              </text>
+            </g>
+          );
+        })}
+        <line
+          className="usage-trend-axis-line"
+          x1={chartLeft}
+          x2={width - chartRight}
+          y1={chartTop + chartHeight}
+          y2={chartTop + chartHeight}
+        />
+        {series.points.map((point, index) => {
+          const barHeight = chartHeight * (Math.max(point.value, 0) / maxValue);
+          const x = chartLeft + index * step + (step - barWidth) / 2;
+          const y = chartTop + chartHeight - barHeight;
+
+          return (
+            <g key={point.date}>
+              <rect
+                className="usage-trend-bar"
+                height={Math.max(barHeight, point.value > 0 ? 2 : 0)}
+                rx="3"
+                width={barWidth}
+                x={x}
+                y={y}
+              >
+                <title>{`${formatDateKey(point.date, locale)} ${formatTrendValue(point.value, series.unit, locale)}`}</title>
+              </rect>
+              {index % labelEvery === 0 || index === series.points.length - 1 ? (
+                <text
+                  className="usage-trend-label"
+                  textAnchor="middle"
+                  x={x + barWidth / 2}
+                  y={height - 18}
+                >
+                  {formatDateKey(point.date, locale)}
+                </text>
+              ) : null}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function selectUsageTrendSeries(points: readonly OperationsUsageTrendPoint[]): UsageTrendSeries | null {
+  const buckets = new Map<string, {
+    metric: string;
+    unit: string;
+    latestCollectedAt: string;
+    total: number;
+    pointsByDate: Map<string, UsageTrendSeriesPoint>;
+  }>();
+
+  for (const point of points) {
+    if (!Number.isFinite(point.value)) {
+      continue;
+    }
+
+    const key = [point.metric, point.unit].join("\u001f");
+    const bucket = buckets.get(key) ?? {
+      metric: point.metric,
+      unit: point.unit,
+      latestCollectedAt: point.latestCollectedAt,
+      total: 0,
+      pointsByDate: new Map<string, UsageTrendSeriesPoint>(),
+    };
+    const datePoint = bucket.pointsByDate.get(point.date) ?? {
+      date: point.date,
+      value: 0,
+      sampleCount: 0,
+      latestCollectedAt: point.latestCollectedAt,
+    };
+
+    datePoint.value += point.value;
+    datePoint.sampleCount += point.sampleCount;
+
+    if (point.latestCollectedAt > datePoint.latestCollectedAt) {
+      datePoint.latestCollectedAt = point.latestCollectedAt;
+    }
+
+    bucket.pointsByDate.set(point.date, datePoint);
+    bucket.total += Math.abs(point.value);
+
+    if (point.latestCollectedAt > bucket.latestCollectedAt) {
+      bucket.latestCollectedAt = point.latestCollectedAt;
+    }
+
+    buckets.set(key, bucket);
+  }
+
+  const selected = [...buckets.values()].sort((first, second) => {
+    const unitOrder = usageTrendRank(first.metric, first.unit) - usageTrendRank(second.metric, second.unit);
+
+    if (unitOrder !== 0) {
+      return unitOrder;
+    }
+
+    const latestOrder = second.latestCollectedAt.localeCompare(first.latestCollectedAt);
+
+    if (latestOrder !== 0) {
+      return latestOrder;
+    }
+
+    return second.total - first.total;
+  })[0];
+
+  if (selected === undefined) {
+    return null;
+  }
+
+  return {
+    metric: selected.metric,
+    unit: selected.unit,
+    points: [...selected.pointsByDate.values()].sort((first, second) => first.date.localeCompare(second.date)),
+  };
+}
+
+function usageTrendRank(metric: string, unit: string): number {
+  if (metric === "unblended_cost" || isCurrencyUnit(unit.toUpperCase())) {
+    return 0;
+  }
+
+  if (unit === "tokens") {
+    return 1;
+  }
+
+  if (unit === "requests" || unit === "count") {
+    return 2;
+  }
+
+  return 3;
+}
+
+function messagesForChart(series: UsageTrendSeries, locale: Locale): string {
+  const latestPoint = series.points[series.points.length - 1];
+
+  return latestPoint === undefined
+    ? series.metric
+    : `${series.metric} ${formatDateKey(latestPoint.date, locale)} ${formatTrendValue(latestPoint.value, series.unit, locale)}`;
 }
 
 function DashboardServicesTable({
@@ -1857,6 +2113,14 @@ function usageMetricLabel(metric: string, messages: Messages): string {
     return messages.services.cacheTokens;
   }
 
+  if (metric === "unblended_cost") {
+    return messages.services.cost;
+  }
+
+  if (metric === "model_requests") {
+    return messages.services.modelRequests;
+  }
+
   if (metric === "sessions") {
     return messages.services.sessions;
   }
@@ -1917,7 +2181,7 @@ function usageMetricLabel(metric: string, messages: Messages): string {
     return messages.services.reasoningTokens;
   }
 
-  return messages.services.modelRequests;
+  return metric.replace(/[_-]+/g, " ");
 }
 
 function labelFor(messages: Messages, state: string): string {
@@ -1967,6 +2231,76 @@ function formatPercent(value: number, locale: Locale): string {
   return `${new Intl.NumberFormat(locale, {
     maximumFractionDigits: 1,
   }).format(value)}%`;
+}
+
+function formatTrendValue(value: number, unit: string, locale: Locale): string {
+  const normalizedUnit = unit.toUpperCase();
+
+  if (isCurrencyUnit(normalizedUnit)) {
+    return formatMajorCurrency(value, normalizedUnit, locale);
+  }
+
+  if (unit === "percent") {
+    return formatPercent(value, locale);
+  }
+
+  const formatted = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: value < 10 ? 2 : 0,
+  }).format(value);
+
+  if (unit === "tokens") {
+    return `${formatted} tok`;
+  }
+
+  if (unit === "count" || unit.trim().length === 0) {
+    return formatted;
+  }
+
+  return `${formatted} ${unit}`;
+}
+
+function formatTrendAxisValue(value: number, unit: string, locale: Locale): string {
+  const normalizedUnit = unit.toUpperCase();
+
+  if (isCurrencyUnit(normalizedUnit)) {
+    return formatMajorCurrency(value, normalizedUnit, locale, true);
+  }
+
+  return new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 1,
+    notation: "compact",
+  }).format(value);
+}
+
+function formatMajorCurrency(value: number, currency: string, locale: Locale, compact = false): string {
+  try {
+    return new Intl.NumberFormat(locale, {
+      currency,
+      maximumFractionDigits: Math.abs(value) < 10 && !compact ? 2 : 1,
+      notation: compact ? "compact" : "standard",
+      style: "currency",
+    }).format(value);
+  } catch {
+    return `${new Intl.NumberFormat(locale).format(value)} ${currency}`;
+  }
+}
+
+function isCurrencyUnit(unit: string): boolean {
+  return /^[A-Z]{3}$/.test(unit);
+}
+
+function formatDateKey(dateKey: string, locale: Locale): string {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateKey;
+  }
+
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(date);
 }
 
 function formatUsageMetric(

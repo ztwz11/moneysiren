@@ -13,6 +13,7 @@ import type {
   DashboardProviderRow,
   DashboardRiskLevel,
   DashboardRiskSeverity,
+  DashboardDailyUsageMetric,
   DashboardSnapshot,
   DashboardUsageMetric,
 } from "./dashboard-data";
@@ -44,6 +45,7 @@ export interface OperationsDashboard {
   providers: OperationsProvider[];
   visibleProviders: OperationsProvider[];
   visibleConnections: OperationsProviderConnection[];
+  usageTrend: OperationsUsageTrendPoint[];
   risks: DashboardAlertItem[];
 }
 
@@ -87,6 +89,7 @@ export interface OperationsProvider {
   currency: string;
   usageSnapshotCount: number;
   serviceCostBreakdown: OperationsServiceCostRow[];
+  usageTrend: OperationsUsageTrendPoint[];
   healthStatus: DashboardHealthStatus;
   riskLevel: DashboardRiskLevel;
   alertCount: number;
@@ -100,6 +103,17 @@ export interface OperationsServiceCostRow {
   amountMinor: number;
   collectedAt: string;
   sharePercent: number;
+}
+
+export interface OperationsUsageTrendPoint {
+  date: string;
+  providerKey: ProviderKey;
+  displayName: string;
+  metric: string;
+  unit: string;
+  value: number;
+  sampleCount: number;
+  latestCollectedAt: string;
 }
 
 export interface OperationsProviderConnection extends Omit<OperationsProvider, "connections" | "risks"> {
@@ -169,6 +183,7 @@ export function buildOperationsDashboard(
     const canonicalFreshness = summarizeCanonicalFreshness(row, options.now, options.timezone);
     const risks = snapshot.alerts.filter((alert) => alert.providerKey === providerKey);
     const serviceCostBreakdown = buildServiceCostBreakdown(snapshot.usage.latestServiceMetrics, providerKey);
+    const usageTrend = buildUsageTrend(snapshot.usage.dailyMetrics, providerKey);
 
     return {
       providerKey,
@@ -198,6 +213,7 @@ export function buildOperationsDashboard(
       currency: liveSummary.currency,
       usageSnapshotCount: row?.usageSnapshotCount ?? 0,
       serviceCostBreakdown,
+      usageTrend,
       healthStatus: row?.healthStatus ?? "unknown",
       riskLevel: row?.riskLevel ?? "warning",
       alertCount: row?.alertCount ?? 0,
@@ -208,6 +224,7 @@ export function buildOperationsDashboard(
   const visibleConnections = providers.flatMap((provider) =>
     buildProviderConnectionRows(provider, options.liveToday?.providers ?? [], snapshot.summary.currency)
   );
+  const usageTrend = visibleProviders.flatMap((provider) => provider.usageTrend);
   const canonicalCoverageDate = latestDateKey(
     visibleProviders.map((provider) => provider.latestCanonicalSync).filter((value): value is string => value !== null),
     options.timezone,
@@ -253,6 +270,7 @@ export function buildOperationsDashboard(
     providers,
     visibleProviders,
     visibleConnections,
+    usageTrend,
     risks: snapshot.alerts.filter((alert) =>
       alert.providerKey !== null && visibleProviderKeys.has(alert.providerKey)
     ),
@@ -475,12 +493,31 @@ function buildProviderConnectionRows(
       currency: live?.currency ?? fallbackCurrency,
       usageSnapshotCount: 0,
       serviceCostBreakdown: [],
+      usageTrend: [],
       healthStatus: provider.healthStatus,
       riskLevel: provider.riskLevel,
       alertCount: provider.alertCount,
       risks: provider.risks,
     } satisfies OperationsProviderConnection;
   });
+}
+
+function buildUsageTrend(
+  metrics: readonly DashboardDailyUsageMetric[],
+  providerKey: ProviderKey,
+): OperationsUsageTrendPoint[] {
+  return metrics
+    .filter((metric) => metric.providerKey === providerKey)
+    .map((metric) => ({
+      date: metric.date,
+      providerKey,
+      displayName: metric.displayName,
+      metric: metric.metric,
+      unit: metric.unit,
+      value: metric.value,
+      sampleCount: metric.sampleCount,
+      latestCollectedAt: metric.latestCollectedAt,
+    }));
 }
 
 function highestConfidence(

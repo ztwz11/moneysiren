@@ -34,6 +34,9 @@ export interface Messages {
     confirmedThroughYesterday: string;
     todayLive: string;
     providersNeedingAttention: string;
+    dailyUsageTrend: string;
+    dailyUsageTrendNote: string;
+    noDailyUsageTrend: string;
     todayTitle: string;
     todaySubtitle: string;
     forecastTitle: string;
@@ -328,6 +331,9 @@ export const messages = {
       confirmedThroughYesterday: "Confirmed through yesterday",
       todayLive: "Today live",
       providersNeedingAttention: "Providers needing attention",
+      dailyUsageTrend: "Daily usage trend",
+      dailyUsageTrendNote: "Collected-day totals",
+      noDailyUsageTrend: "No daily usage snapshots yet",
       todayTitle: "Today Live",
       todaySubtitle: "Manual read-only checks for the current dashboard day.",
       forecastTitle: "Forecast",
@@ -652,6 +658,9 @@ export const messages = {
       confirmedThroughYesterday: "어제까지 확정",
       todayLive: "오늘 실시간",
       providersNeedingAttention: "확인이 필요한 서비스",
+      dailyUsageTrend: "일자별 사용량 추세",
+      dailyUsageTrendNote: "수집일 기준 합계",
+      noDailyUsageTrend: "아직 일자별 사용량 스냅샷이 없습니다",
       todayTitle: "오늘 실시간",
       todaySubtitle: "현재 대시보드 날짜에 대해 수동으로 read-only 조회합니다.",
       forecastTitle: "예상",
@@ -976,6 +985,9 @@ export const messages = {
       confirmedThroughYesterday: "昨日まで確定",
       todayLive: "今日のライブ",
       providersNeedingAttention: "確認が必要なサービス",
+      dailyUsageTrend: "日別使用量推移",
+      dailyUsageTrendNote: "収集日基準の合計",
+      noDailyUsageTrend: "日別使用量スナップショットはまだありません",
       todayTitle: "今日のライブ",
       todaySubtitle: "現在のダッシュボード日付を手動で read-only 確認します。",
       forecastTitle: "予測",

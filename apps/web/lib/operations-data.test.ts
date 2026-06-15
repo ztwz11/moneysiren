@@ -59,6 +59,18 @@ const BASE_DASHBOARD: DashboardSnapshot = {
         collectedAt: "2026-06-04T15:00:00.000Z",
       },
     ],
+    dailyMetrics: [
+      {
+        date: "2026-06-04",
+        providerKey: "aws",
+        displayName: "AWS Cost Explorer",
+        metric: "unblended_cost",
+        unit: "USD",
+        value: 10.46,
+        sampleCount: 2,
+        latestCollectedAt: "2026-06-04T15:00:00.000Z",
+      },
+    ],
   },
   risks: [],
   health: [],
@@ -87,6 +99,18 @@ describe("operations dashboard data", () => {
       "claude-cli",
     ]));
     expect(dashboard.visibleProviders.map((provider) => provider.providerKey)).toEqual(["aws"]);
+    expect(dashboard.usageTrend).toEqual([
+      {
+        date: "2026-06-04",
+        providerKey: "aws",
+        displayName: "AWS Cost Explorer",
+        metric: "unblended_cost",
+        unit: "USD",
+        value: 10.46,
+        sampleCount: 2,
+        latestCollectedAt: "2026-06-04T15:00:00.000Z",
+      },
+    ]);
     expect(dashboard.visibleConnections.map((connection) => `${connection.providerKey}:${connection.connectionId}`)).toEqual([
       "aws:env",
     ]);

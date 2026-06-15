@@ -988,6 +988,67 @@ select {
   justify-content: space-between;
 }
 
+.usage-trend-title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.usage-trend-chart {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.usage-trend-summary {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.usage-trend-summary strong {
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.usage-trend-summary span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.usage-trend-svg {
+  display: block;
+  height: auto;
+  min-height: 170px;
+  overflow: visible;
+  width: 100%;
+}
+
+.usage-trend-grid {
+  stroke: var(--border-soft);
+  stroke-width: 1;
+}
+
+.usage-trend-axis-line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.usage-trend-axis,
+.usage-trend-label {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.usage-trend-bar {
+  fill: var(--blue);
+}
+
+.usage-trend-bar:hover {
+  fill: var(--cobalt);
+}
+
 .badge {
   align-items: center;
   border-radius: 999px;

@@ -63,6 +63,7 @@ export interface DashboardUsageSummary {
   snapshotCount: number;
   topMetrics: DashboardUsageMetric[];
   latestServiceMetrics: DashboardUsageMetric[];
+  dailyMetrics: DashboardDailyUsageMetric[];
 }
 
 export interface DashboardUsageMetric {
@@ -73,6 +74,17 @@ export interface DashboardUsageMetric {
   unit: string;
   value: number;
   collectedAt: string;
+}
+
+export interface DashboardDailyUsageMetric {
+  date: string;
+  providerKey: string;
+  displayName: string;
+  metric: string;
+  unit: string;
+  value: number;
+  sampleCount: number;
+  latestCollectedAt: string;
 }
 
 export interface DashboardRiskItem {
@@ -215,6 +227,7 @@ export function buildDashboardSnapshot(
           collectedAt: snapshot.collectedAt,
         })),
       latestServiceMetrics: buildLatestServiceMetrics(store.usageSnapshots, providerDisplayNames),
+      dailyMetrics: buildDailyUsageMetrics(store.usageSnapshots, providerDisplayNames),
     },
     risks: buildRiskItems(alertItems, healthItems),
     health: healthItems,
@@ -246,6 +259,7 @@ function createEmptyDashboardSnapshot(generatedAt: string): DashboardSnapshot {
       snapshotCount: 0,
       topMetrics: [],
       latestServiceMetrics: [],
+      dailyMetrics: [],
     },
     risks: [],
     health: [],
@@ -352,6 +366,56 @@ function displayNameFor(providerKey: string, providerDisplayNames: ReadonlyMap<s
   return providerDisplayNames.get(providerKey) ?? safeText(providerKey);
 }
 
+function buildDailyUsageMetrics(
+  usageSnapshots: readonly LocalStore["usageSnapshots"][number][],
+  providerDisplayNames: ReadonlyMap<string, string>,
+): DashboardDailyUsageMetric[] {
+  const metricsByKey = new Map<string, DashboardDailyUsageMetric>();
+
+  for (const snapshot of usageSnapshots) {
+    const date = dateKeyFromCollectedAt(snapshot.collectedAt);
+
+    if (date === null) {
+      continue;
+    }
+
+    const providerKey = safeText(snapshot.providerKey);
+    const metric = safeText(snapshot.metric);
+    const unit = safeText(snapshot.unit);
+    const key = [date, providerKey, metric, unit].join("\u001f");
+    const existing = metricsByKey.get(key);
+
+    if (existing === undefined) {
+      metricsByKey.set(key, {
+        date,
+        providerKey,
+        displayName: displayNameFor(providerKey, providerDisplayNames),
+        metric,
+        unit,
+        value: snapshot.value,
+        sampleCount: 1,
+        latestCollectedAt: snapshot.collectedAt,
+      });
+    } else {
+      existing.value += snapshot.value;
+      existing.sampleCount += 1;
+
+      if (snapshot.collectedAt > existing.latestCollectedAt) {
+        existing.latestCollectedAt = snapshot.collectedAt;
+      }
+    }
+  }
+
+  const dailyMetrics = [...metricsByKey.values()].sort(compareDailyUsageMetrics);
+  const recentDates = new Set(
+    [...new Set(dailyMetrics.map((metric) => metric.date))]
+      .sort((first, second) => first.localeCompare(second))
+      .slice(-30),
+  );
+
+  return dailyMetrics.filter((metric) => recentDates.has(metric.date));
+}
+
 function buildLatestServiceMetrics(
   usageSnapshots: readonly LocalStore["usageSnapshots"][number][],
   providerDisplayNames: ReadonlyMap<string, string>,
@@ -413,6 +477,40 @@ function buildLatestServiceMetrics(
 
     return first.service.localeCompare(second.service);
   });
+}
+
+function compareDailyUsageMetrics(first: DashboardDailyUsageMetric, second: DashboardDailyUsageMetric): number {
+  const dateOrder = first.date.localeCompare(second.date);
+
+  if (dateOrder !== 0) {
+    return dateOrder;
+  }
+
+  const providerOrder = first.providerKey.localeCompare(second.providerKey);
+
+  if (providerOrder !== 0) {
+    return providerOrder;
+  }
+
+  const metricOrder = first.metric.localeCompare(second.metric);
+
+  if (metricOrder !== 0) {
+    return metricOrder;
+  }
+
+  return first.unit.localeCompare(second.unit);
+}
+
+function dateKeyFromCollectedAt(collectedAt: string): string | null {
+  const parsed = new Date(collectedAt);
+
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  const fallback = collectedAt.slice(0, 10);
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(fallback) ? fallback : null;
 }
 
 function summarizeHealth(statuses: readonly DashboardHealthStatus[]): DashboardHealthStatus {

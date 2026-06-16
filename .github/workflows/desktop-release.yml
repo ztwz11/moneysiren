@@ -116,8 +116,106 @@ jobs:
       - run: npm run secret:scan:all
       - run: npm run tray:native:check
 
-      - name: Build unsigned desktop bundle
-        run: node tools/scripts/run-pnpm.mjs --filter @moneysiren/tray tauri:build:unsigned --ci --no-sign --bundles ${{ matrix.bundles }}
+      - name: Import Windows signing certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE)) {
+            throw 'Missing WINDOWS_CERTIFICATE repository secret.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)) {
+            throw 'Missing WINDOWS_CERTIFICATE_PASSWORD repository secret.'
+          }
+
+          New-Item -ItemType Directory -Force .tmp\codesign | Out-Null
+          $encodedCertificatePath = '.tmp\codesign\windows-certificate.txt'
+          $certificatePath = '.tmp\codesign\windows-certificate.pfx'
+          Set-Content -LiteralPath $encodedCertificatePath -Value $env:WINDOWS_CERTIFICATE
+          certutil -decode $encodedCertificatePath $certificatePath
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Failed to decode WINDOWS_CERTIFICATE.'
+          }
+          $password = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          $certificate = Import-PfxCertificate -FilePath $certificatePath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          if ($certificate -is [array]) {
+            $certificate = $certificate[0]
+          }
+          if ($null -eq $certificate -or [string]::IsNullOrWhiteSpace($certificate.Thumbprint)) {
+            throw 'Windows signing certificate was imported, but no certificate thumbprint was available.'
+          }
+          "WINDOWS_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Remove-Item -LiteralPath $encodedCertificatePath,$certificatePath -Force
+
+      - name: Import Apple Developer certificate
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_CERTIFICATE:-}" ]; then
+            echo "Missing APPLE_CERTIFICATE repository secret." >&2
+            exit 1
+          fi
+          if [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ]; then
+            echo "Missing APPLE_CERTIFICATE_PASSWORD repository secret." >&2
+            exit 1
+          fi
+          if [ -z "${KEYCHAIN_PASSWORD:-}" ]; then
+            echo "Missing KEYCHAIN_PASSWORD repository secret." >&2
+            exit 1
+          fi
+
+          mkdir -p .tmp/codesign
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > .tmp/codesign/apple-certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import .tmp/codesign/apple-certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          cert_id="$(security find-identity -v -p codesigning build.keychain | awk -F'"' '/[0-9]+\) [A-Fa-f0-9]+/ { print $2; exit }')"
+          if [ -z "$cert_id" ]; then
+            echo "No valid Apple code-signing identity was found in the imported keychain." >&2
+            exit 1
+          fi
+          echo "APPLE_SIGNING_IDENTITY=$cert_id" >> "$GITHUB_ENV"
+          rm -f .tmp/codesign/apple-certificate.p12
+
+      - name: Prepare Tauri signing config
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_PROVIDER_SHORT_NAME: ${{ vars.APPLE_PROVIDER_SHORT_NAME }}
+          WINDOWS_DIGEST_ALGORITHM: ${{ vars.WINDOWS_DIGEST_ALGORITHM }}
+          WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+          WINDOWS_TSP: ${{ vars.WINDOWS_TSP }}
+        run: node tools/scripts/prepare-tauri-signing-config.mjs --platform ${{ matrix.name }} --out apps/tray/.tmp/tauri-signing-${{ matrix.name }}.json
+
+      - name: Build signed desktop bundle
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_PROVIDER_SHORT_NAME: ${{ vars.APPLE_PROVIDER_SHORT_NAME }}
+        run: node tools/scripts/run-pnpm.mjs --filter @moneysiren/tray tauri:build --ci --config .tmp/tauri-signing-${{ matrix.name }}.json --bundles ${{ matrix.bundles }}
+
+      - name: Delete Apple signing keychain
+        if: runner.os == 'macOS' && always()
+        shell: bash
+        run: security delete-keychain build.keychain || true
 
       - name: Collect Windows installer
         if: runner.os == 'Windows'

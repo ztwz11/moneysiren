@@ -13,7 +13,7 @@ The current alpha supports:
 - CLI-first setup and sync.
 - Local SQLite snapshots.
 - Local Next.js dashboard.
-- Native Tauri tray/HUD from source or unsigned GitHub Release artifacts.
+- Native Tauri tray/HUD from source or signable GitHub Release artifacts.
 - AWS Cost Explorer fixture/live sync.
 - OpenAI organization usage/cost fixture/live sync.
 - Supabase usage/health fixture sync.
@@ -21,7 +21,7 @@ The current alpha supports:
 - Local Codex CLI and Claude CLI usage estimates from local logs.
 - Korean daily reports and optional Slack webhook delivery.
 
-The npm alpha package is prepared as `moneysiren` so users can install the CLI without cloning this repository after the first npm publish. GitHub Releases can also attach a built web runtime archive plus unsigned Windows/macOS desktop artifacts for source-free alpha review.
+The npm alpha package is prepared as `moneysiren` so users can install the CLI without cloning this repository after the first npm publish. GitHub Releases can also attach a built web runtime archive plus signed Windows/macOS desktop artifacts for source-free alpha review once release signing secrets are configured.
 
 ## Screenshots
 
@@ -245,7 +245,7 @@ Extract `moneysiren-web-runtime-*.tar.gz` from that install directory and start 
 node start.mjs
 ```
 
-Finally install/open the Windows or macOS desktop artifact from the same install directory. The desktop shell connects to `http://127.0.0.1:3000` for the dashboard and HUD. In this alpha, the native app does not yet embed or auto-start the web runtime, and desktop artifacts are unsigned.
+Finally install/open the Windows or macOS desktop artifact from the same install directory. The desktop shell connects to `http://127.0.0.1:3000` for the dashboard and HUD. In this alpha, the native app does not yet embed or auto-start the web runtime.
 
 For local tarball review without publishing:
 

@@ -15,7 +15,7 @@ The tray package must not collect, display, or persist provider credentials, pro
 - `src/actions.ts`: the EPIC-08 tray action model.
 - `src/local-api.ts`: loopback-only API client functions for the allowed endpoints.
 - `src/notifications.ts`: pure TypeScript notification polling and suppression decisions.
-- `src-tauri/`: Tauri v2 native tray scaffold with menu actions, icons, and unsigned bundle config.
+- `src-tauri/`: Tauri v2 native tray scaffold with menu actions, icons, and release signing config generated in CI.
 
 ## Current Runtime Boundary
 
@@ -39,15 +39,33 @@ Use `npm run dev:hud` for HUD-only desktop mode. This still starts the local web
 
 For a production-style local run from the repository root, use `npm run build:local` and then `npm start`. This starts the built Next.js dashboard and launches the built unsigned Tauri executable for the current OS: `src-tauri/target/release/moneysiren-tray.exe` on Windows, or the macOS `.app` executable under `src-tauri/target/release/bundle/macos/MoneySiren Tray.app/Contents/MacOS/` with a release-binary fallback on macOS. Use `npm run start:web` for only the built web dashboard or `npm run start:tray` for only the built tray/Tauri executable when the web dashboard is already running.
 
-`tauri:build:unsigned` creates platform-native unsigned development artifacts through Tauri from the same source tree. On Windows this produces the configured Windows bundle target for the local toolchain; on macOS this produces the app bundle target when run on macOS. Signing remains a release-management step outside the local-first v0.1 runtime.
+`tauri:build:unsigned` creates platform-native unsigned development artifacts through Tauri from the same source tree. On Windows this produces the configured Windows bundle target for the local toolchain; on macOS this produces the app bundle target when run on macOS. Release signing is handled by GitHub Actions from repository secrets and does not require committing certificate material.
 
 ## Release Artifacts
 
-The repository-level `desktop-release` GitHub Actions workflow builds unsigned source-free alpha artifacts:
+The repository-level `desktop-release` GitHub Actions workflow builds signed source-free alpha artifacts when the required repository secrets are configured:
 
 - Windows NSIS installer.
-- macOS `.app` archive.
+- macOS notarized `.app` archive.
 - Built web runtime archive.
+
+Required signing secrets:
+
+- `WINDOWS_CERTIFICATE`: base64-encoded Windows code-signing `.pfx`.
+- `WINDOWS_CERTIFICATE_PASSWORD`: password for the Windows `.pfx`.
+- `APPLE_CERTIFICATE`: base64-encoded Apple signing `.p12`.
+- `APPLE_CERTIFICATE_PASSWORD`: password for the Apple `.p12`.
+- `KEYCHAIN_PASSWORD`: temporary CI keychain password.
+- `APPLE_ID`: Apple ID email for notarization.
+- `APPLE_PASSWORD`: Apple app-specific password for notarization.
+- `APPLE_TEAM_ID`: Apple Developer Team ID.
+
+Optional repository variables:
+
+- `WINDOWS_TIMESTAMP_URL`: defaults to `http://timestamp.digicert.com`.
+- `WINDOWS_DIGEST_ALGORITHM`: defaults to `sha256`.
+- `WINDOWS_TSP`: set to `true` for RFC 3161 timestamp servers.
+- `APPLE_PROVIDER_SHORT_NAME`: required only when Apple notarization needs an explicit provider.
 
 The desktop app remains a thin native shell in this alpha. It expects the local web runtime to be running on `http://127.0.0.1:3000`; it does not yet embed or auto-start the Next.js dashboard runtime.
 

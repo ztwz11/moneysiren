@@ -1,73 +1,109 @@
 # StackSpend
 
-Local-first cloud/SaaS usage, status, and expected billing dashboard for individual developers and small teams.
+Local-first cloud, SaaS, and AI usage dashboard for individual developers and small teams.
 
-StackSpend keeps provider credentials, SQLite snapshots, local logs, and reports on the user's machine by default. It is not a hosted SaaS, and provider connectors are read-only.
+StackSpend reads provider usage into local SQLite, shows expected billing and usage risk in a local dashboard, and can surface compact desktop notifications/HUD widgets. It is not a hosted SaaS: provider connectors are read-only, secrets stay local, and telemetry is off by default.
 
-## Status
+## Current Status
 
-StackSpend is preparing `v0.1.0-alpha.0` for local review. The supported alpha path is local CLI sync into SQLite plus a local Next.js dashboard.
+StackSpend is preparing `v0.1.0-alpha.0` for local review.
 
-## Why Local-First?
+The current alpha supports:
 
-Cloud, SaaS, and AI usage data often includes sensitive identifiers and billing context. StackSpend is designed so users can inspect usage and cost risk without sending API keys or raw provider responses to a hosted service.
+- CLI-first setup and sync.
+- Local SQLite snapshots.
+- Local Next.js dashboard.
+- Native Tauri tray/HUD from source.
+- AWS Cost Explorer fixture/live sync.
+- OpenAI organization usage/cost fixture/live sync.
+- Supabase usage/health fixture sync.
+- Cloudflare billing/usage fixture sync.
+- Local Codex CLI and Claude CLI usage estimates from local logs.
+- Korean daily reports and optional Slack webhook delivery.
 
-Core security expectations:
+The npm alpha package is prepared as `@stackspend/cli`, but this repository workflow does not publish it.
 
-- Secrets are read from local env, OS keychain, or an explicitly configured encrypted vault.
-- SQLite stores normalized snapshots, not credential material.
-- Raw provider payloads must not be persisted in SQLite, dashboard JSON, reports, Slack payloads, logs, fixtures, screenshots, or test snapshots.
-- Today live values are provisional overlays, not confirmed canonical history.
-- Telemetry is off by default and any future telemetry must be opt-in only.
+## Screenshots
 
-See [docs/security-model.md](docs/security-model.md) for the detailed security model.
+The screenshots below were regenerated from a fresh fixture-backed mock SQLite database. Fake environment labels only mark providers as connected for the UI; no live credentials, provider account identifiers, webhook URLs, or local Codex/Claude session data are included.
 
-## Supported Providers
+Dashboard overview:
 
-| Provider | Status | Data | Auth |
-|---|---|---|---|
-| AWS | available | cost, usage, forecast | AWS profile / SSO |
-| OpenAI | available | organization usage, costs | Admin API key |
-| Supabase | experimental | usage, health | OAuth / PAT |
-| Cloudflare | experimental | billing, usage | API token |
-| GCP | planned/local setup | CLI and ADC readiness | gcloud CLI |
-| Codex CLI | local-only | local usage and quota estimate | local CLI/logs |
-| Claude CLI | local-only | local usage and quota estimate | local CLI/statusline/logs |
+![StackSpend mock dashboard](docs/assets/install/stackspend-english-mock-dashboard.png)
 
-Codex CLI and Claude CLI are local usage providers, not API billing providers. StackSpend prioritizes 5-hour quota percent, weekly quota percent, and rolling token usage where those values can be derived safely. See [docs/local-ai-cli-usage.md](docs/local-ai-cli-usage.md).
+CLI dashboard field settings:
 
-## v0.1 Direction
+![StackSpend CLI dashboard settings](docs/assets/install/stackspend-english-mock-dashboard-settings.png)
 
-- TypeScript + pnpm workspace
-- CLI-first workflow
-- Local SQLite storage
-- Local Next.js dashboard
-- Read-only provider connectors
-- Korean daily reports
-- Slack webhook delivery
-- No telemetry by default
-- Env-only secrets for v0.1
+Desktop HUD:
 
-## Local Quickstart
+![StackSpend mock HUD](docs/assets/install/stackspend-english-mock-hud.png)
 
-For platform-specific setup, npm CLI installation, source builds, and English mock-data screenshots, see the [Windows and macOS install guide](docs/install.md).
+Notification and HUD settings:
+
+![StackSpend notification and HUD settings](docs/assets/install/stackspend-english-mock-hud-settings.png)
+
+## Provider Model
+
+Cost providers and usage-only providers are intentionally shown separately in the dashboard because their columns and risk signals differ.
+
+| Provider | Dashboard area | Status | Data | Auth |
+|---|---|---|---|---|
+| AWS Cost Explorer | Cost services | available | cost, usage, forecast | AWS profile / SSO |
+| OpenAI Usage/Costs | Cost services | available | organization usage, costs | Admin API key |
+| Cloudflare Billing/Usage | Cost services | experimental | billing, usage | API token |
+| Supabase Usage/Health | Usage services | experimental | usage, health | OAuth / PAT |
+| Codex CLI | Usage services | local-only | local usage and quota estimate | local CLI/logs |
+| Claude CLI | Usage services | local-only | local usage and quota estimate | local CLI/statusline/logs |
+| GCP | Connections only | planned/local setup | CLI and ADC readiness | gcloud CLI |
+
+Supabase is currently modeled as usage/health, not billing. Fixed subscription costs and flat-plan SaaS spend need a separate local subscription-cost model or a provider billing connector before they should appear in the cost table.
+
+For local AI CLIs, StackSpend prioritizes 5-hour quota percent, weekly quota percent, and rolling token usage where those values can be derived safely. The dashboard Preferences screen lets users choose which local CLI metrics appear in the usage table. See [docs/local-ai-cli-usage.md](docs/local-ai-cli-usage.md).
+
+## Local-First Security
+
+Cloud, SaaS, and AI usage data often contains sensitive identifiers and billing context. StackSpend is designed so users can inspect cost and usage risk without sending API keys or raw provider responses to a hosted service.
+
+Core rules:
+
+- Use process-local environment variables for v0.1 secrets.
+- Do not commit `.env`, API keys, tokens, webhook URLs, account IDs, project IDs, invoice IDs, card data, emails, or raw billing profiles.
+- Store normalized SQLite snapshots, not credential material.
+- Redact raw provider payloads before persistence.
+- Do not persist raw provider payloads in SQLite, dashboard JSON, reports, Slack payloads, logs, fixtures, screenshots, or test snapshots.
+- Keep provider connectors read-only.
+- Keep telemetry off by default; any future telemetry must be opt-in only.
+
+See [docs/security-model.md](docs/security-model.md) and [SECURITY.md](SECURITY.md).
+
+## Requirements
+
+- Node.js 20.11 or newer.
+- pnpm 11.5.0 through Corepack.
+- Git.
+- Node.js SQLite runtime, or `sqlite3` on `PATH` / `STACKSPEND_SQLITE_BIN` as a fallback.
+- Rust/Cargo plus platform toolchains only when building the native Tauri tray/HUD.
+
+For platform-specific setup, source builds, npm CLI installation notes, and screenshot fixture commands, see [docs/install.md](docs/install.md).
+
+## Quickstart From Source
 
 ```bash
+corepack enable
+corepack prepare pnpm@11.5.0 --activate
 pnpm install
-pnpm --filter @stackspend/cli dev
-pnpm --filter @stackspend/cli dev -- /doctor
-pnpm --filter @stackspend/cli dev -- doctor
-pnpm --filter @stackspend/cli dev -- modes
+
 pnpm --filter @stackspend/cli dev -- init
 pnpm --filter @stackspend/cli dev -- sync --provider mock
 pnpm --filter @stackspend/cli dev -- report daily --lang ko
-npm run dev
+
+npm run dev:web
 ```
 
-`npm run dev` starts the local web dashboard, the native taskbar/tray layer, and the Tauri dashboard window together. Open the dashboard at `http://localhost:3000` or use the StackSpend Tauri window. Source-tree runtime scripts set `STACKSPEND_DB_PATH` to the repo-local `.stackspend/stackspend.sqlite` so CLI syncs and the web dashboard read the same normalized local SQLite snapshots.
+Open `http://127.0.0.1:3000/en/dashboard/overview`.
 
-Use `npm run dev:web` when you need only the web dashboard without the taskbar/tray layer.
-Use `npm run dev:tray` only when the local web dashboard is already running at `http://127.0.0.1:3000`.
+`npm run dev:web` starts only the local web dashboard. `npm run dev` starts the web dashboard, the native taskbar/tray layer, and the Tauri dashboard window together. Use `npm run dev:hud` when you want the native HUD mode first.
 
 For a production-style local run after building the web app and unsigned native desktop layer:
 
@@ -76,82 +112,28 @@ npm run build:local
 npm start
 ```
 
-`npm run build:local` runs the workspace build and then builds the unsigned Tauri desktop artifact. `npm start` starts the built Next.js dashboard, waits for `http://127.0.0.1:3000/ko/dashboard/overview`, and then launches the built StackSpend tray/Tauri executable.
+`npm start` starts the built Next.js dashboard, waits for `http://127.0.0.1:3000/ko/dashboard/overview`, and then launches the built StackSpend tray/Tauri executable.
 
-Use `npm run start:web` when you need only the built web dashboard.
-Use `npm run start:tray` only when the built web dashboard is already running at `http://127.0.0.1:3000`.
+## Fixture Review
 
-In a second terminal, verify the local dashboard API and page URL:
-
-```bash
-pnpm --filter @stackspend/cli dev -- dashboard check
-```
-
-Run the full local validation gate with:
+Fixture mode uses committed fake payloads under `tests/fixtures/providers` and does not require live credentials.
 
 ```bash
-pnpm test
-pnpm typecheck
-git diff --check
+STACKSPEND_AWS_COST_EXPLORER_FIXTURE=tests/fixtures/providers/aws/cost-explorer-grouped-by-service.json \
+  pnpm --filter @stackspend/cli dev -- sync --provider aws
+
+STACKSPEND_OPENAI_USAGE_FIXTURE=tests/fixtures/providers/openai/usage-costs.json \
+STACKSPEND_OPENAI_COSTS_FIXTURE=tests/fixtures/providers/openai/usage-costs.json \
+  pnpm --filter @stackspend/cli dev -- sync --provider openai
+
+STACKSPEND_SUPABASE_FIXTURE=tests/fixtures/providers/supabase/usage-health.json \
+  pnpm --filter @stackspend/cli dev -- sync --provider supabase
+
+STACKSPEND_CLOUDFLARE_FIXTURE=tests/fixtures/providers/cloudflare/billing-usage.json \
+  pnpm --filter @stackspend/cli dev -- sync --provider cloudflare
 ```
 
-## NPM Alpha CLI Preview
-
-The CLI package is prepared for a public npm alpha as `@stackspend/cli`, but this repository workflow does not publish it.
-
-Once an alpha is published:
-
-```bash
-npm install -g @stackspend/cli@alpha
-stackspend
-stackspend --version
-stackspend /version
-stackspend install --status
-stackspend modes
-stackspend /modes
-stackspend doctor
-stackspend /doctor
-npx --package @stackspend/cli@alpha stackspend --version
-npx --package @stackspend/cli@alpha stackspend modes
-```
-
-During a PowerShell, cmd, or shell install with an interactive TTY, the package asks which local surfaces to enable:
-
-- CLI
-- Web dashboard
-- HUD
-
-Press Enter to accept the recommended default, which selects all three. In CI or non-interactive npm installs, StackSpend writes that same all-selected profile automatically. Re-run `stackspend install` to change the local profile later.
-
-For local tarball review without publishing:
-
-```bash
-pnpm --filter @stackspend/cli build
-cd apps/cli
-npm pack
-TARBALL_PATH="$(pwd)/stackspend-cli-0.1.0-alpha.0.tgz"
-mkdir -p /tmp/stackspend-alpha-review
-cd /tmp/stackspend-alpha-review
-npm init -y
-npm install "$TARBALL_PATH"
-npm exec stackspend
-npm exec stackspend -- --version
-npm exec stackspend -- /version
-npm exec stackspend -- modes
-npm exec stackspend -- doctor
-npm exec stackspend -- /doctor
-```
-
-Alpha CLI requirements:
-
-- Node.js 20.11 or newer.
-- StackSpend uses the Node SQLite runtime when available. `sqlite3` on `PATH` or `STACKSPEND_SQLITE_BIN` is an optional fallback.
-- Environment variables only for secrets; do not create `.env` or commit live credentials.
-- `stackspend --version`, `stackspend doctor`, and `stackspend sync --provider mock` do not require live provider credentials.
-- AWS SSO login refreshes the profile cache, but it does not set the current shell's `AWS_PROFILE`.
-  Use `stackspend sync --provider aws --profile <profile>` or set `AWS_PROFILE` before syncing.
-
-`stackspend modes` shows the selected install profile and the three runtime surfaces after npm installation: CLI automation, local web dashboard/runtime, and desktop tray/notifier. The same source tree is used on Windows and macOS; local config paths and native desktop artifacts are selected per OS. The shared runtime lock defaults to `%APPDATA%\StackSpend\runtime.json` on Windows and `~/Library/Application Support/StackSpend/runtime.json` on macOS so the npm CLI and the native tray can discover the same local runtime.
+Live connector paths are read-only and env-only in this alpha. Do not create `.env` files or commit live credentials.
 
 ## CLI Commands
 
@@ -179,7 +161,6 @@ pnpm --filter @stackspend/cli dev -- /doctor
 pnpm --filter @stackspend/cli dev -- /install status
 pnpm --filter @stackspend/cli dev -- /modes
 pnpm --filter @stackspend/cli dev -- /init
-pnpm --filter @stackspend/cli dev -- /dashboard
 pnpm --filter @stackspend/cli dev -- /dashboard check
 pnpm --filter @stackspend/cli dev -- /sync mock
 pnpm --filter @stackspend/cli dev -- /report ko
@@ -187,38 +168,50 @@ pnpm --filter @stackspend/cli dev -- /report ko
 
 Home/help never creates `.env`, prints secret values, calls provider APIs, or enables telemetry.
 
-## Provider Fixture Mode
+## NPM Alpha CLI Preview
 
-Fixture mode uses fake local payloads under `tests/fixtures/providers` and does not require live credentials.
+After `@stackspend/cli@alpha` is published:
 
 ```bash
-STACKSPEND_AWS_COST_EXPLORER_FIXTURE=tests/fixtures/providers/aws/cost-explorer-grouped-by-service.json \
-  pnpm --filter @stackspend/cli dev -- sync --provider aws
-
-STACKSPEND_OPENAI_USAGE_FIXTURE=tests/fixtures/providers/openai/usage-costs.json \
-STACKSPEND_OPENAI_COSTS_FIXTURE=tests/fixtures/providers/openai/usage-costs.json \
-  pnpm --filter @stackspend/cli dev -- sync --provider openai
-
-STACKSPEND_SUPABASE_FIXTURE=tests/fixtures/providers/supabase/usage-health.json \
-  pnpm --filter @stackspend/cli dev -- sync --provider supabase
-
-STACKSPEND_CLOUDFLARE_FIXTURE=tests/fixtures/providers/cloudflare/billing-usage.json \
-  pnpm --filter @stackspend/cli dev -- sync --provider cloudflare
+npm install -g @stackspend/cli@alpha
+stackspend --version
+stackspend install --status
+stackspend modes
+stackspend doctor
+stackspend sync --provider mock
 ```
 
-Live connector paths are read-only and env-only in this alpha. Fixture mode remains the recommended no-credentials review path. Do not commit `.env` or write provider credentials or provider identifiers into repository files.
+During an interactive PowerShell, cmd, or shell install, the package asks which local surfaces to enable:
+
+- CLI
+- Web dashboard
+- HUD
+
+Press Enter to accept the recommended default, which selects all three. In CI or non-interactive npm installs, StackSpend writes that same all-selected profile automatically. Re-run `stackspend install` to change the local profile later.
+
+The same source tree supports Windows and macOS. Local config paths and native desktop artifacts are selected per OS. The shared runtime lock defaults to `%APPDATA%\StackSpend\runtime.json` on Windows and `~/Library/Application Support/StackSpend/runtime.json` on macOS so the npm CLI and native tray can discover the same local runtime.
+
+For local tarball review without publishing:
+
+```bash
+pnpm --filter @stackspend/cli build
+cd apps/cli
+npm pack
+```
 
 ## Local Dashboard
 
-Create or sync local data first, then run:
+The dashboard makes no provider API calls. It reads normalized SQLite data and safe live/local overlays only. If the database is missing, it returns a safe empty state.
 
-```bash
-pnpm --filter @stackspend/web dev
-```
+Useful URLs:
 
-The dashboard makes no provider API calls. It reads normalized SQLite data only and returns a safe empty state if the database is missing.
+- `http://127.0.0.1:3000/en/dashboard/overview`
+- `http://127.0.0.1:3000/ko/dashboard/overview`
+- `http://127.0.0.1:3000/hud?locale=en`
+- `http://127.0.0.1:3000/en/settings/preferences`
+- `http://127.0.0.1:3000/en/settings/notifications`
 
-Use the CLI check command from another terminal to probe the local dashboard API:
+Use the CLI check command from another terminal:
 
 ```bash
 pnpm --filter @stackspend/cli dev -- dashboard check
@@ -229,23 +222,20 @@ The check command sanitizes the printed dashboard URL and ignores path, query, a
 
 ## Desktop Tray, Notifications, and HUD
 
-The desktop tray/notifier opens the same local dashboard runtime and a compact always-on-top HUD at `/hud`. The HUD is a native desktop window, not a web page overlay. It is designed for long-running visibility with a compact row layout, configurable font size, configurable opacity, and a separate HUD widget list.
+The desktop tray/notifier opens the same local dashboard runtime and a compact always-on-top HUD at `/hud`. The HUD is a native desktop window, not a web page overlay. It supports configurable font size, opacity, always-on-top behavior, refresh, minimize, close, and a separate HUD widget list.
 
 Notification digest widgets and HUD widgets are configured independently:
 
 - Digest widgets control scheduled/local notification content.
 - HUD widgets control what stays visible in the floating desktop HUD.
-- Turning the digest off does not blank the HUD; the HUD reads `hud.selectedWidgets`.
-- HUD values are built from sanitized local dashboard/live usage models and do not expose provider secrets.
+- CLI dashboard fields control which local CLI metrics appear in dashboard usage tables.
 
-From the web dashboard, open `Settings -> Notifications` and use the `Desktop app` section to set:
+From the web dashboard:
 
-- desktop app enabled/disabled state
-- HUD font size
-- HUD opacity
-- exactly which HUD items should stay visible
+- Open `Settings -> Preferences` to choose local CLI dashboard fields.
+- Open `Settings -> Notifications` to configure digest widgets, thresholds, desktop app state, HUD font size, HUD opacity, always-on-top, and HUD widgets.
 
-From the CLI, inspect or update the same local preference file:
+From the CLI:
 
 ```bash
 stackspend notify prefs list
@@ -291,6 +281,20 @@ For a Docker build dry validation:
 docker build --pull=false --target verify -t stackspend:m10-verify .
 ```
 
-## Security Posture
+## Validation
 
-StackSpend should never persist raw provider payloads or secrets. Provider data must be normalized and redacted before storage.
+Run the local validation gate with:
+
+```bash
+pnpm test
+pnpm typecheck
+git diff --check
+npm run secret:scan
+```
+
+For documentation-only changes, at minimum run:
+
+```bash
+git diff --check -- README.md docs/install.md
+npm run secret:scan
+```

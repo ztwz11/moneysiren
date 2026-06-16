@@ -222,19 +222,23 @@ If macOS blocks the unsigned alpha app, use Finder, right-click the app, and cho
 
 ## English Mock Screenshots
 
-The following screenshots were captured from the fixture database seeded by the commands above. The fake environment values only mark providers as connected for the local UI; no live provider credentials, provider account identifiers, webhook URLs, or local Codex/Claude session data are included.
+The following screenshots were regenerated from a fresh fixture-backed SQLite database seeded by the commands above. The fake environment values only mark providers as connected for the local UI; no live provider credentials, provider account identifiers, webhook URLs, or local Codex/Claude session data are included.
 
 Dashboard overview:
 
-![StackSpend English mock dashboard](assets/install/stackspend-english-mock-dashboard.jpg)
+![StackSpend English mock dashboard](assets/install/stackspend-english-mock-dashboard.png)
+
+CLI dashboard field settings:
+
+![StackSpend English CLI dashboard field settings](assets/install/stackspend-english-mock-dashboard-settings.png)
 
 Desktop HUD:
 
 ![StackSpend English mock HUD](assets/install/stackspend-english-mock-hud.png)
 
-HUD notification settings:
+Notification and HUD settings:
 
-![StackSpend English mock HUD settings](assets/install/stackspend-english-mock-hud-settings.png)
+![StackSpend English notification and HUD settings](assets/install/stackspend-english-mock-hud-settings.png)
 
 ## Validation
 

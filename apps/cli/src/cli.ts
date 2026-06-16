@@ -14,13 +14,14 @@ import { runSlashPrompt } from "./interactive.js";
 import { openUrlInBrowser, type CliLocalRuntimeAdapter } from "./runtime-adapter.js";
 import { resolveSlashCommand } from "./slash.js";
 import { createTheme, type Theme } from "./theme.js";
+import { CLI_VERSION } from "./version.js";
 import type { SlackReportTransport } from "../../../packages/report/src/index.js";
 import type { AwsCostExplorerClientAdapter } from "../../../packages/connectors/aws/src/index.js";
 import type { CloudflareBillingUsageClient } from "../../../packages/connectors/cloudflare/src/index.js";
 import type { OpenAiUsageCostsClient } from "../../../packages/connectors/openai/src/index.js";
 import type { SupabaseManagementClient } from "../../../packages/connectors/supabase/src/index.js";
 
-export const CLI_VERSION = "0.1.0-alpha.0";
+export { CLI_VERSION } from "./version.js";
 
 const HELP = renderHelpScreen(CLI_VERSION);
 

@@ -3,9 +3,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, posix, resolve, win32 } from "node:path";
 import type { InstallSurface } from "./install-profile.js";
+import { CLI_VERSION } from "./version.js";
 
 export const DEFAULT_RELEASE_REPOSITORY = "ztwz11/moneysiren";
-export const DEFAULT_RELEASE_TAG = "v0.1.0-alpha.0";
+export const DEFAULT_RELEASE_TAG = `v${CLI_VERSION}`;
 
 export interface ReleaseInstallOptions {
   env?: Record<string, string | undefined>;
@@ -94,6 +95,10 @@ export async function installReleaseAssets(options: ReleaseInstallOptions): Prom
       checksumAssets,
       fetchImpl: options.fetchImpl,
     });
+
+    if (checksumAssets.length > 0 && checksum === null) {
+      throw new Error(`SHA256 checksum entry missing for ${asset.name}.`);
+    }
 
     if (checksum !== null && checksum.toLowerCase() !== sha256) {
       throw new Error(`SHA256 mismatch for ${asset.name}.`);

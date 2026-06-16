@@ -69,6 +69,46 @@ describe("MoneySiren release installer", () => {
     expect(requests).toContain("https://api.github.com/repos/ztwz11/moneysiren/releases/tags/v0.1.0-alpha.0");
   });
 
+  it("fails when checksum files exist but omit the selected asset", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(cwd, "installed");
+    const webAsset = "moneysiren-web-runtime-v0.1.0-alpha.0.tar.gz";
+
+    await expect(installReleaseAssets({
+      env: {},
+      fetchImpl: async (input) => {
+        const url = String(input);
+
+        if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0-alpha.0")) {
+          return Response.json({
+            html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0-alpha.0",
+            assets: [
+              releaseAsset(webAsset),
+              releaseAsset("moneysiren-web-runtime-SHA256SUMS.txt"),
+            ],
+          });
+        }
+
+        if (url.endsWith(webAsset)) {
+          return new Response("fake web runtime archive");
+        }
+
+        if (url.endsWith("SHA256SUMS.txt")) {
+          return new Response(`${sha256Hex(Buffer.from("other asset"))}  other.tar.gz\n`);
+        }
+
+        return new Response("missing", {
+          status: 404,
+          statusText: "Not Found",
+        });
+      },
+      installDir,
+      platform: "win32",
+      selectedSurfaces: ["web"],
+      tag: "v0.1.0-alpha.0",
+    })).rejects.toThrow(`SHA256 checksum entry missing for ${webAsset}.`);
+  });
+
   it("resolves platform-specific default install directories", () => {
     expect(resolveReleaseInstallDir({
       env: {

@@ -21,7 +21,7 @@ The current alpha supports:
 - Local Codex CLI and Claude CLI usage estimates from local logs.
 - Korean daily reports and optional Slack webhook delivery.
 
-The npm alpha package is prepared as `@stackspend/cli`, but this repository workflow does not publish it.
+The npm alpha package is prepared as `@stackspend/cli` so users can install the CLI without cloning this repository after the first npm publish.
 
 ## Screenshots
 
@@ -202,6 +202,15 @@ stackspend modes
 stackspend doctor
 stackspend sync --provider mock
 ```
+
+Maintainers can verify and publish the alpha package from the repository root:
+
+```bash
+npm run publish:cli:dry-run
+npm run publish:cli:alpha
+```
+
+The dry run checks the full secret scan, npm package metadata, registry version availability, and tarball contents. The publish command requires a local npm login and publishes `apps/cli` with the `alpha` tag and public access.
 
 During an interactive PowerShell, cmd, or shell install, the package asks which local surfaces to enable:
 

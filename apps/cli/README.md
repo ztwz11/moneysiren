@@ -12,8 +12,6 @@ StackSpend is local-first. The CLI reads configuration and secrets from the proc
 
 ## Published Alpha Usage
 
-The package is prepared for a public npm alpha, but this repository task does not publish it.
-
 After an alpha is published:
 
 ```bash
@@ -94,6 +92,17 @@ npm exec stackspend -- /doctor
 Do not create `.env`, paste real API keys, or write Slack webhook URLs into local project files. Fixture mode and `mock` sync are the intended no-credentials review paths.
 
 Live provider sync is read-only and env-only. Use fixture mode for no-credentials review; export live credentials only in the shell for one run.
+
+## Publishing the Alpha
+
+From the repository root:
+
+```bash
+npm run publish:cli:dry-run
+npm run publish:cli:alpha
+```
+
+The dry run checks the full secret scan, package metadata, npm registry version availability, and tarball contents. The publish command requires `npm login` in the local terminal and publishes this package with the `alpha` tag and public access.
 
 ## Slash Home
 

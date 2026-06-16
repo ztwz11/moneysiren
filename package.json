@@ -21,6 +21,8 @@
     "lint": "node tools/scripts/run-pnpm.mjs --workspace-script lint",
     "secret:scan": "node tools/scripts/secret-scan.mjs",
     "secret:scan:all": "node tools/scripts/secret-scan.mjs --history",
+    "publish:cli:dry-run": "node tools/scripts/publish-cli-alpha.mjs",
+    "publish:cli:alpha": "node tools/scripts/publish-cli-alpha.mjs --publish",
     "tray:native:check": "node tools/scripts/check-tray-native.mjs"
   },
   "devDependencies": {

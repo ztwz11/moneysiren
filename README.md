@@ -13,7 +13,7 @@ The current alpha supports:
 - CLI-first setup and sync.
 - Local SQLite snapshots.
 - Local Next.js dashboard.
-- Native Tauri tray/HUD from source.
+- Native Tauri tray/HUD from source or unsigned GitHub Release artifacts.
 - AWS Cost Explorer fixture/live sync.
 - OpenAI organization usage/cost fixture/live sync.
 - Supabase usage/health fixture sync.
@@ -21,7 +21,7 @@ The current alpha supports:
 - Local Codex CLI and Claude CLI usage estimates from local logs.
 - Korean daily reports and optional Slack webhook delivery.
 
-The npm alpha package is prepared as `@stackspend/cli` so users can install the CLI without cloning this repository after the first npm publish.
+The npm alpha package is prepared as `@stackspend/cli` so users can install the CLI without cloning this repository after the first npm publish. GitHub Releases can also attach a built web runtime archive plus unsigned Windows/macOS desktop artifacts for source-free alpha review.
 
 ## Screenshots
 
@@ -221,6 +221,23 @@ During an interactive PowerShell, cmd, or shell install, the package asks which 
 Press Enter to accept the recommended default, which selects all three. In CI or non-interactive npm installs, StackSpend writes that same all-selected profile automatically. Re-run `stackspend install` to change the local profile later.
 
 The same source tree supports Windows and macOS. Local config paths and native desktop artifacts are selected per OS. The shared runtime lock defaults to `%APPDATA%\StackSpend\runtime.json` on Windows and `~/Library/Application Support/StackSpend/runtime.json` on macOS so the npm CLI and native tray can discover the same local runtime.
+
+## Source-Free Desktop Alpha
+
+After a `desktop-release` GitHub Actions run publishes assets, users can review StackSpend without cloning the repository:
+
+```bash
+npm install -g @stackspend/cli@alpha
+stackspend sync --provider mock
+```
+
+Then download `stackspend-web-runtime-*.tar.gz` from the GitHub Release, extract it, and start the local dashboard runtime:
+
+```bash
+node start.mjs
+```
+
+Finally install/open the Windows or macOS desktop artifact from the same Release. The desktop shell connects to `http://127.0.0.1:3000` for the dashboard and HUD. In this alpha, the native app does not yet embed or auto-start the web runtime, and desktop artifacts are unsigned.
 
 For local tarball review without publishing:
 

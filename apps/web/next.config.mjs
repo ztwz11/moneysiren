@@ -5,6 +5,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
+  output: "standalone",
   serverExternalPackages: ["@napi-rs/keyring"],
   turbopack: {
     root: repoRoot,

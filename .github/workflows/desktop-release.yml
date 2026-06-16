@@ -1,0 +1,196 @@
+name: desktop-release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create or update"
+        required: true
+        default: "v0.1.0-alpha.0"
+      create_release:
+        description: "Create/update the GitHub Release and upload assets"
+        required: true
+        type: boolean
+        default: true
+      prerelease:
+        description: "Mark the GitHub Release as a prerelease"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  web-runtime:
+    name: web-runtime
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: npm run secret:scan:all
+      - run: node tools/scripts/run-pnpm.mjs --filter @stackspend/web build
+      - run: npm run release:web-runtime
+      - name: Archive web runtime
+        shell: bash
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME:-manual}"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            tag="${DISPATCH_TAG}"
+          fi
+          safe_tag="${tag//\//-}"
+          mkdir -p dist/release
+          tar -czf "dist/release/stackspend-web-runtime-${safe_tag}.tar.gz" -C dist/web-runtime stackspend-web-runtime
+          cd dist/release
+          sha256sum stackspend-web-runtime-*.tar.gz > stackspend-web-runtime-SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stackspend-web-runtime
+          path: dist/release/*
+          if-no-files-found: error
+
+  desktop:
+    name: desktop-${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows
+            runner: windows-latest
+            bundles: nsis
+          - name: macos
+            runner: macos-latest
+            bundles: app
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install Rust stable
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install NSIS
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install nsis -y --no-progress
+
+      - run: pnpm install --frozen-lockfile
+      - run: npm run secret:scan:all
+      - run: npm run tray:native:check
+
+      - name: Build unsigned desktop bundle
+        run: node tools/scripts/run-pnpm.mjs --filter @stackspend/tray tauri:build:unsigned -- --ci --no-sign --bundles ${{ matrix.bundles }}
+
+      - name: Collect Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist\desktop-release | Out-Null
+          Copy-Item apps\tray\src-tauri\target\release\bundle\nsis\*.exe dist\desktop-release\
+          Get-FileHash dist\desktop-release\*.exe -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $([System.IO.Path]::GetFileName($_.Path))" } |
+            Set-Content dist\desktop-release\stackspend-tray-windows-SHA256SUMS.txt
+
+      - name: Collect macOS app archive
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/desktop-release
+          app_path="$(find apps/tray/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' -type d | head -n 1)"
+          if [ -z "$app_path" ]; then
+            echo "No macOS .app bundle found." >&2
+            exit 1
+          fi
+          app_name="$(basename "$app_path" .app)"
+          tar -czf "dist/desktop-release/${app_name}-macos-${RUNNER_ARCH}.tar.gz" -C "$(dirname "$app_path")" "$(basename "$app_path")"
+          cd dist/desktop-release
+          shasum -a 256 *.tar.gz > stackspend-tray-macos-SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stackspend-desktop-${{ matrix.name }}
+          path: dist/desktop-release/*
+          if-no-files-found: error
+
+  publish:
+    name: publish-release
+    needs:
+      - web-runtime
+      - desktop
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || inputs.create_release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/release-assets
+          merge-multiple: true
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+          DISPATCH_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          prerelease_flag="--prerelease"
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            tag="${DISPATCH_TAG}"
+            if [ "${DISPATCH_PRERELEASE}" != "true" ]; then
+              prerelease_flag=""
+            fi
+          fi
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/release-assets/* --clobber
+          else
+            gh release create "$tag" dist/release-assets/* \
+              --target "$GITHUB_SHA" \
+              --title "StackSpend ${tag}" \
+              --notes-file docs/release/desktop-alpha-notes.md \
+              $prerelease_flag
+          fi

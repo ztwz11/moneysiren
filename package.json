@@ -23,6 +23,7 @@
     "secret:scan:all": "node tools/scripts/secret-scan.mjs --history",
     "publish:cli:dry-run": "node tools/scripts/publish-cli-alpha.mjs",
     "publish:cli:alpha": "node tools/scripts/publish-cli-alpha.mjs --publish",
+    "release:web-runtime": "node tools/scripts/package-web-runtime.mjs",
     "tray:native:check": "node tools/scripts/check-tray-native.mjs"
   },
   "devDependencies": {

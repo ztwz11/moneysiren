@@ -6,7 +6,7 @@ StackSpend is a local-first cloud, SaaS, and AI usage dashboard. The alpha has t
 - Local web dashboard through Next.js.
 - Desktop tray/notifier and HUD through the native Tauri shell.
 
-The npm alpha installs the CLI surface. The web dashboard and native tray/HUD are run from source until signed desktop installers are published.
+The npm alpha installs the CLI surface. GitHub Releases can publish source-free alpha artifacts for the built web dashboard runtime and unsigned native desktop tray/HUD shell.
 
 ## Requirements
 
@@ -61,7 +61,33 @@ During a PowerShell, cmd, or shell install with an interactive TTY, npm `postins
 
 Press Enter to accept the recommended default, which selects all three. In CI or non-interactive npm installs, StackSpend writes that same all-selected profile automatically. Re-run `stackspend install` to change the profile later.
 
-`stackspend modes` should show the selected install profile plus the CLI, local web dashboard/runtime, and desktop tray/notifier surfaces. The same source tree supports Windows and macOS; npm installs the cross-platform CLI, while native tray/HUD artifacts are built per OS. The npm CLI does not install the native desktop app yet.
+`stackspend modes` should show the selected install profile plus the CLI, local web dashboard/runtime, and desktop tray/notifier surfaces. The same source tree supports Windows and macOS; npm installs the cross-platform CLI, while native tray/HUD artifacts are built per OS.
+
+## Install Desktop Alpha Without Cloning Source
+
+GitHub Releases publish three source-free artifact types:
+
+- `stackspend-web-runtime-*.tar.gz`: the built local Next.js dashboard runtime.
+- Windows installer: unsigned Tauri NSIS `.exe`.
+- macOS app archive: unsigned Tauri `.app` inside `.tar.gz`.
+
+Install the CLI first:
+
+```bash
+npm install -g @stackspend/cli@alpha
+stackspend install --status
+stackspend sync --provider mock
+```
+
+Download and extract the web runtime archive from the GitHub Release, then start it:
+
+```bash
+node start.mjs
+```
+
+The web runtime listens at `http://127.0.0.1:3000` by default. Start the desktop installer/app after the web runtime is running; the native shell opens the dashboard and HUD from that local address.
+
+This alpha desktop shell does not yet embed or auto-start the web runtime. Windows and macOS may warn because these alpha artifacts are unsigned.
 
 ## Install From Source On Windows
 
@@ -219,6 +245,23 @@ open "apps/tray/src-tauri/target/release/bundle/macos/StackSpend Tray.app"
 ```
 
 If macOS blocks the unsigned alpha app, use Finder, right-click the app, and choose Open. Do not use this unsigned build as a distribution artifact.
+
+## Maintainer Desktop Release
+
+The `desktop-release` GitHub Actions workflow builds source-free alpha assets for GitHub Releases:
+
+- Windows NSIS installer from the Windows runner.
+- macOS `.app` archive from the macOS runner.
+- Web runtime archive from the Linux runner.
+
+Create or update a prerelease from a tag:
+
+```bash
+git tag v0.1.0-alpha.0
+git push origin v0.1.0-alpha.0
+```
+
+Or run the workflow manually from GitHub Actions with a release tag. The workflow uploads SHA256 checksum files next to the release artifacts.
 
 ## English Mock Screenshots
 

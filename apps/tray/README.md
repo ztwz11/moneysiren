@@ -41,6 +41,16 @@ For a production-style local run from the repository root, use `npm run build:lo
 
 `tauri:build:unsigned` creates platform-native unsigned development artifacts through Tauri from the same source tree. On Windows this produces the configured Windows bundle target for the local toolchain; on macOS this produces the app bundle target when run on macOS. Signing remains a release-management step outside the local-first v0.1 runtime.
 
+## Release Artifacts
+
+The repository-level `desktop-release` GitHub Actions workflow builds unsigned source-free alpha artifacts:
+
+- Windows NSIS installer.
+- macOS `.app` archive.
+- Built web runtime archive.
+
+The desktop app remains a thin native shell in this alpha. It expects the local web runtime to be running on `http://127.0.0.1:3000`; it does not yet embed or auto-start the Next.js dashboard runtime.
+
 ## Validation
 
 ```bash

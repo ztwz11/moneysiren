@@ -20,6 +20,7 @@
     "typecheck": "node tools/scripts/run-pnpm.mjs --workspace-script typecheck",
     "lint": "node tools/scripts/run-pnpm.mjs --workspace-script lint",
     "secret:scan": "node tools/scripts/secret-scan.mjs",
+    "secret:scan:all": "node tools/scripts/secret-scan.mjs --history",
     "tray:native:check": "node tools/scripts/check-tray-native.mjs"
   },
   "devDependencies": {

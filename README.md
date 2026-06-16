@@ -312,6 +312,7 @@ pnpm test
 pnpm typecheck
 git diff --check
 npm run secret:scan
+npm run secret:scan:all
 ```
 
 For documentation-only changes, at minimum run:
@@ -320,3 +321,5 @@ For documentation-only changes, at minimum run:
 git diff --check -- README.md docs/install.md
 npm run secret:scan
 ```
+
+`npm run secret:scan` checks the current tracked and untracked text tree. `npm run secret:scan:all` also scans Git history for deleted secrets and sensitive local artifacts before public review.

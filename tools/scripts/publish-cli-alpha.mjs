@@ -9,6 +9,7 @@ const cliRoot = resolve(repoRoot, "apps", "cli");
 const packageJsonPath = resolve(cliRoot, "package.json");
 const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 const shouldPublish = process.argv.includes("--publish");
+const publishOtp = getCliValue("--otp");
 const npmTag = "alpha";
 const npmBin = "npm";
 const npmSpawnOptions = process.platform === "win32" ? { shell: true } : {};
@@ -59,7 +60,7 @@ if (!isNpmNotFound(existingVersion)) {
   fail(getSpawnOutput(existingVersion) || `Could not check npm registry for ${packageJson.name}@${packageJson.version}.`);
 }
 
-run(npmBin, withNpmCache(["publish", "--dry-run", "--tag", npmTag, "--access", "public"]), {
+run(npmBin, getPublishArgs({ dryRun: true }), {
   cwd: cliRoot,
 });
 
@@ -72,8 +73,14 @@ if (!shouldPublish) {
   process.exit(0);
 }
 
-run(npmBin, withNpmCache(["publish", "--tag", npmTag, "--access", "public"]), {
+run(npmBin, getPublishArgs({ dryRun: false }), {
   cwd: cliRoot,
+  failureMessage: [
+    "npm publish failed.",
+    "Publishing now requires either account 2FA or a granular access token with bypass 2FA enabled.",
+    "If you use account 2FA, retry with `npm run publish:cli:alpha -- --otp=123456` using the current authenticator code.",
+    "If you use automation, create a granular npm token with publish access and bypass 2FA enabled, then set it only in your shell or CI secret store.",
+  ].join("\n"),
 });
 
 console.log(`Published ${packageJson.name}@${packageJson.version} with npm tag "${npmTag}".`);
@@ -93,6 +100,35 @@ function run(command, args, options = {}) {
 
 function withNpmCache(args) {
   return ["--cache", npmCache, ...args];
+}
+
+function getPublishArgs({ dryRun }) {
+  const args = ["publish"];
+
+  if (dryRun) {
+    args.push("--dry-run");
+  }
+
+  args.push("--tag", npmTag, "--access", "public");
+
+  if (publishOtp) {
+    args.push("--otp", publishOtp);
+  }
+
+  return withNpmCache(args);
+}
+
+function getCliValue(name) {
+  const exactIndex = process.argv.indexOf(name);
+
+  if (exactIndex !== -1) {
+    const value = process.argv[exactIndex + 1];
+    return value && !value.startsWith("--") ? value : null;
+  }
+
+  const prefix = `${name}=`;
+  const match = process.argv.find((arg) => arg.startsWith(prefix));
+  return match ? match.slice(prefix.length) : null;
 }
 
 function isNpmNotFound(result) {

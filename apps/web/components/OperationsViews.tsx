@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { Messages, Locale } from "../lib/i18n";
 import { ConnectionCard } from "./ConnectionCard";
+import { DashboardDisplaySettings } from "./DashboardDisplaySettings";
 import { LiveRefreshButton } from "./LiveRefreshButton";
 import { ProviderIcon } from "./ProviderIcon";
 import { RefreshPageButton } from "./RefreshPageButton";
@@ -637,20 +638,23 @@ export function ConnectionsView({ dashboard, messages }: ViewProps) {
 
 export function PreferencesView({ dashboard, locale, messages }: ViewProps) {
   return (
-    <div className="two-column">
-      <InfoPanel title={messages.settings.preferencesTitle}>
-        <KeyValue label={messages.settings.defaultLocale} value={locale.toUpperCase()} />
-        <div id="timezone">
-          <KeyValue label={messages.settings.dashboardTimezone} value={dashboard.timezone} />
-        </div>
-        <KeyValue label={messages.settings.defaultStart} value={messages.nav.overview} />
-        <KeyValue label={messages.settings.currencyDisplay} value={dashboard.summary.currency} />
-        <KeyValue label={messages.settings.refreshTtl} value="60s" />
-        <KeyValue label={messages.settings.density} value="comfortable" />
-      </InfoPanel>
-      <InfoPanel title={messages.settings.telemetry}>
-        <KeyValue label={messages.settings.telemetry} value={messages.settings.off} />
-      </InfoPanel>
+    <div className="stack">
+      <div className="two-column">
+        <InfoPanel title={messages.settings.preferencesTitle}>
+          <KeyValue label={messages.settings.defaultLocale} value={locale.toUpperCase()} />
+          <div id="timezone">
+            <KeyValue label={messages.settings.dashboardTimezone} value={dashboard.timezone} />
+          </div>
+          <KeyValue label={messages.settings.defaultStart} value={messages.nav.overview} />
+          <KeyValue label={messages.settings.currencyDisplay} value={dashboard.summary.currency} />
+          <KeyValue label={messages.settings.refreshTtl} value="60s" />
+          <KeyValue label={messages.settings.density} value="comfortable" />
+        </InfoPanel>
+        <InfoPanel title={messages.settings.telemetry}>
+          <KeyValue label={messages.settings.telemetry} value={messages.settings.off} />
+        </InfoPanel>
+      </div>
+      <DashboardDisplaySettings messages={messages} />
     </div>
   );
 }
@@ -752,7 +756,7 @@ function TodayLiveDisplayTables({
                     </td>
                     <td>{rowFiveHourUsageLabel(provider, locale, messages)}</td>
                     <td>{rowWeeklyUsageLabel(provider, locale, messages)}</td>
-                    <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages)}</td>
+                    <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages, dashboardMetricKeysForRow(provider, dashboard))}</td>
                     <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
                     <td>{provider.liveConfidence}</td>
                   </tr>
@@ -1387,7 +1391,7 @@ function DashboardUsageServicesTable({
                   <td>{rowSubLabel(provider)}</td>
                   <td>{rowFiveHourUsageLabel(provider, locale, messages)}</td>
                   <td>{rowWeeklyUsageLabel(provider, locale, messages)}</td>
-                  <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages)}</td>
+                  <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages, dashboardMetricKeysForRow(provider, dashboard))}</td>
                   <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
                   <td>{provider.liveConfidence}</td>
                   <td className="table-action-cell">
@@ -1540,7 +1544,7 @@ function ProviderUsageSummaryTable({
                   <td>{summaryServiceNameCell(provider, locale, serviceLinks)}</td>
                   <td>{rowFiveHourUsageLabel(provider, locale, messages)}</td>
                   <td>{rowWeeklyUsageLabel(provider, locale, messages)}</td>
-                  <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages)}</td>
+                  <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages, dashboardMetricKeysForRow(provider, dashboard))}</td>
                   <td><StatusBadge messages={messages} state={provider.liveFreshness} /></td>
                   <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
                   <td>{provider.liveConfidence}</td>
@@ -1931,6 +1935,13 @@ function isLocalAiCliProvider(providerKey: string): boolean {
   return providerKey === "codex-cli" || providerKey === "claude-cli";
 }
 
+function dashboardMetricKeysForRow(
+  row: OperationsRow,
+  dashboard: OperationsDashboard,
+): readonly string[] | undefined {
+  return isLocalAiCliProvider(row.providerKey) ? dashboard.displayPreferences.localCliMetricKeys : undefined;
+}
+
 function localCliRemainingRowsFromSummary(
   summary: OperationsProvider["currentUsageSummary"],
   locale: Locale,
@@ -2083,14 +2094,27 @@ function renderUsageSummary(
   summary: OperationsProvider["currentUsageSummary"],
   locale: Locale,
   messages: Messages,
+  visibleMetricKeys?: readonly string[],
 ): ReactNode {
   if (summary === null) {
     return <span className="muted">{messages.services.noCurrentUsage}</span>;
   }
 
+  const visibleMetrics = visibleMetricKeys === undefined
+    ? summary.metrics
+    : visibleMetricKeys
+        .map((key) => usageMetric(summary, key))
+        .filter((metric): metric is NonNullable<OperationsProvider["currentUsageSummary"]>["metrics"][number] =>
+          metric !== undefined
+        );
+
+  if (visibleMetrics.length === 0) {
+    return <span className="muted">{messages.services.noCurrentUsage}</span>;
+  }
+
   return (
-    <div className="usage-summary compact">
-      {summary.metrics.map((metric) => (
+    <div className="usage-summary compact dashboard-usage-summary">
+      {visibleMetrics.map((metric) => (
         <div className="usage-metric" key={metric.key}>
           <span>{usageMetricLabel(metric.key, messages)}</span>
           <strong>{formatUsageMetric(metric.value, metric.unit, locale)}</strong>

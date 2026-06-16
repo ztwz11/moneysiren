@@ -988,6 +988,32 @@ select {
   justify-content: space-between;
 }
 
+.dashboard-usage-summary {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: 420px;
+}
+
+.dashboard-usage-summary .usage-metric {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  gap: 6px;
+  justify-content: flex-start;
+  min-height: 24px;
+  padding: 3px 7px;
+}
+
+.dashboard-usage-summary .usage-metric span {
+  color: var(--muted);
+}
+
+.dashboard-cli-metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
 .usage-trend-title {
   display: grid;
   gap: 2px;

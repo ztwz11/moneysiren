@@ -3,7 +3,9 @@ import { getMessages, LOCALES } from "../lib/i18n";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   DEFAULT_NOTIFICATION_THRESHOLD_RULES,
+  DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS,
   DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
+  LOCAL_CLI_DASHBOARD_METRIC_KEYS,
   NOTIFICATION_WIDGET_KEYS,
 } from "./NotificationSettingsModel";
 
@@ -26,10 +28,19 @@ describe("notification settings defaults", () => {
 
   it("uses known widgets for selected defaults and threshold rows", () => {
     const widgetKeys = new Set(NOTIFICATION_WIDGET_KEYS);
+    const metricKeys = new Set(LOCAL_CLI_DASHBOARD_METRIC_KEYS);
 
     for (const widgetKey of DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS) {
       expect(widgetKeys.has(widgetKey)).toBe(true);
     }
+
+    for (const metricKey of DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS) {
+      expect(metricKeys.has(metricKey)).toBe(true);
+    }
+
+    expect(DEFAULT_NOTIFICATION_PREFERENCES.dashboard.localCliMetricKeys).toEqual(
+      DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS,
+    );
 
     for (const widgetKey of DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets) {
       expect(widgetKeys.has(widgetKey)).toBe(true);

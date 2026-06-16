@@ -1,9 +1,13 @@
 export {
   DEFAULT_NOTIFICATION_PREFERENCES,
   DEFAULT_NOTIFICATION_THRESHOLD_RULES,
+  DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS,
   DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
+  LOCAL_CLI_DASHBOARD_METRIC_KEYS,
   NOTIFICATION_WIDGET_KEYS,
+  type DashboardDisplayPreferences,
   type DigestInterval,
+  type LocalCliDashboardMetricKey,
   type NotificationPreferences,
   type NotificationThresholdRule as NotificationThresholdDraft,
   type NotificationWidgetKey,

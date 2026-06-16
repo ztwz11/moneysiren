@@ -79,6 +79,9 @@ describe("notification preference route", () => {
           },
         ],
         desktopEnabled: true,
+        dashboard: {
+          localCliMetricKeys: ["last_request_tokens", "unknown", "total_tokens", "last_request_tokens"],
+        },
         hud: {
           alwaysOnTop: false,
           fontScale: 0.9,
@@ -97,6 +100,9 @@ describe("notification preference route", () => {
         digestInterval: "six-hours",
         selectedWidgets: ["today_live_cost"],
         desktopEnabled: true,
+        dashboard: {
+          localCliMetricKeys: ["last_request_tokens", "total_tokens"],
+        },
         hud: {
           alwaysOnTop: false,
           fontScale: 0.9,

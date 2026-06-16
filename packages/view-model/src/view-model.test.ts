@@ -251,4 +251,20 @@ describe("shared view model", () => {
       selectedWidgets: ["risk_high_count"],
     });
   });
+
+  it("normalizes dashboard display preferences for local CLI metrics", () => {
+    expect(parseNotificationPreferences({}).dashboard).toEqual(DEFAULT_NOTIFICATION_PREFERENCES.dashboard);
+    expect(parseNotificationPreferences({
+      dashboard: {
+        localCliMetricKeys: ["last_request_tokens", "unknown", "total_tokens", "last_request_tokens"],
+      },
+    }).dashboard).toEqual({
+      localCliMetricKeys: ["last_request_tokens", "total_tokens"],
+    });
+    expect(parseNotificationPreferences({
+      dashboard: {
+        localCliMetricKeys: [],
+      },
+    }).dashboard).toEqual(DEFAULT_NOTIFICATION_PREFERENCES.dashboard);
+  });
 });

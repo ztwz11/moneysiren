@@ -1,5 +1,11 @@
 import { loadStackSpendConfig } from "../../../packages/config/src/index";
 import {
+  DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS,
+  readNotificationPreferencesFile,
+  type LocalCliDashboardMetricKey,
+  type NotificationPreferences,
+} from "../../../packages/view-model/src/index";
+import {
   readConnectionsStatus,
   type ConnectionState,
   type ConnectionsStatusPayload,
@@ -46,7 +52,12 @@ export interface OperationsDashboard {
   visibleProviders: OperationsProvider[];
   visibleConnections: OperationsProviderConnection[];
   usageTrend: OperationsUsageTrendPoint[];
+  displayPreferences: OperationsDisplayPreferences;
   risks: DashboardAlertItem[];
+}
+
+export interface OperationsDisplayPreferences {
+  localCliMetricKeys: readonly LocalCliDashboardMetricKey[];
 }
 
 export interface OperationsSummary {
@@ -127,6 +138,7 @@ export interface ReadOperationsDashboardOptions extends ReadDashboardSnapshotOpt
   env?: Record<string, string | undefined>;
   connections?: ConnectionsStatusPayload;
   liveToday?: LiveTodaySnapshot;
+  notificationPreferences?: NotificationPreferences;
 }
 
 export async function readOperationsDashboard(
@@ -146,11 +158,16 @@ export async function readOperationsDashboard(
     now: () => now,
     timezone,
   });
+  const notificationPreferences = options.notificationPreferences ?? await readNotificationPreferencesFile({
+    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+    env,
+  });
 
   return buildOperationsDashboard(snapshot, {
     connections,
     env,
     liveToday,
+    notificationPreferences,
     now,
     timezone,
   });
@@ -162,6 +179,7 @@ export function buildOperationsDashboard(
     connections?: ConnectionsStatusPayload;
     env: Record<string, string | undefined>;
     liveToday?: LiveTodaySnapshot;
+    notificationPreferences?: NotificationPreferences;
     now: Date;
     timezone: string;
   },
@@ -271,6 +289,12 @@ export function buildOperationsDashboard(
     visibleProviders,
     visibleConnections,
     usageTrend,
+    displayPreferences: {
+      localCliMetricKeys: [
+        ...(options.notificationPreferences?.dashboard.localCliMetricKeys ??
+          DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS),
+      ],
+    },
     risks: snapshot.alerts.filter((alert) =>
       alert.providerKey !== null && visibleProviderKeys.has(alert.providerKey)
     ),

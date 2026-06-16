@@ -14,7 +14,27 @@ export const NOTIFICATION_WIDGET_KEYS = [
   "cloudflare_month_to_date",
 ] as const;
 
+export const LOCAL_CLI_DASHBOARD_METRIC_KEYS = [
+  "context_percent",
+  "last_request_tokens",
+  "total_tokens",
+  "five_hour_limit_percent",
+  "weekly_limit_percent",
+  "five_hour_remaining_tokens",
+  "weekly_remaining_tokens",
+  "context_tokens",
+  "input_tokens",
+  "output_tokens",
+  "cache_tokens",
+  "reasoning_tokens",
+  "sessions",
+  "turns",
+  "tool_calls",
+  "log_files",
+] as const;
+
 export type NotificationWidgetKey = (typeof NOTIFICATION_WIDGET_KEYS)[number];
+export type LocalCliDashboardMetricKey = (typeof LOCAL_CLI_DASHBOARD_METRIC_KEYS)[number];
 export type ThresholdOperator = "gte" | "lte" | "eq";
 export type DigestInterval = "six-hours" | "daily" | "weekly";
 
@@ -36,7 +56,12 @@ export interface NotificationPreferences {
   selectedWidgets: readonly NotificationWidgetKey[];
   thresholdRules: readonly NotificationThresholdRule[];
   desktopEnabled: boolean;
+  dashboard: DashboardDisplayPreferences;
   hud: HudPreferences;
+}
+
+export interface DashboardDisplayPreferences {
+  localCliMetricKeys: readonly LocalCliDashboardMetricKey[];
 }
 
 export interface HudPreferences {
@@ -59,6 +84,12 @@ export const DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS: readonly NotificationWid
   "stale_connection_count",
   "openai_today_tokens",
   "codex_five_hour_percent",
+];
+
+export const DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS: readonly LocalCliDashboardMetricKey[] = [
+  "context_percent",
+  "last_request_tokens",
+  "total_tokens",
 ];
 
 export const DEFAULT_NOTIFICATION_THRESHOLD_RULES: readonly NotificationThresholdRule[] = [
@@ -93,6 +124,9 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   selectedWidgets: DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
   thresholdRules: DEFAULT_NOTIFICATION_THRESHOLD_RULES,
   desktopEnabled: false,
+  dashboard: {
+    localCliMetricKeys: DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS,
+  },
   hud: {
     alwaysOnTop: true,
     fontScale: 0.95,
@@ -120,6 +154,7 @@ export function parseNotificationPreferences(value: unknown): NotificationPrefer
     desktopEnabled: typeof value.desktopEnabled === "boolean"
       ? value.desktopEnabled
       : DEFAULT_NOTIFICATION_PREFERENCES.desktopEnabled,
+    dashboard: parseDashboardDisplayPreferences(value.dashboard),
     hud: parseHudPreferences(value.hud, selectedWidgets),
   };
 }
@@ -135,7 +170,16 @@ export function cloneNotificationPreferences(preferences: NotificationPreference
     selectedWidgets: [...preferences.selectedWidgets],
     thresholdRules: preferences.thresholdRules.map((rule) => ({ ...rule })),
     desktopEnabled: preferences.desktopEnabled,
+    dashboard: parseDashboardDisplayPreferences(preferences.dashboard),
     hud: parseHudPreferences(preferences.hud),
+  };
+}
+
+function parseDashboardDisplayPreferences(value: unknown): DashboardDisplayPreferences {
+  const record = isRecord(value) ? value : {};
+
+  return {
+    localCliMetricKeys: parseLocalCliDashboardMetricKeys(record.localCliMetricKeys),
   };
 }
 
@@ -153,6 +197,20 @@ function parseHudPreferences(
     opacity: clampNumber(record.opacity, 0, 1, DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity),
     selectedWidgets: parseSelectedWidgets(record.selectedWidgets, fallbackSelectedWidgets),
   };
+}
+
+function parseLocalCliDashboardMetricKeys(
+  value: unknown,
+  fallbackMetricKeys: readonly LocalCliDashboardMetricKey[] = DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS,
+): readonly LocalCliDashboardMetricKey[] {
+  const metricKeys = new Set(LOCAL_CLI_DASHBOARD_METRIC_KEYS);
+  const selected = Array.isArray(value)
+    ? value.filter((item): item is LocalCliDashboardMetricKey =>
+        typeof item === "string" && metricKeys.has(item as LocalCliDashboardMetricKey)
+      )
+    : [...fallbackMetricKeys];
+
+  return selected.length === 0 ? [...fallbackMetricKeys] : [...new Set(selected)];
 }
 
 function parseDigestInterval(value: unknown): DigestInterval {

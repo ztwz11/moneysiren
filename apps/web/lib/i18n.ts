@@ -251,6 +251,13 @@ export interface Messages {
     localCliRemaining: string;
     localCliResetAt: string;
     localCliLearnMore: string;
+    localCliDashboardTitle: string;
+    localCliDashboardSubtitle: string;
+    localCliDashboardMetricSelection: string;
+    saveDashboardDisplay: string;
+    dashboardDisplayPrefsSaved: string;
+    dashboardDisplayPrefsSaveError: string;
+    dashboardDisplayPrefsLoadError: string;
     localCliLastRequest: string;
     localCliSessionTokens: string;
     localCliCurrentUsage: string;
@@ -548,6 +555,13 @@ export const messages = {
       localCliRemaining: "Remaining",
       localCliResetAt: "Reset",
       localCliLearnMore: "Learn more",
+      localCliDashboardTitle: "CLI dashboard fields",
+      localCliDashboardSubtitle: "Choose which local CLI metrics appear in dashboard tables.",
+      localCliDashboardMetricSelection: "CLI dashboard metric selection",
+      saveDashboardDisplay: "Save dashboard display",
+      dashboardDisplayPrefsSaved: "Dashboard display preferences saved locally.",
+      dashboardDisplayPrefsSaveError: "Dashboard display preferences were not saved.",
+      dashboardDisplayPrefsLoadError: "Dashboard display preferences could not be loaded.",
       localCliLastRequest: "Last request",
       localCliSessionTokens: "Session tokens",
       localCliCurrentUsage: "Current usage",
@@ -875,6 +889,13 @@ export const messages = {
       localCliRemaining: "남은 사용량",
       localCliResetAt: "초기화",
       localCliLearnMore: "자세히 알아보기",
+      localCliDashboardTitle: "CLI 대시보드 항목",
+      localCliDashboardSubtitle: "대시보드 테이블에 표시할 로컬 CLI 지표를 선택합니다.",
+      localCliDashboardMetricSelection: "CLI 대시보드 지표 선택",
+      saveDashboardDisplay: "대시보드 표시 저장",
+      dashboardDisplayPrefsSaved: "대시보드 표시 설정이 로컬에 저장되었습니다.",
+      dashboardDisplayPrefsSaveError: "대시보드 표시 설정을 저장하지 못했습니다.",
+      dashboardDisplayPrefsLoadError: "대시보드 표시 설정을 불러오지 못했습니다.",
       localCliLastRequest: "마지막 요청",
       localCliSessionTokens: "세션 토큰",
       localCliCurrentUsage: "현재 사용량",
@@ -1202,6 +1223,13 @@ export const messages = {
       localCliRemaining: "残り使用量",
       localCliResetAt: "リセット",
       localCliLearnMore: "詳しく見る",
+      localCliDashboardTitle: "CLI ダッシュボード項目",
+      localCliDashboardSubtitle: "ダッシュボード表に表示するローカル CLI 指標を選択します。",
+      localCliDashboardMetricSelection: "CLI ダッシュボード指標選択",
+      saveDashboardDisplay: "表示設定を保存",
+      dashboardDisplayPrefsSaved: "ダッシュボード表示設定をローカルに保存しました。",
+      dashboardDisplayPrefsSaveError: "ダッシュボード表示設定を保存できませんでした。",
+      dashboardDisplayPrefsLoadError: "ダッシュボード表示設定を読み込めませんでした。",
       localCliLastRequest: "直近リクエスト",
       localCliSessionTokens: "セッショントークン",
       localCliCurrentUsage: "現在の使用量",

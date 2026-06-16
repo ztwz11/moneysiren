@@ -11,10 +11,12 @@ import {
 import type { Messages } from "../lib/i18n";
 import {
   DEFAULT_NOTIFICATION_THRESHOLD_RULES,
+  DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS,
   DEFAULT_NOTIFICATION_PREFERENCES,
   DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
   NOTIFICATION_WIDGET_KEYS,
   type DigestInterval,
+  type LocalCliDashboardMetricKey,
   type NotificationPreferences,
   type NotificationThresholdDraft,
   type NotificationWidgetKey,
@@ -35,6 +37,9 @@ export function NotificationSettingsPanel({ messages }: { messages: Messages }) 
   const [hudOpacity, setHudOpacity] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity);
   const [hudSelectedWidgets, setHudSelectedWidgets] = useState<NotificationWidgetKey[]>(
     [...DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets],
+  );
+  const [localCliDashboardMetricKeys, setLocalCliDashboardMetricKeys] = useState<LocalCliDashboardMetricKey[]>(
+    [...DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS],
   );
   const [selectedWidgets, setSelectedWidgets] = useState<NotificationWidgetKey[]>(
     [...DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS],
@@ -420,6 +425,7 @@ export function NotificationSettingsPanel({ messages }: { messages: Messages }) 
     setHudFontScale(preferences.hud.fontScale);
     setHudOpacity(preferences.hud.opacity);
     setHudSelectedWidgets([...preferences.hud.selectedWidgets]);
+    setLocalCliDashboardMetricKeys([...preferences.dashboard.localCliMetricKeys]);
   }
 
   function currentPreferences(): NotificationPreferences {
@@ -434,6 +440,9 @@ export function NotificationSettingsPanel({ messages }: { messages: Messages }) 
       selectedWidgets,
       thresholdRules,
       desktopEnabled,
+      dashboard: {
+        localCliMetricKeys: localCliDashboardMetricKeys,
+      },
       hud: {
         alwaysOnTop: hudAlwaysOnTop,
         fontScale: hudFontScale,

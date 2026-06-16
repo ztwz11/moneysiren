@@ -49,7 +49,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: npm run secret:scan:all
-      - run: node tools/scripts/run-pnpm.mjs --filter @stackspend/web build
+      - run: node tools/scripts/run-pnpm.mjs --filter @moneysiren/web build
       - run: npm run release:web-runtime
       - name: Archive web runtime
         shell: bash
@@ -63,13 +63,13 @@ jobs:
           fi
           safe_tag="${tag//\//-}"
           mkdir -p dist/release
-          tar -czf "dist/release/stackspend-web-runtime-${safe_tag}.tar.gz" -C dist/web-runtime stackspend-web-runtime
+          tar -czf "dist/release/moneysiren-web-runtime-${safe_tag}.tar.gz" -C dist/web-runtime moneysiren-web-runtime
           cd dist/release
-          sha256sum stackspend-web-runtime-*.tar.gz > stackspend-web-runtime-SHA256SUMS.txt
+          sha256sum moneysiren-web-runtime-*.tar.gz > moneysiren-web-runtime-SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: stackspend-web-runtime
+          name: moneysiren-web-runtime
           path: dist/release/*
           if-no-files-found: error
 
@@ -117,7 +117,7 @@ jobs:
       - run: npm run tray:native:check
 
       - name: Build unsigned desktop bundle
-        run: node tools/scripts/run-pnpm.mjs --filter @stackspend/tray tauri:build:unsigned -- --ci --no-sign --bundles ${{ matrix.bundles }}
+        run: node tools/scripts/run-pnpm.mjs --filter @moneysiren/tray tauri:build:unsigned -- --ci --no-sign --bundles ${{ matrix.bundles }}
 
       - name: Collect Windows installer
         if: runner.os == 'Windows'
@@ -127,7 +127,7 @@ jobs:
           Copy-Item apps\tray\src-tauri\target\release\bundle\nsis\*.exe dist\desktop-release\
           Get-FileHash dist\desktop-release\*.exe -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $([System.IO.Path]::GetFileName($_.Path))" } |
-            Set-Content dist\desktop-release\stackspend-tray-windows-SHA256SUMS.txt
+            Set-Content dist\desktop-release\moneysiren-tray-windows-SHA256SUMS.txt
 
       - name: Collect macOS app archive
         if: runner.os == 'macOS'
@@ -143,11 +143,11 @@ jobs:
           app_name="$(basename "$app_path" .app)"
           tar -czf "dist/desktop-release/${app_name}-macos-${RUNNER_ARCH}.tar.gz" -C "$(dirname "$app_path")" "$(basename "$app_path")"
           cd dist/desktop-release
-          shasum -a 256 *.tar.gz > stackspend-tray-macos-SHA256SUMS.txt
+          shasum -a 256 *.tar.gz > moneysiren-tray-macos-SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: stackspend-desktop-${{ matrix.name }}
+          name: moneysiren-desktop-${{ matrix.name }}
           path: dist/desktop-release/*
           if-no-files-found: error
 
@@ -190,7 +190,7 @@ jobs:
           else
             gh release create "$tag" dist/release-assets/* \
               --target "$GITHUB_SHA" \
-              --title "StackSpend ${tag}" \
+              --title "MoneySiren ${tag}" \
               --notes-file docs/release/desktop-alpha-notes.md \
               $prerelease_flag
           fi

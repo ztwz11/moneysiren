@@ -1,16 +1,16 @@
 import { runMigrations, type MigrationExecutor, type MigrationRunResult } from "./migrate.js";
 
-export interface StackSpendDbClient {
+export interface MoneySirenDbClient {
   dbPath: string;
   migrate(): Promise<MigrationRunResult>;
 }
 
-export interface StackSpendDbClientOptions {
+export interface MoneySirenDbClientOptions {
   dbPath: string;
   executor: MigrationExecutor;
 }
 
-export function createStackSpendDbClient(options: StackSpendDbClientOptions): StackSpendDbClient {
+export function createMoneySirenDbClient(options: MoneySirenDbClientOptions): MoneySirenDbClient {
   const dbPath = options.dbPath.trim();
 
   if (dbPath.length === 0) {

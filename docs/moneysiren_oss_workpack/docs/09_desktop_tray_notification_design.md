@@ -2,14 +2,14 @@
 
 ## 목표
 
-사용자가 StackSpend 웹페이지를 계속 열어두지 않아도, Windows 작업표시줄 또는 macOS 메뉴바에서 중요한 사용량을 빠르게 확인하게 한다.
+사용자가 MoneySiren 웹페이지를 계속 열어두지 않아도, Windows 작업표시줄 또는 macOS 메뉴바에서 중요한 사용량을 빠르게 확인하게 한다.
 
 ## Tray 메뉴
 
 기본 메뉴:
 
 ```text
-StackSpend
+MoneySiren
 ────────────────────────
 Status: Live / Stale / Not configured
 
@@ -33,7 +33,7 @@ Pause Notifications
 
 Start at Login: On/Off
 Run Doctor
-Quit StackSpend
+Quit MoneySiren
 ```
 
 ## Toast 알림 유형
@@ -45,7 +45,7 @@ Quit StackSpend
 예시:
 
 ```text
-StackSpend
+MoneySiren
 OpenAI today $3.20 · Claude 5h 72% · Codex week 41%
 AWS forecast $92 · High risks 1
 ```
@@ -68,7 +68,7 @@ high 이상 risk가 새로 감지되면 표시한다.
 예시:
 
 ```text
-StackSpend risk
+MoneySiren risk
 OpenAI usage spike: 최근 7일 평균 대비 240%
 ```
 
@@ -79,7 +79,7 @@ OpenAI usage spike: 최근 7일 평균 대비 240%
 예시:
 
 ```text
-StackSpend connection stale
+MoneySiren connection stale
 Supabase가 48시간 동안 sync되지 않았습니다.
 ```
 
@@ -171,14 +171,14 @@ create table if not exists notification_widget_preferences (
 CLI 예시:
 
 ```bash
-stackspend notify prefs list
-stackspend notify prefs enable claude_five_hour_percent
-stackspend notify prefs disable today_live_cost
-stackspend notify prefs hud-enable codex_weekly_percent
-stackspend notify prefs hud-disable month_forecast
-stackspend notify prefs threshold claude_five_hour_percent --gte 80
-stackspend notify prefs interval 60
-stackspend notify prefs quiet-hours 22:00 08:00
+moneysiren notify prefs list
+moneysiren notify prefs enable claude_five_hour_percent
+moneysiren notify prefs disable today_live_cost
+moneysiren notify prefs hud-enable codex_weekly_percent
+moneysiren notify prefs hud-disable month_forecast
+moneysiren notify prefs threshold claude_five_hour_percent --gte 80
+moneysiren notify prefs interval 60
+moneysiren notify prefs quiet-hours 22:00 08:00
 ```
 
 ## Notification digest view model

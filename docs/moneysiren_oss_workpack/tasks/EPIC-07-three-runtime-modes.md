@@ -2,7 +2,7 @@
 
 ## 목표
 
-StackSpend를 web, CLI, desktop tray 세 가지 방식으로 사용할 수 있게 한다.
+MoneySiren를 web, CLI, desktop tray 세 가지 방식으로 사용할 수 있게 한다.
 
 ## 결과물
 
@@ -48,7 +48,7 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- `stackspend serve`로 실행 가능
+- `moneysiren serve`로 실행 가능
 - `GET /api/local/health` 응답
 - 외부 host bind 금지
 - CORS는 loopback만 허용
@@ -61,25 +61,25 @@ Acceptance criteria:
 명령:
 
 ```bash
-stackspend serve
-stackspend open
-stackspend summary
-stackspend notify once
-stackspend notify prefs list
-stackspend notify prefs enable <widget>
-stackspend notify prefs disable <widget>
-stackspend notify prefs hud-enable <widget>
-stackspend notify prefs hud-disable <widget>
-stackspend notify prefs threshold <widget> --gte <value>
-stackspend desktop status
+moneysiren serve
+moneysiren open
+moneysiren summary
+moneysiren notify once
+moneysiren notify prefs list
+moneysiren notify prefs enable <widget>
+moneysiren notify prefs disable <widget>
+moneysiren notify prefs hud-enable <widget>
+moneysiren notify prefs hud-disable <widget>
+moneysiren notify prefs threshold <widget> --gte <value>
+moneysiren desktop status
 ```
 
 Acceptance criteria:
 
 - local API가 실행 중이면 재사용
-- 없으면 `stackspend open`이 server 시작 후 브라우저 열기
-- `stackspend notify once --dry-run`은 stdout에 sanitized digest 출력
-- `stackspend summary --json`은 secret 없는 JSON 출력
+- 없으면 `moneysiren open`이 server 시작 후 브라우저 열기
+- `moneysiren notify once --dry-run`은 stdout에 sanitized digest 출력
+- `moneysiren summary --json`은 secret 없는 JSON 출력
 
 ### TASK-07-04: web notification settings
 

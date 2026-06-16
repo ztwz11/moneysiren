@@ -72,7 +72,7 @@ async function assertCredentialStoreWritable(credentialStore: CredentialStore): 
   if (!health.writable) {
     const reason = health.reason ?? "Credential store is not writable.";
     const hint = health.backend === "encrypted_vault"
-      ? "Set STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE before starting the local web server, or configure the OS keychain backend."
+      ? "Set MONEYSIREN_CREDENTIAL_VAULT_PASSPHRASE before starting the local web server, or configure the OS keychain backend."
       : "Check the local credential store backend configuration.";
 
     throw new Error(`${reason} ${hint}`);
@@ -102,7 +102,7 @@ async function readProvider(params: RouteContext["params"]): Promise<ProviderKey
   }
 
   if (!isConnectableProviderKey(provider)) {
-    throw new Error("Provider is not connectable in StackSpend v0.1.");
+    throw new Error("Provider is not connectable in MoneySiren v0.1.");
   }
 
   return provider;
@@ -118,7 +118,7 @@ async function readCredentialInput(
   metadata?: Record<string, string>;
 }> {
   if (provider === "aws") {
-    throw new Error("AWS raw access keys are not stored by StackSpend. Use AWS_PROFILE or SDK SSO setup.");
+    throw new Error("AWS raw access keys are not stored by MoneySiren. Use AWS_PROFILE or SDK SSO setup.");
   }
 
   const body = await request.json() as Record<string, unknown>;

@@ -1,13 +1,13 @@
 import { isAbsolute, join } from "node:path";
-import { loadStackSpendConfig, type StackSpendConfig } from "../../../../packages/config/src/index.js";
+import { loadMoneySirenConfig, type MoneySirenConfig } from "../../../../packages/config/src/index.js";
 
 export interface ParsedFlagResult {
   value?: string;
   remainingArgs: string[];
 }
 
-export function loadCliConfig(env: Record<string, string | undefined>): StackSpendConfig {
-  return loadStackSpendConfig(env);
+export function loadCliConfig(env: Record<string, string | undefined>): MoneySirenConfig {
+  return loadMoneySirenConfig(env);
 }
 
 export function resolveDbPath(cwd: string, configuredDbPath: string): string {

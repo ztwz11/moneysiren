@@ -7,7 +7,7 @@ use tauri::{
 };
 
 const DASHBOARD_BASE_URL: &str = "http://127.0.0.1:3000";
-const DESKTOP_MODE_ENV_KEY: &str = "STACKSPEND_DESKTOP_MODE";
+const DESKTOP_MODE_ENV_KEY: &str = "MONEYSIREN_DESKTOP_MODE";
 const TRAY_ACTIONS: [TrayAction; 12] = [
     TrayAction::new("show-hud", "Show HUD", "/hud?locale=ko"),
     TrayAction::new("open-dashboard", "Open Dashboard", "/ko/dashboard/overview"),
@@ -28,7 +28,7 @@ const TRAY_ACTIONS: [TrayAction; 12] = [
     TrayAction::new("pause-until-tomorrow", "Pause Until Tomorrow", ""),
     TrayAction::new("start-at-login-toggle", "Start at Login", ""),
     TrayAction::new("run-doctor", "Run Doctor", ""),
-    TrayAction::new("quit", "Quit StackSpend", ""),
+    TrayAction::new("quit", "Quit MoneySiren", ""),
 ];
 
 const LOCAL_API_ENDPOINTS: [&str; 3] = [
@@ -75,12 +75,12 @@ fn main() {
             let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
             let desktop_mode = desktop_mode();
 
-            TrayIconBuilder::with_id("stackspend-tray")
+            TrayIconBuilder::with_id("moneysiren-tray")
                 .icon(icon)
                 .tooltip(if desktop_mode == DesktopMode::Hud {
-                    "StackSpend HUD"
+                    "MoneySiren HUD"
                 } else {
-                    "StackSpend"
+                    "MoneySiren"
                 })
                 .menu(&menu)
                 .show_menu_on_left_click(true)
@@ -100,7 +100,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![tray_native_status])
         .run(tauri::generate_context!())
-        .expect("failed to run StackSpend tray");
+        .expect("failed to run MoneySiren tray");
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -139,7 +139,7 @@ fn handle_tray_action(app: &AppHandle, action_id: &str) {
 
     if action_id == "show-hud" {
         open_hud_window(app);
-        let _ = app.emit("stackspend://tray-action", action_id);
+        let _ = app.emit("moneysiren://tray-action", action_id);
         return;
     }
 
@@ -150,7 +150,7 @@ fn handle_tray_action(app: &AppHandle, action_id: &str) {
         }
     }
 
-    let _ = app.emit("stackspend://tray-action", action_id);
+    let _ = app.emit("moneysiren://tray-action", action_id);
 }
 
 fn open_dashboard_route(app: &AppHandle, url_path: &str) {
@@ -168,7 +168,7 @@ fn open_dashboard_route(app: &AppHandle, url_path: &str) {
 }
 
 fn open_hud_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("stackspend-hud") {
+    if let Some(window) = app.get_webview_window("moneysiren-hud") {
         let _ = window.show();
         let _ = window.set_focus();
         return;
@@ -179,8 +179,8 @@ fn open_hud_window(app: &AppHandle) {
         return;
     };
     let Ok(window) =
-        WebviewWindowBuilder::new(app, "stackspend-hud", WebviewUrl::External(parsed_url))
-            .title("StackSpend HUD")
+        WebviewWindowBuilder::new(app, "moneysiren-hud", WebviewUrl::External(parsed_url))
+            .title("MoneySiren HUD")
             .inner_size(340.0, 360.0)
             .min_inner_size(280.0, 240.0)
             .resizable(true)

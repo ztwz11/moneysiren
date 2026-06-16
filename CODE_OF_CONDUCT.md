@@ -1,6 +1,6 @@
 # Code of Conduct
 
-StackSpend aims to be a practical and respectful open-source project.
+MoneySiren aims to be a practical and respectful open-source project.
 
 ## Expected Behavior
 

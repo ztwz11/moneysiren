@@ -81,7 +81,7 @@ export function createLocalApiClient(options: LocalApiClientOptions): LocalApiCl
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
 
   if (typeof fetchImpl !== "function") {
-    throw new Error("A fetch implementation is required for the StackSpend tray local API client.");
+    throw new Error("A fetch implementation is required for the MoneySiren tray local API client.");
   }
 
   return {
@@ -107,7 +107,7 @@ export async function getLocalJson<T extends LocalSafeEnvelope>(
   });
 
   if (!response.ok) {
-    throw new Error(`StackSpend local API request failed: GET ${endpoint} returned ${response.status}.`);
+    throw new Error(`MoneySiren local API request failed: GET ${endpoint} returned ${response.status}.`);
   }
 
   const payload = await response.json() as unknown;
@@ -134,21 +134,21 @@ export function assertAllowedEndpoint(endpoint: string): asserts endpoint is Loc
   const allowedEndpoints = Object.values(LOCAL_API_ENDPOINTS) as readonly string[];
 
   if (!allowedEndpoints.includes(endpoint)) {
-    throw new Error(`Endpoint is not allowed for the StackSpend tray client: ${endpoint}`);
+    throw new Error(`Endpoint is not allowed for the MoneySiren tray client: ${endpoint}`);
   }
 }
 
 export function assertLoopbackUrl(url: URL): void {
   if (url.username.length > 0 || url.password.length > 0) {
-    throw new Error("StackSpend tray local API URLs must not contain credentials.");
+    throw new Error("MoneySiren tray local API URLs must not contain credentials.");
   }
 
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("StackSpend tray local API URLs must use http or https.");
+    throw new Error("MoneySiren tray local API URLs must use http or https.");
   }
 
   if (!isLoopbackHost(url.hostname)) {
-    throw new Error(`StackSpend tray can only call loopback local API hosts, received: ${url.hostname}`);
+    throw new Error(`MoneySiren tray can only call loopback local API hosts, received: ${url.hostname}`);
   }
 }
 
@@ -160,12 +160,12 @@ export function isLoopbackHost(hostname: string): boolean {
 
 function assertLocalSafeEnvelope(value: unknown, endpoint: LocalApiEndpointPath): asserts value is LocalSafeEnvelope {
   if (typeof value !== "object" || value === null) {
-    throw new Error(`StackSpend local API ${endpoint} returned a non-object payload.`);
+    throw new Error(`MoneySiren local API ${endpoint} returned a non-object payload.`);
   }
 
   const envelope = value as Partial<LocalSafeEnvelope>;
 
   if (envelope.localOnly !== true || envelope.secretsReturned !== false) {
-    throw new Error(`StackSpend local API ${endpoint} did not return a local-safe envelope.`);
+    throw new Error(`MoneySiren local API ${endpoint} did not return a local-safe envelope.`);
   }
 }

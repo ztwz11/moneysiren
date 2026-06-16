@@ -24,7 +24,7 @@ describe("Korean daily report renderer", () => {
   it("renders a local Korean daily report from normalized summary data", () => {
     const text = renderKoreanDailyReport(reportInput);
 
-    expect(text).toContain("StackSpend 일일 리포트");
+    expect(text).toContain("MoneySiren 일일 리포트");
     expect(text).toContain("2026-06-02");
     expect(text).toContain("---");
     expect(text).toContain("Mock Provider");

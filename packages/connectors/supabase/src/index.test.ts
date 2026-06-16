@@ -57,7 +57,7 @@ describe("createSupabaseUsageHealthConnector", () => {
           return [
             {
               id: "fake-supabase-ref-alpha",
-              name: "FAKE StackSpend Alpha",
+              name: "FAKE MoneySiren Alpha",
               region: "ap-northeast-2",
               status: "ACTIVE",
             },

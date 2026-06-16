@@ -1,16 +1,16 @@
-# StackSpend Security Model
+# MoneySiren Security Model
 
-StackSpend is a local-first dashboard for cloud, SaaS, and AI usage visibility. The security model is built around read-only provider access, local storage, and sanitized outputs.
+MoneySiren is a local-first dashboard for cloud, SaaS, and AI usage visibility. The security model is built around read-only provider access, local storage, and sanitized outputs.
 
 ## Secret Sources
 
-StackSpend may read secrets from:
+MoneySiren may read secrets from:
 
 - process environment variables
 - OS keychain through the local credential backend
 - encrypted local vault backend when explicitly configured
 
-StackSpend must not store credential material in SQLite.
+MoneySiren must not store credential material in SQLite.
 
 ## Local Storage
 
@@ -30,7 +30,7 @@ Slack delivery is opt-in per run. `SLACK_WEBHOOK_URL` is treated as a local secr
 
 ## Local AI CLI Prompt Policy
 
-Codex CLI and Claude CLI logs may include prompt text, tool input, shell commands, and local file context. StackSpend should only read and display sanitized metadata:
+Codex CLI and Claude CLI logs may include prompt text, tool input, shell commands, and local file context. MoneySiren should only read and display sanitized metadata:
 
 - token counts
 - quota percentages

@@ -26,8 +26,8 @@ export {
   type ThresholdOperator,
 } from "./notification-preferences-model.js";
 
-const PREFERENCES_PATH_ENV = "STACKSPEND_NOTIFICATION_PREFS_PATH";
-const DEFAULT_PREFERENCES_PATH = ".stackspend/notification-preferences.json";
+const PREFERENCES_PATH_ENV = "MONEYSIREN_NOTIFICATION_PREFS_PATH";
+const DEFAULT_PREFERENCES_PATH = ".moneysiren/notification-preferences.json";
 
 export async function readNotificationPreferencesFile(
   options: NotificationPreferenceFileOptions = {},

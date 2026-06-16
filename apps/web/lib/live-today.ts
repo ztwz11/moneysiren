@@ -114,7 +114,7 @@ export interface LiveTodayOptions {
 }
 
 const DEFAULT_TTL_SECONDS = 60;
-const AWS_REGION_ENV_KEY = "STACKSPEND_AWS_REGION";
+const AWS_REGION_ENV_KEY = "MONEYSIREN_AWS_REGION";
 const CLOUDFLARE_ACCOUNT_IDS_ENV_KEY = "CLOUDFLARE_ACCOUNT_IDS";
 const ENV_CONNECTION_ID = "env";
 const cache = new Map<string, CachedLiveTodayProvider>();

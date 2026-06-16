@@ -1,7 +1,7 @@
 export {
-  createStackSpendDbClient,
-  type StackSpendDbClient,
-  type StackSpendDbClientOptions,
+  createMoneySirenDbClient,
+  type MoneySirenDbClient,
+  type MoneySirenDbClientOptions,
 } from "./client.js";
 export {
   getPendingMigrations,

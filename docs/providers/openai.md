@@ -2,7 +2,7 @@
 
 ## v0.1 Scope
 
-Collect normalized OpenAI usage and cost snapshots for the local StackSpend dashboard.
+Collect normalized OpenAI usage and cost snapshots for the local MoneySiren dashboard.
 
 The CLI supports fake fixture mode for local review and a read-only live Usage/Costs path when `OPENAI_ADMIN_KEY` is configured in the invoking environment.
 
@@ -31,10 +31,10 @@ Live usage/cost access requires an OpenAI admin key with organization-level acce
 
 ```text
 # FAKE EXAMPLE ONLY. Do not commit real keys.
-OPENAI_ADMIN_KEY=sk-admin-fake-stackspend-example-do-not-use
+OPENAI_ADMIN_KEY=sk-admin-fake-moneysiren-example-do-not-use
 ```
 
-Do not store the key in StackSpend. v0.1 uses env-only secrets.
+Do not store the key in MoneySiren. v0.1 uses env-only secrets.
 
 ## Fixture Mode
 
@@ -42,8 +42,8 @@ CLI fixture mode uses fake local JSON payloads and does not require credentials.
 
 ```text
 # FAKE EXAMPLE ONLY. Local test fixture paths only.
-STACKSPEND_OPENAI_USAGE_FIXTURE=tests/fixtures/providers/openai/usage-costs.json
-STACKSPEND_OPENAI_COSTS_FIXTURE=tests/fixtures/providers/openai/usage-costs.json
+MONEYSIREN_OPENAI_USAGE_FIXTURE=tests/fixtures/providers/openai/usage-costs.json
+MONEYSIREN_OPENAI_COSTS_FIXTURE=tests/fixtures/providers/openai/usage-costs.json
 ```
 
 The fixture loader accepts either section-specific payloads or a combined fake payload with top-level `usage` and `costs` fields.

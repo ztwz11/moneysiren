@@ -26,7 +26,7 @@ export interface InstallProfileFileOptions {
   platform?: NodeJS.Platform;
 }
 
-const INSTALL_PROFILE_ENV_KEY = "STACKSPEND_INSTALL_PROFILE_PATH";
+const INSTALL_PROFILE_ENV_KEY = "MONEYSIREN_INSTALL_PROFILE_PATH";
 
 export function resolveInstallProfilePath(options: InstallProfileFileOptions = {}): string {
   if (options.path !== undefined && options.path.trim().length > 0) {
@@ -145,16 +145,16 @@ export function isInstallSurface(value: unknown): value is InstallSurface {
 
 function defaultInstallProfilePath(env: Record<string, string | undefined>, platform: NodeJS.Platform): string {
   if (platform === "darwin") {
-    return joinForPlatform(platform, resolveHomeDirectory(env), "Library", "Application Support", "StackSpend", "install-profile.json");
+    return joinForPlatform(platform, resolveHomeDirectory(env), "Library", "Application Support", "MoneySiren", "install-profile.json");
   }
 
   if (platform === "win32") {
-    return joinForPlatform(platform, resolveWindowsAppDataDirectory(env), "StackSpend", "install-profile.json");
+    return joinForPlatform(platform, resolveWindowsAppDataDirectory(env), "MoneySiren", "install-profile.json");
   }
 
   const configHome = trimToNull(env.XDG_CONFIG_HOME) ?? joinForPlatform(platform, resolveHomeDirectory(env), ".config");
 
-  return joinForPlatform(platform, configHome, "stackspend", "install-profile.json");
+  return joinForPlatform(platform, configHome, "moneysiren", "install-profile.json");
 }
 
 function resolveInstallPath(path: string, cwd: string): string {

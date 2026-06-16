@@ -1,4 +1,4 @@
-# StackSpend Project Dossier
+# MoneySiren Project Dossier
 
 Status: approved for v0.1 planning gate.
 
@@ -6,7 +6,7 @@ The canonical detailed dossier lives at `docs/product/dossier.md`.
 
 ## Approved Product Definition
 
-StackSpend is a local-first, open-source cloud/SaaS usage, status, and expected billing dashboard for individual developers and small teams.
+MoneySiren is a local-first, open-source cloud/SaaS usage, status, and expected billing dashboard for individual developers and small teams.
 
 ## Approved v0.1 Scope
 

@@ -1,5 +1,5 @@
 const UNBLENDED_COST_METRIC = "UnblendedCost";
-const STACKSPEND_COST_METRIC = "unblended_cost";
+const MONEYSIREN_COST_METRIC = "unblended_cost";
 
 export interface AwsCostExplorerGetCostAndUsageOutput {
   ResultsByTime?: readonly AwsCostExplorerResultByTime[];
@@ -40,7 +40,7 @@ export interface AwsUsageSnapshot {
   provider: "aws";
   collectedAt: string;
   service: string;
-  metric: typeof STACKSPEND_COST_METRIC;
+  metric: typeof MONEYSIREN_COST_METRIC;
   unit: string;
   value: number;
 }
@@ -105,7 +105,7 @@ export function normalizeCostExplorerResponse(
         provider: "aws",
         collectedAt: input.collectedAt,
         service: serviceCost.service,
-        metric: STACKSPEND_COST_METRIC,
+        metric: MONEYSIREN_COST_METRIC,
         unit: serviceCost.unit,
         value: serviceCost.amountMinor / 100,
       });

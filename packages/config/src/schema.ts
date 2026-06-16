@@ -1,4 +1,4 @@
-export const DEFAULT_DB_PATH = ".stackspend/stackspend.sqlite";
+export const DEFAULT_DB_PATH = ".moneysiren/moneysiren.sqlite";
 
 export const PROVIDER_ENV_KEYS = {
   aws: ["AWS_PROFILE"],
@@ -42,11 +42,11 @@ export interface SlackConfig {
   requiredEnvKey: "SLACK_WEBHOOK_URL";
 }
 
-export interface StackSpendConfig {
+export interface MoneySirenConfig {
   dbPath: string;
   telemetryEnabled: false;
   providers: ProviderConfigMap;
   slack: SlackConfig;
 }
 
-export type StackSpendEnv = Record<string, string | undefined>;
+export type MoneySirenEnv = Record<string, string | undefined>;

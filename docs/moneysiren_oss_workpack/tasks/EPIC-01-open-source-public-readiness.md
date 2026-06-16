@@ -2,7 +2,7 @@
 
 ## 목적
 
-StackSpend를 public repository로 공개할 수 있도록 루트 문서, 공개 정책, README, issue/PR template를 정리한다.
+MoneySiren를 public repository로 공개할 수 있도록 루트 문서, 공개 정책, README, issue/PR template를 정리한다.
 
 ## 권장 브랜치
 

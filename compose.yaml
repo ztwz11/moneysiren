@@ -1,23 +1,23 @@
 services:
-  stackspend:
+  moneysiren:
     build:
       context: .
       dockerfile: Dockerfile
-    image: stackspend:0.1.0-alpha-local
+    image: moneysiren:0.1.0-alpha-local
     ports:
       - "3000:3000"
     environment:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
-      STACKSPEND_DB_PATH: /data/stackspend.sqlite
-      STACKSPEND_AWS_COST_EXPLORER_FIXTURE: /app/tests/fixtures/providers/aws/cost-explorer-grouped-by-service.json
-      STACKSPEND_OPENAI_USAGE_FIXTURE: /app/tests/fixtures/providers/openai/usage-costs.json
-      STACKSPEND_OPENAI_COSTS_FIXTURE: /app/tests/fixtures/providers/openai/usage-costs.json
-      STACKSPEND_SUPABASE_FIXTURE: /app/tests/fixtures/providers/supabase/usage-health.json
-      STACKSPEND_CLOUDFLARE_FIXTURE: /app/tests/fixtures/providers/cloudflare/billing-usage.json
+      MONEYSIREN_DB_PATH: /data/moneysiren.sqlite
+      MONEYSIREN_AWS_COST_EXPLORER_FIXTURE: /app/tests/fixtures/providers/aws/cost-explorer-grouped-by-service.json
+      MONEYSIREN_OPENAI_USAGE_FIXTURE: /app/tests/fixtures/providers/openai/usage-costs.json
+      MONEYSIREN_OPENAI_COSTS_FIXTURE: /app/tests/fixtures/providers/openai/usage-costs.json
+      MONEYSIREN_SUPABASE_FIXTURE: /app/tests/fixtures/providers/supabase/usage-health.json
+      MONEYSIREN_CLOUDFLARE_FIXTURE: /app/tests/fixtures/providers/cloudflare/billing-usage.json
     volumes:
-      - stackspend_data:/data
+      - moneysiren_data:/data
 
 volumes:
-  stackspend_data:
+  moneysiren_data:
 

@@ -1,7 +1,7 @@
 {
-  "name": "@stackspend/cli",
+  "name": "moneysiren",
   "version": "0.1.0-alpha.0",
-  "description": "Local-first cloud/SaaS usage, status, and expected billing CLI for StackSpend.",
+  "description": "Local-first cloud/SaaS usage, status, and expected billing CLI for MoneySiren.",
   "private": false,
   "license": "MIT",
   "type": "module",
@@ -10,7 +10,7 @@
     "node": ">=20.11.0"
   },
   "bin": {
-    "stackspend": "dist/apps/cli/src/index.js"
+    "moneysiren": "dist/apps/cli/src/index.js"
   },
   "main": "dist/apps/cli/src/cli.js",
   "types": "dist/apps/cli/src/cli.d.ts",

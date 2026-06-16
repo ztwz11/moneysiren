@@ -127,7 +127,7 @@ export function DashboardDisplaySettings({ messages }: { messages: Messages }) {
         credentials: "same-origin",
         headers: {
           "Content-Type": "application/json",
-          "X-StackSpend-CSRF": session.csrfToken,
+          "X-MoneySiren-CSRF": session.csrfToken,
         },
         method: "PUT",
       });

@@ -4,7 +4,7 @@ import { loadCliConfig, resolveDbPath } from "./shared.js";
 
 export async function runInitCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   if (args.length > 0) {
-    context.stderr("Usage: stackspend init");
+    context.stderr("Usage: moneysiren init");
     return 1;
   }
 
@@ -16,7 +16,7 @@ export async function runInitCommand(args: readonly string[], context: CliExecut
       ? `applied migrations: ${result.appliedMigrationIds.join(", ")}`
       : `migrations already applied: ${result.skippedMigrationIds.join(", ")}`;
 
-  context.stdout(`Initialized StackSpend local storage at ${config.dbPath}`);
+  context.stdout(`Initialized MoneySiren local storage at ${config.dbPath}`);
   context.stdout(migrationSummary);
   return 0;
 }

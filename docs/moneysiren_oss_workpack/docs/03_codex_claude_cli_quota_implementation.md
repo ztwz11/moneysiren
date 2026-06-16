@@ -114,13 +114,13 @@ apps/cli/src/commands/local-ai/claude-statusline.ts
 ### capture file 위치
 
 ```text
-~/.stackspend/local-ai/claude-statusline.jsonl
+~/.moneysiren/local-ai/claude-statusline.jsonl
 ```
 
 Windows:
 
 ```text
-%APPDATA%\StackSpend\local-ai\claude-statusline.jsonl
+%APPDATA%\MoneySiren\local-ai\claude-statusline.jsonl
 ```
 
 ### capture script 예시
@@ -142,7 +142,7 @@ try {
   const data = JSON.parse(input);
 
   const outDir = join(
-    process.env.STACKSPEND_HOME ?? join(homedir(), ".stackspend"),
+    process.env.MONEYSIREN_HOME ?? join(homedir(), ".moneysiren"),
     "local-ai",
   );
 
@@ -185,14 +185,14 @@ try {
 
   console.log(
     [
-      "StackSpend",
+      "MoneySiren",
       `5h ${formatPercent(event.rateLimits.fiveHour.usedPercentage)}`,
       `7d ${formatPercent(event.rateLimits.weekly.usedPercentage)}`,
       `ctx ${formatPercent(event.contextWindow.usedPercentage)}`,
     ].join(" · "),
   );
 } catch {
-  console.log("StackSpend usage unavailable");
+  console.log("MoneySiren usage unavailable");
 }
 
 function numberOrNull(value) {
@@ -431,8 +431,8 @@ Codex는 다음 순서로 quota percent를 결정한다.
 env fallback:
 
 ```env
-STACKSPEND_CODEX_FIVE_HOUR_TOKEN_LIMIT=
-STACKSPEND_CODEX_WEEKLY_TOKEN_LIMIT=
+MONEYSIREN_CODEX_FIVE_HOUR_TOKEN_LIMIT=
+MONEYSIREN_CODEX_WEEKLY_TOKEN_LIMIT=
 ```
 
 UI에는 반드시 source/confidence를 보여준다.

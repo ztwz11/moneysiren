@@ -16,26 +16,26 @@ import { loadCliConfig } from "./shared.js";
 
 const NOTIFY_USAGE = [
   "Usage:",
-  "  stackspend notify once --dry-run",
-  "  stackspend notify prefs list",
-  "  stackspend notify prefs enable <widget>",
-  "  stackspend notify prefs disable <widget>",
-  "  stackspend notify prefs hud-enable <widget>",
-  "  stackspend notify prefs hud-disable <widget>",
-  "  stackspend notify prefs threshold <widget> --gte|--lte|--eq <value> --cooldown <minutes>",
-  "  stackspend notify prefs quiet-hours <start> <end>",
-  "  stackspend notify test",
+  "  moneysiren notify once --dry-run",
+  "  moneysiren notify prefs list",
+  "  moneysiren notify prefs enable <widget>",
+  "  moneysiren notify prefs disable <widget>",
+  "  moneysiren notify prefs hud-enable <widget>",
+  "  moneysiren notify prefs hud-disable <widget>",
+  "  moneysiren notify prefs threshold <widget> --gte|--lte|--eq <value> --cooldown <minutes>",
+  "  moneysiren notify prefs quiet-hours <start> <end>",
+  "  moneysiren notify test",
 ].join("\n");
 
 const NOTIFY_PREFS_USAGE = [
   "Usage:",
-  "  stackspend notify prefs list",
-  "  stackspend notify prefs enable <widget>",
-  "  stackspend notify prefs disable <widget>",
-  "  stackspend notify prefs hud-enable <widget>",
-  "  stackspend notify prefs hud-disable <widget>",
-  "  stackspend notify prefs threshold <widget> --gte|--lte|--eq <value> --cooldown <minutes>",
-  "  stackspend notify prefs quiet-hours <start> <end>",
+  "  moneysiren notify prefs list",
+  "  moneysiren notify prefs enable <widget>",
+  "  moneysiren notify prefs disable <widget>",
+  "  moneysiren notify prefs hud-enable <widget>",
+  "  moneysiren notify prefs hud-disable <widget>",
+  "  moneysiren notify prefs threshold <widget> --gte|--lte|--eq <value> --cooldown <minutes>",
+  "  moneysiren notify prefs quiet-hours <start> <end>",
 ].join("\n");
 
 export async function runNotifyCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
@@ -64,13 +64,13 @@ export async function runNotifyCommand(args: readonly string[], context: CliExec
 
 async function runNotifyOnce(args: readonly string[], context: CliExecutionContext): Promise<number> {
   if (args.length !== 1 || args[0] !== "--dry-run") {
-    context.stderr("Usage: stackspend notify once --dry-run");
+    context.stderr("Usage: moneysiren notify once --dry-run");
     return 1;
   }
 
   const digest = await readSanitizedNotificationDigest(context);
 
-  context.stdout("StackSpend notification dry run");
+  context.stdout("MoneySiren notification dry run");
   context.stdout(`Generated at: ${digest.generatedAt}`);
   context.stdout(`Secrets returned: ${digest.secretsReturned}`);
   context.stdout(`Providers: ${digest.providerCount}`);
@@ -131,7 +131,7 @@ async function listNotificationPreferences(context: CliExecutionContext): Promis
   const selectedWidgets = new Set(preferences.selectedWidgets);
   const hudWidgets = new Set(preferences.hud.selectedWidgets);
 
-  context.stdout("StackSpend notification preferences");
+  context.stdout("MoneySiren notification preferences");
   context.stdout(`Source: ${source}`);
   context.stdout("Secrets returned: false");
   context.stdout(`Notifications: ${enabledLabel(preferences.enabled)}`);
@@ -293,7 +293,7 @@ async function setNotificationThreshold(args: readonly string[], context: CliExe
   }
 
   if (parsedRule === undefined) {
-    context.stderr("Usage: stackspend notify prefs threshold <widget> --gte|--lte|--eq <value> --cooldown <minutes>");
+    context.stderr("Usage: moneysiren notify prefs threshold <widget> --gte|--lte|--eq <value> --cooldown <minutes>");
     return 1;
   }
 
@@ -319,7 +319,7 @@ async function setNotificationQuietHours(
   context: CliExecutionContext,
 ): Promise<number> {
   if (!isValidClockTime(start) || !isValidClockTime(end)) {
-    context.stderr("Usage: stackspend notify prefs quiet-hours <HH:MM> <HH:MM>");
+    context.stderr("Usage: moneysiren notify prefs quiet-hours <HH:MM> <HH:MM>");
     return 1;
   }
 
@@ -339,7 +339,7 @@ async function setNotificationQuietHours(
 
 async function runNotifyTest(args: readonly string[], context: CliExecutionContext): Promise<number> {
   if (args.length !== 0) {
-    context.stderr("Usage: stackspend notify test");
+    context.stderr("Usage: moneysiren notify test");
     return 1;
   }
 
@@ -353,7 +353,7 @@ async function runNotifyTest(args: readonly string[], context: CliExecutionConte
   }
 
   const text = [
-    "StackSpend test notification",
+    "MoneySiren test notification",
     `Generated at: ${context.now().toISOString()}`,
     "Secrets returned: false",
   ].join("\n");
@@ -371,7 +371,7 @@ async function runNotifyTest(args: readonly string[], context: CliExecutionConte
         };
 
     await sendSlackReport(options);
-    context.stdout("StackSpend test notification sent");
+    context.stdout("MoneySiren test notification sent");
     context.stdout("Secrets returned: false");
     return 0;
   } catch (error) {

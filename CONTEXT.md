@@ -1,13 +1,13 @@
-# StackSpend Context
+# MoneySiren Context
 
 Status: approved.
 
 ## Repository Context
 
-- Product repository: `/Users/ztwz/Desktop/project/stackspend`
+- Product repository: `/Users/ztwz/Desktop/project/moneysiren`
 - Automation controller: `/Users/ztwz/Desktop/project/auto-driver`
 
-`auto-driver` must not contain StackSpend product docs, code, tests, or release notes. It may contain controller metadata required to select StackSpend as the active project.
+`auto-driver` must not contain MoneySiren product docs, code, tests, or release notes. It may contain controller metadata required to select MoneySiren as the active project.
 
 ## Operator Intent
 

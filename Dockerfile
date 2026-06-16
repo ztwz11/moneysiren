@@ -40,7 +40,7 @@ RUN pnpm typecheck
 FROM workspace AS runner
 
 ENV NODE_ENV="production" \
-    STACKSPEND_DB_PATH="/data/stackspend.sqlite" \
+    MONEYSIREN_DB_PATH="/data/moneysiren.sqlite" \
     NEXT_TELEMETRY_DISABLED="1"
 
 RUN mkdir -p /data
@@ -48,4 +48,4 @@ RUN mkdir -p /data
 VOLUME ["/data"]
 EXPOSE 3000
 
-CMD ["pnpm", "--filter", "@stackspend/web", "start", "--hostname", "0.0.0.0"]
+CMD ["pnpm", "--filter", "@moneysiren/web", "start", "--hostname", "0.0.0.0"]

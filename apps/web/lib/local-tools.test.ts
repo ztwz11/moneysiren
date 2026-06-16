@@ -43,7 +43,7 @@ describe("local tool status", () => {
   it("detects an installed AWS CLI without returning secrets", async () => {
     const status = await readAwsLocalSetupStatus({
       env: {
-        AWS_PROFILE: "stackspend-readonly",
+        AWS_PROFILE: "moneysiren-readonly",
       },
       now: () => new Date("2026-06-09T00:00:00.000Z"),
       runCommand: async (_file, _args, options) => {
@@ -66,7 +66,7 @@ describe("local tool status", () => {
       credentialChain: {
         state: "configured",
         source: "AWS_PROFILE",
-        profileName: "stackspend-readonly",
+        profileName: "moneysiren-readonly",
       },
     });
     expect(JSON.stringify(status)).not.toContain("AWS_SECRET_ACCESS_KEY");
@@ -105,7 +105,7 @@ describe("local tool status", () => {
       SystemRoot: "C:\\Windows",
     };
     const calls: Array<{ file: string; args: readonly string[]; direct: boolean | undefined; timeout: number }> = [];
-    const result = await setAwsProfileGlobally("stackspend-readonly", {
+    const result = await setAwsProfileGlobally("moneysiren-readonly", {
       env,
       platform: "win32",
       now: () => new Date("2026-06-09T00:00:00.000Z"),
@@ -127,19 +127,19 @@ describe("local tool status", () => {
       generatedAt: "2026-06-09T00:00:00.000Z",
       localOnly: true,
       secretsReturned: false,
-      profileName: "stackspend-readonly",
+      profileName: "moneysiren-readonly",
       target: "windows_user_environment",
       activeForCurrentProcess: true,
     });
     expect(calls).toEqual([
       {
         file: "C:\\Windows\\System32\\setx.exe",
-        args: ["AWS_PROFILE", "stackspend-readonly"],
+        args: ["AWS_PROFILE", "moneysiren-readonly"],
         direct: true,
         timeout: 10_000,
       },
     ]);
-    expect(env.AWS_PROFILE).toBe("stackspend-readonly");
+    expect(env.AWS_PROFILE).toBe("moneysiren-readonly");
     expect(JSON.stringify(result)).not.toContain("AWS_SECRET_ACCESS_KEY");
   });
 
@@ -159,7 +159,7 @@ describe("local tool status", () => {
   });
 
   it("detects Google Cloud CLI setup without returning account or credential secrets", async () => {
-    const homeDir = await mkdtemp(join(tmpdir(), "stackspend-gcp-local-tools-"));
+    const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-gcp-local-tools-"));
     const cloudSdkConfig = join(homeDir, "gcloud-config");
     await mkdir(cloudSdkConfig, { recursive: true });
     await writeFile(join(cloudSdkConfig, "application_default_credentials.json"), JSON.stringify({
@@ -195,7 +195,7 @@ describe("local tool status", () => {
         }
 
         return {
-          stdout: "stackspend-project",
+          stdout: "moneysiren-project",
         };
       },
     });
@@ -214,7 +214,7 @@ describe("local tool status", () => {
       },
       project: {
         state: "configured",
-        projectIdHint: "sta***ct",
+        projectIdHint: "mon***ct",
       },
       adc: {
         state: "configured",
@@ -226,7 +226,7 @@ describe("local tool status", () => {
     expect(calls.map((call) => call.file)).toEqual(["gcloud", "gcloud", "gcloud"]);
     expect(calls.every((call) => call.timeout === 10_000)).toBe(true);
     expect(JSON.stringify(status)).not.toContain("developer@example.com");
-    expect(JSON.stringify(status)).not.toContain("stackspend-project");
+    expect(JSON.stringify(status)).not.toContain("moneysiren-project");
     expect(JSON.stringify(status)).not.toContain("FAKE_CLIENT_SECRET_FOR_TESTS");
     expect(JSON.stringify(status)).not.toContain("FAKE_REFRESH_TOKEN_FOR_TESTS");
   });
@@ -240,7 +240,7 @@ describe("local tool status", () => {
     const status = await readGcpLocalSetupStatus({
       env: {
         GOOGLE_APPLICATION_CREDENTIALS: "C:\\fake\\service-account.json",
-        GOOGLE_CLOUD_PROJECT: "stackspend-env-project",
+        GOOGLE_CLOUD_PROJECT: "moneysiren-env-project",
       },
       runCommand: missingRunner,
     });
@@ -250,8 +250,8 @@ describe("local tool status", () => {
       version: null,
     });
     expect(status.project).toMatchObject({
-      state: "configured",
-      projectIdHint: "sta***ct",
+        state: "configured",
+        projectIdHint: "mon***ct",
     });
     expect(status.adc).toMatchObject({
       state: "configured",
@@ -259,11 +259,11 @@ describe("local tool status", () => {
       envConfigured: true,
     });
     expect(JSON.stringify(status)).not.toContain("service-account.json");
-    expect(JSON.stringify(status)).not.toContain("stackspend-env-project");
+    expect(JSON.stringify(status)).not.toContain("moneysiren-env-project");
   });
 
   it("summarizes local Codex and Claude CLI usage without exposing prompt text", async () => {
-    const homeDir = await mkdtemp(join(tmpdir(), "stackspend-local-tools-"));
+    const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-local-tools-"));
     const codexSessionDir = join(homeDir, ".codex", "sessions", "2026", "06", "09");
     const claudeProjectDir = join(homeDir, ".claude", "projects", "fake-project");
     await mkdir(codexSessionDir, { recursive: true });
@@ -359,10 +359,10 @@ describe("local tool status", () => {
 
     const status = await readLocalAiCliStatus({
       env: {
-        STACKSPEND_CODEX_FIVE_HOUR_TOKEN_LIMIT: "200000",
-        STACKSPEND_CODEX_WEEKLY_TOKEN_LIMIT: "500000",
-        STACKSPEND_CLAUDE_FIVE_HOUR_TOKEN_LIMIT: "100000",
-        STACKSPEND_CLAUDE_WEEKLY_TOKEN_LIMIT: "300000",
+        MONEYSIREN_CODEX_FIVE_HOUR_TOKEN_LIMIT: "200000",
+        MONEYSIREN_CODEX_WEEKLY_TOKEN_LIMIT: "500000",
+        MONEYSIREN_CLAUDE_FIVE_HOUR_TOKEN_LIMIT: "100000",
+        MONEYSIREN_CLAUDE_WEEKLY_TOKEN_LIMIT: "300000",
       },
       homeDir,
       now: () => new Date("2026-06-09T00:00:00.000Z"),
@@ -452,7 +452,7 @@ describe("local tool status", () => {
   });
 
   it("maps Codex primary and secondary rate limit windows to five-hour and weekly status line metrics", async () => {
-    const homeDir = await mkdtemp(join(tmpdir(), "stackspend-codex-rate-limits-"));
+    const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-codex-rate-limits-"));
     const codexSessionDir = join(homeDir, ".codex", "sessions", "2026", "06", "10");
     await mkdir(codexSessionDir, { recursive: true });
     await writeFile(join(codexSessionDir, "rollout-rate-limits.jsonl"), JSON.stringify({
@@ -510,7 +510,7 @@ describe("local tool status", () => {
   });
 
   it("uses the latest Codex rate limit snapshot instead of the highest historical percent", async () => {
-    const homeDir = await mkdtemp(join(tmpdir(), "stackspend-codex-latest-rate-limit-"));
+    const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-codex-latest-rate-limit-"));
     const codexSessionDir = join(homeDir, ".codex", "sessions", "2026", "06", "10");
     await mkdir(codexSessionDir, { recursive: true });
     await writeFile(join(codexSessionDir, "rollout-rate-limit-history.jsonl"), [
@@ -571,7 +571,7 @@ describe("local tool status", () => {
   });
 
   it("does not skip current Codex logs when parent directory mtime is older than the month window", async () => {
-    const homeDir = await mkdtemp(join(tmpdir(), "stackspend-stale-codex-dir-"));
+    const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-stale-codex-dir-"));
     const yearDir = join(homeDir, ".codex", "sessions", "2026");
     const codexSessionDir = join(yearDir, "06", "10");
     await mkdir(codexSessionDir, { recursive: true });
@@ -619,8 +619,8 @@ describe("local tool status", () => {
     });
   });
 
-  it("uses STACKSPEND_CODEX_SESSIONS_DIR before CODEX_HOME for Codex usage logs", async () => {
-    const homeDir = await mkdtemp(join(tmpdir(), "stackspend-custom-codex-dir-"));
+  it("uses MONEYSIREN_CODEX_SESSIONS_DIR before CODEX_HOME for Codex usage logs", async () => {
+    const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-custom-codex-dir-"));
     const codexSessionsDir = join(homeDir, "custom-codex-sessions");
     const codexSessionDayDir = join(codexSessionsDir, "2026", "06", "10");
     await mkdir(codexSessionDayDir, { recursive: true });
@@ -642,7 +642,7 @@ describe("local tool status", () => {
     const status = await readLocalAiCliStatus({
       env: {
         CODEX_HOME: join(homeDir, "empty-codex-home"),
-        STACKSPEND_CODEX_SESSIONS_DIR: codexSessionsDir,
+        MONEYSIREN_CODEX_SESSIONS_DIR: codexSessionsDir,
       },
       homeDir,
       now: () => new Date("2026-06-10T05:00:00.000Z"),

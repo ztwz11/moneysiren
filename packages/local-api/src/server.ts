@@ -291,7 +291,7 @@ function applyLocalCors(request: IncomingMessage, response: ServerResponse): boo
 
   response.setHeader("Access-Control-Allow-Origin", origin);
   response.setHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type, X-StackSpend-Local-Session");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type, X-MoneySiren-Local-Session");
   response.setHeader("Vary", "Origin");
 
   return true;
@@ -302,7 +302,7 @@ function hasValidLocalSessionToken(request: IncomingMessage, expectedToken: stri
     return false;
   }
 
-  return request.headers["x-stackspend-local-session"] === expectedToken;
+  return request.headers["x-moneysiren-local-session"] === expectedToken;
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<unknown> {
@@ -402,7 +402,7 @@ async function listenWithPortFallback(server: Server, port: number, host: string
     }
   }
 
-  throw new Error(`No available StackSpend local API port near ${port}.`);
+  throw new Error(`No available MoneySiren local API port near ${port}.`);
 }
 
 function listen(server: Server, port: number, host: string): Promise<void> {

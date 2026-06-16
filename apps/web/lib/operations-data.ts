@@ -1,4 +1,4 @@
-import { loadStackSpendConfig } from "../../../packages/config/src/index";
+import { loadMoneySirenConfig } from "../../../packages/config/src/index";
 import {
   DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS,
   readNotificationPreferencesFile,
@@ -184,7 +184,7 @@ export function buildOperationsDashboard(
     timezone: string;
   },
 ): OperationsDashboard {
-  const config = loadStackSpendConfig(options.env);
+  const config = loadMoneySirenConfig(options.env);
   const providers = CONNECTABLE_PROVIDER_KEYS.map((providerKey) => {
     const catalog = findAvailableProvider(providerKey);
     const row = snapshot.providers.find((provider) => provider.providerKey === providerKey);
@@ -302,7 +302,7 @@ export function buildOperationsDashboard(
 }
 
 export function resolveDashboardTimezone(env: Record<string, string | undefined> = process.env): string {
-  const configured = env.STACKSPEND_TIMEZONE?.trim();
+  const configured = env.MONEYSIREN_TIMEZONE?.trim();
 
   if (configured !== undefined && configured.length > 0 && isValidTimeZone(configured)) {
     return configured;

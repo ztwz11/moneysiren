@@ -401,7 +401,7 @@ export interface OsKeychainCredentialStoreOptions {
 
 export function createOsKeychainCredentialStore(options: OsKeychainCredentialStoreOptions = {}): CredentialStore {
   const now = options.now ?? (() => new Date());
-  const serviceName = options.serviceName ?? "StackSpend";
+  const serviceName = options.serviceName ?? "MoneySiren";
   const loadKeyring = options.loadKeyring ?? loadNapiKeyring;
 
   return {
@@ -543,15 +543,15 @@ export interface DefaultCredentialStoreOptions {
 
 export function createDefaultCredentialStore(options: DefaultCredentialStoreOptions = {}): CredentialStore {
   const env = options.env ?? process.env;
-  const backend = env.STACKSPEND_CREDENTIAL_BACKEND?.trim().toLowerCase();
+  const backend = env.MONEYSIREN_CREDENTIAL_BACKEND?.trim().toLowerCase();
   const vault = createEncryptedVaultCredentialStore({
     ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-    ...(env.STACKSPEND_CREDENTIAL_VAULT_PATH === undefined
+    ...(env.MONEYSIREN_CREDENTIAL_VAULT_PATH === undefined
       ? {}
-      : { vaultPath: env.STACKSPEND_CREDENTIAL_VAULT_PATH }),
-    ...(env.STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE === undefined
+      : { vaultPath: env.MONEYSIREN_CREDENTIAL_VAULT_PATH }),
+    ...(env.MONEYSIREN_CREDENTIAL_VAULT_PASSPHRASE === undefined
       ? {}
-      : { passphrase: env.STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE }),
+      : { passphrase: env.MONEYSIREN_CREDENTIAL_VAULT_PASSPHRASE }),
     ...(options.now === undefined ? {} : { now: options.now }),
   });
   const keychain = createOsKeychainCredentialStore({
@@ -653,7 +653,7 @@ interface KeyringModule {
   Entry: new (service: string, account: string) => KeyringEntry;
 }
 
-const DEFAULT_VAULT_PATH = ".stackspend/credentials-vault.json";
+const DEFAULT_VAULT_PATH = ".moneysiren/credentials-vault.json";
 const SCRYPT_KEY_LENGTH = 32;
 const GCM_IV_LENGTH = 12;
 const GCM_AUTH_TAG_LENGTH = 16;
@@ -1042,7 +1042,7 @@ function deletePassword(module: KeyringModule, serviceName: string, account: str
   try {
     new module.Entry(serviceName, account).deletePassword();
   } catch {
-    // Missing entries are already deleted for StackSpend's purposes.
+    // Missing entries are already deleted for MoneySiren's purposes.
   }
 }
 

@@ -1,12 +1,12 @@
 # Local AI CLI Usage
 
-Codex CLI and Claude CLI are not API billing providers in StackSpend.
+Codex CLI and Claude CLI are not API billing providers in MoneySiren.
 
-StackSpend treats them as local usage providers. The app estimates usage from local installation state, local logs, and statusline metadata. It must not present Codex CLI or Claude CLI usage as OpenAI API or Anthropic API billing.
+MoneySiren treats them as local usage providers. The app estimates usage from local installation state, local logs, and statusline metadata. It must not present Codex CLI or Claude CLI usage as OpenAI API or Anthropic API billing.
 
 ## Display Priority
 
-When available, StackSpend should prioritize:
+When available, MoneySiren should prioritize:
 
 1. 5-hour quota percent
 2. weekly quota percent
@@ -19,7 +19,7 @@ Session counts are diagnostic metadata. They should not be the primary usage sig
 
 ## Allowed Metadata
 
-StackSpend may display:
+MoneySiren may display:
 
 - token counts
 - quota percentages
@@ -31,7 +31,7 @@ StackSpend may display:
 
 ## Forbidden Data
 
-StackSpend must not display or persist:
+MoneySiren must not display or persist:
 
 - prompt text
 - assistant response text
@@ -43,4 +43,4 @@ StackSpend must not display or persist:
 
 ## Confidence
 
-Quota values should include source and confidence. If a CLI does not expose quota percentage, StackSpend may calculate an estimate from configured non-secret token limits, but the UI should treat that value as an estimate.
+Quota values should include source and confidence. If a CLI does not expose quota percentage, MoneySiren may calculate an estimate from configured non-secret token limits, but the UI should treat that value as an estimate.

@@ -87,7 +87,7 @@ describe("payload security assertions", () => {
       rawPersisted: false,
     };
     const notificationDigestPayload = {
-      title: "StackSpend daily report",
+      title: "MoneySiren daily report",
       body: "Estimated cost USD 15.00",
       delivery: {
         target: "slack",
@@ -103,7 +103,7 @@ describe("payload security assertions", () => {
       ],
     };
     const trayMenuPayload = {
-      app: "StackSpend",
+      app: "MoneySiren",
       items: [
         {
           id: "open-dashboard",

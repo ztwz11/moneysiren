@@ -17,13 +17,13 @@ const repoRoot = resolve(scriptDir, "../..");
 const webRoot = resolve(repoRoot, "apps", "web");
 const standaloneRoot = resolve(webRoot, ".next", "standalone");
 const standaloneAppRoot = resolve(standaloneRoot, "apps", "web");
-const packageRoot = resolve(repoRoot, "dist", "web-runtime", "stackspend-web-runtime");
+const packageRoot = resolve(repoRoot, "dist", "web-runtime", "moneysiren-web-runtime");
 const packageAppRoot = resolve(packageRoot, "apps", "web");
 
 if (!existsSync(resolve(standaloneAppRoot, "server.js"))) {
   console.error([
     "Missing Next standalone server output.",
-    "Run `npm run build` or `node tools/scripts/run-pnpm.mjs --filter @stackspend/web build` first.",
+    "Run `npm run build` or `node tools/scripts/run-pnpm.mjs --filter @moneysiren/web build` first.",
   ].join("\n"));
   process.exit(1);
 }
@@ -75,9 +75,9 @@ try {
   ].join("\n"));
 
   writeFileSync(resolve(packageRoot, "README.md"), [
-    "# StackSpend Web Runtime",
+    "# MoneySiren Web Runtime",
     "",
-    "This archive contains the built StackSpend Next.js dashboard runtime for local alpha review.",
+    "This archive contains the built MoneySiren Next.js dashboard runtime for local alpha review.",
     "",
     "## Run",
     "",

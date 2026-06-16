@@ -1,7 +1,7 @@
 import type { CliExecutionContext } from "../cli.js";
 import { readSanitizedSummary } from "../summary-model.js";
 
-const SUMMARY_USAGE = "Usage: stackspend summary --json";
+const SUMMARY_USAGE = "Usage: moneysiren summary --json";
 
 export async function runSummaryCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   if (args.includes("--help") || args.includes("-h")) {

@@ -1,4 +1,4 @@
-# StackSpend Security Model
+# MoneySiren Security Model
 
 ## Principles
 
@@ -11,7 +11,7 @@
 
 ## Secrets
 
-StackSpend CLI sync remains env-first for v0.1:
+MoneySiren CLI sync remains env-first for v0.1:
 
 - `AWS_PROFILE`
 - `OPENAI_ADMIN_KEY`
@@ -24,7 +24,7 @@ The local web dashboard also supports a convenience credential store for read-on
 
 - preferred backend: OS keychain through `@napi-rs/keyring`.
 - fallback backend: passphrase-encrypted local vault.
-- vault passphrases are never stored by StackSpend and must stay in the server process memory only.
+- vault passphrases are never stored by MoneySiren and must stay in the server process memory only.
 - credentials are never written to SQLite, localStorage, sessionStorage, readable cookies, logs, reports, dashboard API responses, or screenshots.
 - local session cookies contain only an opaque session id; CSRF tokens and OAuth state/nonce/PKCE verifier are held server-side.
 - OAuth client secrets, if configured for local provider OAuth, must remain process environment secrets and must not be committed.
@@ -50,7 +50,7 @@ Before writing to SQLite, connectors must normalize provider data into explicit 
 
 ## Local Storage
 
-StackSpend stores alpha data in local SQLite. The default path is `.stackspend/stackspend.sqlite`; Docker Compose uses `/data/stackspend.sqlite` in the `stackspend_data` volume.
+MoneySiren stores alpha data in local SQLite. The default path is `.moneysiren/moneysiren.sqlite`; Docker Compose uses `/data/moneysiren.sqlite` in the `moneysiren_data` volume.
 
 SQLite may contain normalized usage, cost, health, alert, risk, and report run records. Treat local database files as operator data:
 
@@ -61,7 +61,7 @@ SQLite may contain normalized usage, cost, health, alert, risk, and report run r
 
 `live_today` dashboard data is stored only in a short-lived server memory cache by default. It is provisional, expires after the configured TTL, and must not be copied into canonical SQLite snapshot tables.
 
-The encrypted credential vault, when used, is separate from SQLite and is ignored by git through `.stackspend/`.
+The encrypted credential vault, when used, is separate from SQLite and is ignored by git through `.moneysiren/`.
 
 ## Docker And Compose
 

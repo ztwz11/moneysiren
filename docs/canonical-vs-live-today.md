@@ -1,6 +1,6 @@
 # Canonical Data vs live_today
 
-StackSpend separates confirmed local history from provisional live refresh data.
+MoneySiren separates confirmed local history from provisional live refresh data.
 
 ## Canonical
 

@@ -17,9 +17,9 @@ if (command === undefined || !allowedCommands.has(command)) {
 
 if (!isCommandAvailable("cargo", ["--version"])) {
   console.error([
-    "Rust/Cargo is required to run the native StackSpend tray app.",
+    "Rust/Cargo is required to run the native MoneySiren tray app.",
     "Install Rust from https://www.rust-lang.org/tools/install, then rerun this command.",
-    "The TypeScript tray model can still be validated with: node tools/scripts/run-pnpm.mjs --filter @stackspend/tray native:check",
+    "The TypeScript tray model can still be validated with: node tools/scripts/run-pnpm.mjs --filter @moneysiren/tray native:check",
   ].join("\n"));
   process.exit(1);
 }
@@ -56,7 +56,7 @@ function runCorepackPnpm(pnpmArgs) {
   };
 
   if (env.COREPACK_HOME === undefined || env.COREPACK_HOME.trim().length === 0) {
-    env.COREPACK_HOME = resolve(repoRoot, ".stackspend", "corepack");
+    env.COREPACK_HOME = resolve(repoRoot, ".moneysiren", "corepack");
   }
 
   if (process.platform === "win32") {

@@ -3,19 +3,19 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
 import type { CliExecutionContext } from "../cli.js";
 
-const THEME_USAGE = "Usage: stackspend theme <preview|image-prompt|image-generate> [--out <png> --theme-out <json> --model <model>]";
+const THEME_USAGE = "Usage: moneysiren theme <preview|image-prompt|image-generate> [--out <png> --theme-out <json> --model <model>]";
 const DEFAULT_IMAGE_MODEL = "gpt-image-1.5";
-const DEFAULT_IMAGE_OUTPUT = ".stackspend/themes/cli-image-reference.png";
-const DEFAULT_THEME_OUTPUT = ".stackspend/themes/cli-theme.json";
+const DEFAULT_IMAGE_OUTPUT = ".moneysiren/themes/cli-image-reference.png";
+const DEFAULT_THEME_OUTPUT = ".moneysiren/themes/cli-theme.json";
 
-const IMAGE_PROMPT = `Create a polished Image 2 reference for the StackSpend CLI theme.
+const IMAGE_PROMPT = `Create a polished Image 2 reference for the MoneySiren CLI theme.
 
 Product:
-- StackSpend is a local-first cloud/SaaS usage, status, and expected billing dashboard for individual developers and small teams.
+- MoneySiren is a local-first cloud/SaaS usage, status, and expected billing dashboard for individual developers and small teams.
 - CLI surfaces should feel operational, calm, high-trust, and dense enough for repeated terminal use.
 
 Image direction:
-- Show a modern terminal window with a StackSpend slash-command home screen, provider status rows, and small usage/risk indicators.
+- Show a modern terminal window with a MoneySiren slash-command home screen, provider status rows, and small usage/risk indicators.
 - Use a restrained professional palette with teal as the brand accent, graphite text, warm amber warnings, and clear green success states.
 - Avoid marketing hero art, decorative blobs, oversized typography, and purple/blue gradient dominance.
 - Make spacing comfortable enough that controls do not touch, overlap, or wrap awkwardly.
@@ -33,7 +33,7 @@ Return a visual reference plus this theme JSON shape:
   }
 }
 
-Apply the JSON locally with STACKSPEND_CLI_THEME_FILE=<path-to-json>.`;
+Apply the JSON locally with MONEYSIREN_CLI_THEME_FILE=<path-to-json>.`;
 
 export async function runThemeCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   const [subcommand, ...rest] = args;
@@ -75,13 +75,13 @@ function renderThemePreview(context: CliExecutionContext): string {
   const { theme } = context;
 
   return [
-    `${theme.brand("StackSpend")} CLI theme`,
+    `${theme.brand("MoneySiren")} CLI theme`,
     `Source: ${theme.source}`,
     "",
     `${theme.heading("Heading")}  ${theme.command("/sync openai")}  ${theme.muted("muted metadata")}  ${theme.warning("warning")}`,
     "",
-    "Set STACKSPEND_CLI_THEME=image2-dashboard for the bundled image-reference palette.",
-    "Set STACKSPEND_CLI_THEME_FILE=<json> to apply a palette extracted from an image reference.",
+    "Set MONEYSIREN_CLI_THEME=image2-dashboard for the bundled image-reference palette.",
+    "Set MONEYSIREN_CLI_THEME_FILE=<json> to apply a palette extracted from an image reference.",
   ].join("\n");
 }
 
@@ -127,10 +127,10 @@ async function runImageGenerateCommand(args: readonly string[], context: CliExec
   await writeLocalFile(imagePath, Buffer.from(imageBase64, "base64"));
   await writeLocalFile(themePath, Buffer.from(JSON.stringify(themeFileFor(options.model), null, 2), "utf8"));
 
-  context.stdout("Generated StackSpend CLI image theme reference.");
+  context.stdout("Generated MoneySiren CLI image theme reference.");
   context.stdout(`Image: ${options.out}`);
   context.stdout(`Theme: ${options.themeOut}`);
-  context.stdout(`Apply: STACKSPEND_CLI_THEME_FILE=${options.themeOut} stackspend theme preview`);
+  context.stdout(`Apply: MONEYSIREN_CLI_THEME_FILE=${options.themeOut} moneysiren theme preview`);
   return 0;
 }
 
@@ -140,7 +140,7 @@ function parseImageGenerateOptions(
 ): { out: string; themeOut: string; model: string } {
   let out = DEFAULT_IMAGE_OUTPUT;
   let themeOut = DEFAULT_THEME_OUTPUT;
-  let model = env.STACKSPEND_IMAGE_MODEL?.trim() || DEFAULT_IMAGE_MODEL;
+  let model = env.MONEYSIREN_IMAGE_MODEL?.trim() || DEFAULT_IMAGE_MODEL;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];

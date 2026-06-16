@@ -11,29 +11,29 @@ import { GET } from "./route";
 
 const originalFetch = globalThis.fetch;
 const ORIGINAL_ENV = {
-  backend: process.env.STACKSPEND_CREDENTIAL_BACKEND,
-  passphrase: process.env.STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE,
-  vaultPath: process.env.STACKSPEND_CREDENTIAL_VAULT_PATH,
+  backend: process.env.MONEYSIREN_CREDENTIAL_BACKEND,
+  passphrase: process.env.MONEYSIREN_CREDENTIAL_VAULT_PASSPHRASE,
+  vaultPath: process.env.MONEYSIREN_CREDENTIAL_VAULT_PATH,
   clientId: process.env.SUPABASE_OAUTH_CLIENT_ID,
   clientSecret: process.env.SUPABASE_OAUTH_CLIENT_SECRET,
   tokenUrl: process.env.SUPABASE_OAUTH_TOKEN_URL,
-  credentialWrites: process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES,
+  credentialWrites: process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES,
 };
 
 beforeEach(() => {
   clearLocalSecurityState();
-  delete process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES;
+  delete process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES;
 });
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  restoreEnv("STACKSPEND_CREDENTIAL_BACKEND", ORIGINAL_ENV.backend);
-  restoreEnv("STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE", ORIGINAL_ENV.passphrase);
-  restoreEnv("STACKSPEND_CREDENTIAL_VAULT_PATH", ORIGINAL_ENV.vaultPath);
+  restoreEnv("MONEYSIREN_CREDENTIAL_BACKEND", ORIGINAL_ENV.backend);
+  restoreEnv("MONEYSIREN_CREDENTIAL_VAULT_PASSPHRASE", ORIGINAL_ENV.passphrase);
+  restoreEnv("MONEYSIREN_CREDENTIAL_VAULT_PATH", ORIGINAL_ENV.vaultPath);
   restoreEnv("SUPABASE_OAUTH_CLIENT_ID", ORIGINAL_ENV.clientId);
   restoreEnv("SUPABASE_OAUTH_CLIENT_SECRET", ORIGINAL_ENV.clientSecret);
   restoreEnv("SUPABASE_OAUTH_TOKEN_URL", ORIGINAL_ENV.tokenUrl);
-  restoreEnv("STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES", ORIGINAL_ENV.credentialWrites);
+  restoreEnv("MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES", ORIGINAL_ENV.credentialWrites);
 });
 
 describe("GET /api/auth/callback/[provider]", () => {
@@ -74,11 +74,11 @@ describe("GET /api/auth/callback/[provider]", () => {
   });
 
   it("exchanges configured Supabase OAuth callbacks and stores only validated credential status", async () => {
-    process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
-    const dir = await mkdtemp(join(tmpdir(), "stackspend-oauth-callback-"));
-    process.env.STACKSPEND_CREDENTIAL_BACKEND = "vault";
-    process.env.STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE = "fake local passphrase";
-    process.env.STACKSPEND_CREDENTIAL_VAULT_PATH = join(dir, "credentials-vault.json");
+    process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
+    const dir = await mkdtemp(join(tmpdir(), "moneysiren-oauth-callback-"));
+    process.env.MONEYSIREN_CREDENTIAL_BACKEND = "vault";
+    process.env.MONEYSIREN_CREDENTIAL_VAULT_PASSPHRASE = "fake local passphrase";
+    process.env.MONEYSIREN_CREDENTIAL_VAULT_PATH = join(dir, "credentials-vault.json");
     process.env.SUPABASE_OAUTH_CLIENT_ID = "fake-client-id";
     process.env.SUPABASE_OAUTH_CLIENT_SECRET = "fake-client-secret";
     process.env.SUPABASE_OAUTH_TOKEN_URL = "http://127.0.0.1:3000/fake-token";

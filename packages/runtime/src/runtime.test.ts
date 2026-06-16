@@ -30,16 +30,16 @@ describe("runtime helpers", () => {
   });
 
   it("writes and discovers a local-safe runtime lock", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-runtime-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-runtime-"));
     const lockOptions = {
       cwd,
-      lockPath: ".stackspend/runtime.json",
+      lockPath: ".moneysiren/runtime.json",
     };
     const lockPath = await writeRuntimeLock(RUNTIME, lockOptions);
     const found = await findRuntime(lockOptions);
     const serialized = JSON.stringify(await readRuntimeLock(lockOptions));
 
-    expect(lockPath.endsWith(join(".stackspend", "runtime.json"))).toBe(true);
+    expect(lockPath.endsWith(join(".moneysiren", "runtime.json"))).toBe(true);
     expect(found).toEqual(RUNTIME);
     expect(serialized).not.toContain("sk-");
     expect(serialized).not.toContain("hooks.slack.com");
@@ -60,14 +60,14 @@ describe("runtime helpers", () => {
       platform: "win32",
     });
 
-    expect(macLockPath).toBe("/Users/tester/Library/Application Support/StackSpend/runtime.json");
-    expect(windowsLockPath).toContain("StackSpend");
+    expect(macLockPath).toBe("/Users/tester/Library/Application Support/MoneySiren/runtime.json");
+    expect(windowsLockPath).toContain("MoneySiren");
     expect(windowsLockPath).toContain("runtime.json");
     expect(windowsLockPath).toContain("AppData");
   });
 
   it("does not accept non-loopback lock URLs", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-runtime-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-runtime-"));
 
     await expect(writeRuntimeLock({
       ...RUNTIME,

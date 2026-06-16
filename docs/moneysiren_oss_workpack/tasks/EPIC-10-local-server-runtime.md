@@ -2,7 +2,7 @@
 
 ## 목표
 
-웹/CLI/tray가 같은 local StackSpend runtime을 찾고 재사용하게 한다.
+웹/CLI/tray가 같은 local MoneySiren runtime을 찾고 재사용하게 한다.
 
 ## 기능
 
@@ -44,16 +44,16 @@ export async function startRuntime(options: {
 ## CLI 동작
 
 ```text
-stackspend serve
+moneysiren serve
   - local API server 시작
   - Next.js web dashboard와 통합 또는 프록시
 
-stackspend open
+moneysiren open
   - runtime 탐색
   - 없으면 serve 시작
   - browser open
 
-stackspend desktop status
+moneysiren desktop status
   - runtime 상태 출력
 ```
 

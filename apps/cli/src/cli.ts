@@ -239,7 +239,7 @@ async function dispatchCommand(args: readonly string[], context: CliExecutionCon
   }
 
   context.stderr(`Unknown command: ${command}`);
-  context.stderr("Run `stackspend --help` for usage.");
+  context.stderr("Run `moneysiren --help` for usage.");
   return 1;
 }
 

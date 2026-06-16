@@ -21,34 +21,34 @@
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
-      "@stackspend/core": [
+      "@moneysiren/core": [
         "packages/core/src/index.ts"
       ],
-      "@stackspend/config": [
+      "@moneysiren/config": [
         "packages/config/src/index.ts"
       ],
-      "@stackspend/db": [
+      "@moneysiren/db": [
         "packages/db/src/index.ts"
       ],
-      "@stackspend/security": [
+      "@moneysiren/security": [
         "packages/security/src/index.ts"
       ],
-      "@stackspend/credentials": [
+      "@moneysiren/credentials": [
         "packages/credentials/src/index.ts"
       ],
-      "@stackspend/report": [
+      "@moneysiren/report": [
         "packages/report/src/index.ts"
       ],
-      "@stackspend/view-model": [
+      "@moneysiren/view-model": [
         "packages/view-model/src/index.ts"
       ],
-      "@stackspend/runtime": [
+      "@moneysiren/runtime": [
         "packages/runtime/src/index.ts"
       ],
-      "@stackspend/local-api": [
+      "@moneysiren/local-api": [
         "packages/local-api/src/index.ts"
       ],
-      "@stackspend/connector-mock": [
+      "@moneysiren/connector-mock": [
         "packages/connectors/mock/src/index.ts"
       ]
     }

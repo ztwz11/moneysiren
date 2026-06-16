@@ -1,4 +1,4 @@
-# StackSpend v0.1 Implementation Plan
+# MoneySiren v0.1 Implementation Plan
 
 > **For Hermes/Codex:** Use controlled, slice-by-slice implementation. Keep product artifacts inside this repository. Do not modify `auto-driver` for product files.
 
@@ -12,10 +12,10 @@
 
 ## Global Repository Boundary
 
-- Product repo: `stackspend`.
+- Product repo: `moneysiren`.
 - Automation repo: `auto-driver`.
 - Product files must not be created in `auto-driver`.
-- `auto-driver` should ideally remain clean during StackSpend implementation.
+- `auto-driver` should ideally remain clean during MoneySiren implementation.
 
 ## M0 — Product planning and spec lock
 
@@ -124,7 +124,7 @@ Files:
 Implementation details:
 
 - env-only config.
-- default DB path `.stackspend/stackspend.sqlite`.
+- default DB path `.moneysiren/moneysiren.sqlite`.
 - tables: providers, provider_accounts, usage_snapshots, billing_snapshots, service_health_snapshots, cost_estimates, alerts, report_runs.
 - raw payload persistence is disallowed by design.
 
@@ -145,10 +145,10 @@ Goal: prove the sync/report pipeline without external APIs.
 
 Commands:
 
-- `stackspend init`
-- `stackspend doctor`
-- `stackspend sync --provider mock`
-- `stackspend report daily --lang ko`
+- `moneysiren init`
+- `moneysiren doctor`
+- `moneysiren sync --provider mock`
+- `moneysiren report daily --lang ko`
 
 Files:
 
@@ -301,8 +301,8 @@ Files:
 Completion criteria:
 
 - mock demo can run without real credentials.
-- `@stackspend/cli` can be packed into a public alpha npm tarball without tests or external source files.
-- installed tarball can run `stackspend --version` and `stackspend doctor` without live credentials.
+- `moneysiren` can be packed into a public alpha npm tarball without tests or external source files.
+- installed tarball can run `moneysiren --version` and `moneysiren doctor` without live credentials.
 - security docs describe secrets, redaction, and local storage.
 - alpha checklist passes.
 

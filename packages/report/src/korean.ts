@@ -2,7 +2,7 @@ import type { DailyProviderSummary, DailyReportInput } from "./daily.js";
 
 export function renderKoreanDailyReport(input: DailyReportInput): string {
   const lines = [
-    "*StackSpend 일일 리포트*",
+    "*MoneySiren 일일 리포트*",
     `- 날짜 ${input.reportDate}`,
     `- 생성 ${input.generatedAt}`,
     `- 리포트 상태 ${translateReportStatus(input.reportRunStatus)}`,

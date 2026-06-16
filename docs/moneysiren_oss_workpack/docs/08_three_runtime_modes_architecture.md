@@ -1,8 +1,8 @@
-# StackSpend 3가지 사용 방식 아키텍처
+# MoneySiren 3가지 사용 방식 아키텍처
 
 ## 목적
 
-StackSpend를 하나의 local-first core 위에서 세 가지 방식으로 사용할 수 있게 한다.
+MoneySiren를 하나의 local-first core 위에서 세 가지 방식으로 사용할 수 있게 한다.
 
 - 웹: 전체 대시보드와 연결 설정
 - CLI: 빠른 확인, 자동화, 리포트, local server 제어
@@ -47,15 +47,15 @@ packages/view-model
 
 역할:
 
-- `stackspend init`
-- `stackspend doctor`
-- `stackspend sync`
-- `stackspend summary`
-- `stackspend report daily`
-- `stackspend serve`
-- `stackspend open`
-- `stackspend notify once`
-- `stackspend desktop status`
+- `moneysiren init`
+- `moneysiren doctor`
+- `moneysiren sync`
+- `moneysiren summary`
+- `moneysiren report daily`
+- `moneysiren serve`
+- `moneysiren open`
+- `moneysiren notify once`
+- `moneysiren desktop status`
 
 CLI는 자동화와 문제 해결의 중심이다. CI, cron, Windows Task Scheduler, launchd와 잘 맞아야 한다.
 
@@ -160,7 +160,7 @@ desktop tray와 CLI가 같은 local server를 찾을 수 있게 lock file을 사
   "port": 47831,
   "baseUrl": "http://127.0.0.1:47831",
   "startedAt": "2026-06-09T00:00:00.000Z",
-  "tokenRef": "stackspend/local-session",
+  "tokenRef": "moneysiren/local-session",
   "version": "0.1.0-alpha.0"
 }
 ```
@@ -168,9 +168,9 @@ desktop tray와 CLI가 같은 local server를 찾을 수 있게 lock file을 사
 저장 위치:
 
 ```text
-Windows: %APPDATA%/StackSpend/runtime.json
-macOS: ~/Library/Application Support/StackSpend/runtime.json
-Linux: ~/.config/stackspend/runtime.json
+Windows: %APPDATA%/MoneySiren/runtime.json
+macOS: ~/Library/Application Support/MoneySiren/runtime.json
+Linux: ~/.config/moneysiren/runtime.json
 ```
 
 주의:

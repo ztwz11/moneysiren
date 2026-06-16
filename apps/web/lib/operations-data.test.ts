@@ -237,6 +237,6 @@ describe("operations dashboard data", () => {
   });
 
   it("falls back when an invalid dashboard timezone is configured", () => {
-    expect(resolveDashboardTimezone({ STACKSPEND_TIMEZONE: "Not/AZone" })).toBeTruthy();
+    expect(resolveDashboardTimezone({ MONEYSIREN_TIMEZONE: "Not/AZone" })).toBeTruthy();
   });
 });

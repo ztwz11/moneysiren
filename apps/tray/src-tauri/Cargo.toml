@@ -1,8 +1,8 @@
 [package]
-name = "stackspend-tray"
+name = "moneysiren-tray"
 version = "0.1.0-alpha.0"
-description = "StackSpend local desktop tray notifier"
-authors = ["StackSpend contributors"]
+description = "MoneySiren local desktop tray notifier"
+authors = ["MoneySiren contributors"]
 license = "MIT"
 edition = "2021"
 rust-version = "1.77"

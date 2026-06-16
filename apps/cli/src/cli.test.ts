@@ -27,14 +27,14 @@ const CLOUDFLARE_FIXTURE_PATH = resolve(
   "../../../tests/fixtures/providers/cloudflare/billing-usage.json",
 );
 const CLI_PACKAGE_JSON_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "../package.json");
-const TEST_SLACK_WEBHOOK_URL = "fake-stackspend-slack-webhook-secret";
+const TEST_SLACK_WEBHOOK_URL = "fake-moneysiren-slack-webhook-secret";
 const ANSI_PATTERN = /\x1B\[[0-9;]*m/;
 const FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN =
   /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b|FAKE_CLOUDFLARE|fake-zone\.invalid|card_|payment_/i;
 
-describe("StackSpend CLI", () => {
+describe("MoneySiren CLI", () => {
   it("prints a no-arg slash home guide in CI without local side effects", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli([], testContext(cwd, {
       CI: "1",
     }));
@@ -42,25 +42,25 @@ describe("StackSpend CLI", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toEqual([]);
-    expect(stdout).toContain(`StackSpend ${CLI_VERSION}`);
+    expect(stdout).toContain(`MoneySiren ${CLI_VERSION}`);
     expect(stdout).toContain("Slash commands");
     expect(stdout).toContain("/doctor");
     expect(stdout).toContain("/install");
     expect(stdout).toContain("/modes");
     expect(stdout).toContain("/sync mock");
-    expect(stdout).toContain("stackspend install");
-    expect(stdout).toContain("stackspend modes");
-    expect(stdout).toContain("stackspend sync --provider mock");
+    expect(stdout).toContain("moneysiren install");
+    expect(stdout).toContain("moneysiren modes");
+    expect(stdout).toContain("moneysiren sync --provider mock");
     expect(stdout).toContain("Home/help does not call provider APIs");
     expect(stdout).not.toMatch(ANSI_PATTERN);
     expect(await fileExists(join(cwd, ".env"))).toBe(false);
-    expect(await fileExists(join(cwd, ".stackspend"))).toBe(false);
+    expect(await fileExists(join(cwd, ".moneysiren"))).toBe(false);
   });
 
   it("renders home guide color when enabled and disables it for NO_COLOR or TERM=dumb", async () => {
-    const coloredCwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
-    const noColorCwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
-    const dumbTermCwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const coloredCwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
+    const noColorCwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
+    const dumbTermCwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
 
     const colored = await runCli([], testContext(coloredCwd, {
       CI: "1",
@@ -82,7 +82,7 @@ describe("StackSpend CLI", () => {
   });
 
   it("previews bundled and file-based image reference CLI themes without secrets", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const themePath = join(cwd, "theme.json");
     await writeFile(themePath, JSON.stringify({
       version: 1,
@@ -96,38 +96,38 @@ describe("StackSpend CLI", () => {
     const bundled = await runCli(["theme", "preview"], testContext(cwd, {
       CI: "1",
       FORCE_COLOR: "1",
-      STACKSPEND_CLI_THEME: "image2-dashboard",
+      MONEYSIREN_CLI_THEME: "image2-dashboard",
     }));
     const fromFile = await runCli(["theme", "preview"], testContext(cwd, {
       CI: "1",
       FORCE_COLOR: "1",
-      STACKSPEND_CLI_THEME_FILE: "theme.json",
+      MONEYSIREN_CLI_THEME_FILE: "theme.json",
     }));
     const prompt = await runCli(["theme", "image-prompt"], testContext(cwd));
 
     expect(bundled.exitCode).toBe(0);
     expect(bundled.stdout.join("\n")).toContain("Source: image2-dashboard");
-    expect(bundled.stdout.join("\n")).toContain("\x1b[1;38;5;30mStackSpend\x1b[0m");
+    expect(bundled.stdout.join("\n")).toContain("\x1b[1;38;5;30mMoneySiren\x1b[0m");
     expect(fromFile.exitCode).toBe(0);
     expect(fromFile.stdout.join("\n")).toContain("Source: fake-image-reference");
-    expect(fromFile.stdout.join("\n")).toContain("\x1b[1;38;5;37mStackSpend\x1b[0m");
+    expect(fromFile.stdout.join("\n")).toContain("\x1b[1;38;5;37mMoneySiren\x1b[0m");
     expect(prompt.exitCode).toBe(0);
     expect(prompt.stdout.join("\n")).toContain("Create a polished Image 2 reference");
-    expect(prompt.stdout.join("\n")).toContain("STACKSPEND_CLI_THEME_FILE");
+    expect(prompt.stdout.join("\n")).toContain("MONEYSIREN_CLI_THEME_FILE");
     expect(prompt.stdout.join("\n")).not.toMatch(/sk-|hooks\.slack|FAKE_/i);
   });
 
   it("generates a CLI image reference and theme file with an explicit env-only API key", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const fetchRequests: Array<{ url: string; model: string | undefined; hasAuthorization: boolean }> = [];
     const result = await runCli(
       [
         "theme",
         "image-generate",
         "--out",
-        ".stackspend/themes/test-reference.png",
+        ".moneysiren/themes/test-reference.png",
         "--theme-out",
-        ".stackspend/themes/test-theme.json",
+        ".moneysiren/themes/test-theme.json",
         "--model",
         "gpt-image-1-mini",
       ],
@@ -142,7 +142,7 @@ describe("StackSpend CLI", () => {
             model: body.model,
             hasAuthorization: String((init?.headers as Record<string, string>).authorization ?? "").startsWith("Bearer "),
           });
-          expect(body.prompt).toContain("StackSpend CLI theme");
+          expect(body.prompt).toContain("MoneySiren CLI theme");
 
           return Response.json({
             data: [
@@ -154,8 +154,8 @@ describe("StackSpend CLI", () => {
         },
       },
     );
-    const image = await readFile(join(cwd, ".stackspend", "themes", "test-reference.png"), "utf8");
-    const theme = JSON.parse(await readFile(join(cwd, ".stackspend", "themes", "test-theme.json"), "utf8")) as {
+    const image = await readFile(join(cwd, ".moneysiren", "themes", "test-reference.png"), "utf8");
+    const theme = JSON.parse(await readFile(join(cwd, ".moneysiren", "themes", "test-theme.json"), "utf8")) as {
       source?: string;
       ansi?: Record<string, string>;
     };
@@ -172,7 +172,7 @@ describe("StackSpend CLI", () => {
     expect(image).toBe("fake png bytes");
     expect(theme.source).toBe("image-generation:gpt-image-1-mini");
     expect(theme.ansi?.brand).toBe("1;38;5;30");
-    expect(result.stdout.join("\n")).toContain("STACKSPEND_CLI_THEME_FILE=.stackspend/themes/test-theme.json");
+    expect(result.stdout.join("\n")).toContain("MONEYSIREN_CLI_THEME_FILE=.moneysiren/themes/test-theme.json");
     expect(allOutput).not.toContain("sk-fake-image-key-for-tests");
   });
 
@@ -196,8 +196,8 @@ describe("StackSpend CLI", () => {
     expect(packageJson.engines?.node).toBe(">=20.11.0");
     expect(packageJson.publishConfig?.access).toBe("public");
     expect(packageJson.dependencies?.["@aws-sdk/client-cost-explorer"]).toBe("^3.1061.0");
-    expect(packageJson.bin?.stackspend).toBe("dist/apps/cli/src/index.js");
-    expect(packageJson.bin?.stackspend).not.toBe("src/index.ts");
+    expect(packageJson.bin?.moneysiren).toBe("dist/apps/cli/src/index.js");
+    expect(packageJson.bin?.moneysiren).not.toBe("src/index.ts");
     expect(packageJson.scripts?.build).toBe("node ../../tools/scripts/build-cli.mjs");
     expect(packageJson.scripts?.prepack).toBe("node ../../tools/scripts/build-cli.mjs");
     expect(packageJson.scripts?.postinstall).toBe("node scripts/postinstall.mjs");
@@ -214,15 +214,15 @@ describe("StackSpend CLI", () => {
   });
 
   it("ignores a leading pnpm argument separator", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["--", "doctor"], testContext(cwd));
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("StackSpend doctor");
+    expect(result.stdout.join("\n")).toContain("MoneySiren doctor");
   });
 
   it("routes slash aliases to existing commands without exposing secret values", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
 
     const version = await runCli(["/version"], testContext(cwd));
     expect(version.exitCode).toBe(0);
@@ -233,18 +233,18 @@ describe("StackSpend CLI", () => {
     }));
     const doctorOutput = doctor.stdout.join("\n");
     expect(doctor.exitCode).toBe(0);
-    expect(doctorOutput).toContain("StackSpend doctor");
+    expect(doctorOutput).toContain("MoneySiren doctor");
     expect(doctorOutput).toContain("openai: configured");
     expect(doctorOutput).not.toContain("sk-fake-openai-admin-key");
 
     const modes = await runCli(["/modes"], testContext(cwd));
     expect(modes.exitCode).toBe(0);
-    expect(modes.stdout.join("\n")).toContain("StackSpend modes");
+    expect(modes.stdout.join("\n")).toContain("MoneySiren modes");
     expect(modes.stdout.join("\n")).toContain("Install profile: CLI, Web dashboard, HUD");
 
     const init = await runCli(["/init"], testContext(cwd));
     expect(init.exitCode).toBe(0);
-    expect(init.stdout.join("\n")).toContain("Initialized StackSpend local storage");
+    expect(init.stdout.join("\n")).toContain("Initialized MoneySiren local storage");
     expect(await fileExists(join(cwd, ".env"))).toBe(false);
 
     const sync = await runCli(["/sync", "mock"], testContext(cwd));
@@ -253,7 +253,7 @@ describe("StackSpend CLI", () => {
 
     const report = await runCli(["/report", "ko"], testContext(cwd));
     expect(report.exitCode).toBe(0);
-    expect(report.stdout.join("\n")).toContain("StackSpend 일일 리포트");
+    expect(report.stdout.join("\n")).toContain("MoneySiren 일일 리포트");
 
     const dashboard = await runCli(["/dashboard"], {
       ...testContext(cwd),
@@ -271,7 +271,7 @@ describe("StackSpend CLI", () => {
         }),
     });
     expect(dashboard.exitCode).toBe(0);
-    expect(dashboard.stdout.join("\n")).toContain("StackSpend dashboard check");
+    expect(dashboard.stdout.join("\n")).toContain("MoneySiren dashboard check");
 
     const dashboardCheck = await runCli(["/dashboard", "check"], {
       ...testContext(cwd),
@@ -289,28 +289,28 @@ describe("StackSpend CLI", () => {
         }),
     });
     expect(dashboardCheck.exitCode).toBe(0);
-    expect(dashboardCheck.stdout.join("\n")).toContain("StackSpend dashboard check");
+    expect(dashboardCheck.stdout.join("\n")).toContain("MoneySiren dashboard check");
   }, 30000);
 
   it("rejects unknown slash commands with slash usage guidance", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["/unknown"], testContext(cwd));
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toEqual([]);
     expect(result.stderr.join("\n")).toContain("Unknown slash command: /unknown");
-    expect(result.stderr.join("\n")).toContain("stackspend /help");
+    expect(result.stderr.join("\n")).toContain("moneysiren /help");
   });
 
   it("initializes local storage without creating .env or credentials", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["init"], testContext(cwd));
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("Initialized StackSpend local storage");
+    expect(result.stdout.join("\n")).toContain("Initialized MoneySiren local storage");
     expect(await fileExists(join(cwd, ".env"))).toBe(false);
 
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const migrations = querySqlite<{ id: string }>(dbPath, "SELECT id FROM schema_migrations ORDER BY id;");
     const persistedText = dumpPersistedProviderDataText(dbPath);
 
@@ -321,15 +321,15 @@ describe("StackSpend CLI", () => {
   });
 
   it("reports local readiness with doctor without exposing secret values", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["doctor"], testContext(cwd, {
       OPENAI_ADMIN_KEY: "sk-fake-openai-admin-key",
     }));
     const stdout = result.stdout.join("\n");
 
     expect(result.exitCode).toBe(0);
-    expect(stdout).toContain("StackSpend doctor");
-    expect(stdout).toContain("DB path: .stackspend/stackspend.sqlite");
+    expect(stdout).toContain("MoneySiren doctor");
+    expect(stdout).toContain("DB path: .moneysiren/moneysiren.sqlite");
     expect(stdout).toContain("telemetry: disabled");
     expect(stdout).toContain("mock provider: available");
     expect(stdout).toContain("openai: configured");
@@ -337,7 +337,7 @@ describe("StackSpend CLI", () => {
   });
 
   it("prints npm-installable three-mode guidance with macOS-safe runtime lock hints", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["modes"], testContext(cwd, {
       HOME: join(cwd, "home"),
     }));
@@ -345,20 +345,20 @@ describe("StackSpend CLI", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toEqual([]);
-    expect(stdout).toContain("StackSpend modes");
+    expect(stdout).toContain("MoneySiren modes");
     expect(stdout).toContain("Install profile: CLI, Web dashboard, HUD");
-    expect(stdout).toContain("npm install -g @stackspend/cli@alpha");
+    expect(stdout).toContain("npm install -g moneysiren@alpha");
     expect(stdout).toContain("1. CLI automation");
     expect(stdout).toContain("2. Local web dashboard/runtime");
     expect(stdout).toContain("3. Desktop tray/notifier");
     expect(stdout).toContain("Windows/macOS target");
-    expect(stdout).toContain("stackspend doctor");
-    expect(stdout).toContain("stackspend serve");
-    expect(stdout).toContain("stackspend desktop status");
+    expect(stdout).toContain("moneysiren doctor");
+    expect(stdout).toContain("moneysiren serve");
+    expect(stdout).toContain("moneysiren desktop status");
 
     if (process.platform === "darwin") {
       expect(stdout).toContain("Platform: macOS");
-      expect(stdout).toContain("~/Library/Application Support/StackSpend/runtime.json");
+      expect(stdout).toContain("~/Library/Application Support/MoneySiren/runtime.json");
     }
 
     expect(stdout).not.toContain(cwd);
@@ -367,13 +367,13 @@ describe("StackSpend CLI", () => {
   });
 
   it("writes and reports the npm install component profile without secrets", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const profilePath = join(cwd, "install-profile.json");
     const install = await runCli(["install", "--cli", "--hud"], testContext(cwd, {
-      STACKSPEND_INSTALL_PROFILE_PATH: profilePath,
+      MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
     }));
     const status = await runCli(["install", "--status"], testContext(cwd, {
-      STACKSPEND_INSTALL_PROFILE_PATH: profilePath,
+      MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
     }));
     const profile = JSON.parse(await readFile(profilePath, "utf8")) as {
       selectedSurfaces?: string[];
@@ -393,7 +393,7 @@ describe("StackSpend CLI", () => {
   });
 
   it("checks the default dashboard API and accepts the safe empty state", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const fetchRequests: string[] = [];
     const result = await runCli(["dashboard", "check"], {
       ...testContext(cwd),
@@ -419,10 +419,10 @@ describe("StackSpend CLI", () => {
 
     expect(result.exitCode).toBe(0);
     expect(fetchRequests).toEqual(["http://localhost:3000/api/dashboard"]);
-    expect(stdout).toContain("StackSpend dashboard check");
+    expect(stdout).toContain("MoneySiren dashboard check");
     expect(stdout).toContain("Dashboard URL: http://localhost:3000");
     expect(stdout).toContain("API status: 200 OK");
-    expect(stdout).toContain("DB path: .stackspend/stackspend.sqlite");
+    expect(stdout).toContain("DB path: .moneysiren/moneysiren.sqlite");
     expect(stdout).toContain("DB exists locally: no");
     expect(stdout).toContain("Payload source: empty");
     expect(stdout).toContain("Provider count: 0");
@@ -431,7 +431,7 @@ describe("StackSpend CLI", () => {
   });
 
   it("sanitizes dashboard URL path, query, and hash before probing or printing", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const fetchRequests: string[] = [];
     const result = await runCli(["dashboard", "check", "--url", "http://localhost:3001/page?token=secret#frag"], {
       ...testContext(cwd),
@@ -462,7 +462,7 @@ describe("StackSpend CLI", () => {
   });
 
   it("rejects credential-bearing dashboard URLs without leaking credential text", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(
       ["dashboard", "check", "--url", "http://user:super-secret@localhost:3000"],
       testContext(cwd),
@@ -476,7 +476,7 @@ describe("StackSpend CLI", () => {
   });
 
   it("fails dashboard check on non-200 API responses with repo-local dev guidance", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["dashboard", "check"], {
       ...testContext(cwd),
       fetch: async () => new Response("fake unavailable", { status: 503 }),
@@ -484,12 +484,12 @@ describe("StackSpend CLI", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout.join("\n")).toContain("API status: 503");
-    expect(result.stderr.join("\n")).toContain("pnpm --filter @stackspend/web dev");
-    expect(result.stderr.join("\n")).toContain("pnpm --filter @stackspend/cli dev -- dashboard check");
+    expect(result.stderr.join("\n")).toContain("pnpm --filter @moneysiren/web dev");
+    expect(result.stderr.join("\n")).toContain("pnpm --filter moneysiren dev -- dashboard check");
   });
 
   it("prints sanitized summary JSON from local normalized data", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
 
     const syncResult = await runCli(["sync", "--provider", "mock"], testContext(cwd));
     const result = await runCli(["summary", "--json"], testContext(cwd, {
@@ -510,7 +510,7 @@ describe("StackSpend CLI", () => {
     expect(result.stderr).toEqual([]);
     expect(parsed.database).toEqual({
       available: true,
-      path: ".stackspend/stackspend.sqlite",
+      path: ".moneysiren/moneysiren.sqlite",
     });
     expect(parsed.secretsReturned).toBe(false);
     expect(parsed.providerCount).toBe(1);
@@ -538,7 +538,7 @@ describe("StackSpend CLI", () => {
   });
 
   it("previews sanitized notification digest output without sending Slack", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
 
     const syncResult = await runCli(["sync", "--provider", "mock"], testContext(cwd));
     const result = await runCli(["notify", "once", "--dry-run"], testContext(cwd, {
@@ -549,7 +549,7 @@ describe("StackSpend CLI", () => {
     expect(syncResult.exitCode).toBe(0);
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toEqual([]);
-    expect(stdout).toContain("StackSpend notification dry run");
+    expect(stdout).toContain("MoneySiren notification dry run");
     expect(stdout).toContain("Secrets returned: false");
     expect(stdout).toContain("Providers: 1");
     expect(stdout).toContain("Estimated total USD: 15.00");
@@ -558,7 +558,7 @@ describe("StackSpend CLI", () => {
   });
 
   it("lists default notification preferences without local API secrets", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["notify", "prefs", "list"], testContext(cwd, {
       SLACK_WEBHOOK_URL: TEST_SLACK_WEBHOOK_URL,
     }));
@@ -566,7 +566,7 @@ describe("StackSpend CLI", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toEqual([]);
-    expect(stdout).toContain("StackSpend notification preferences");
+    expect(stdout).toContain("MoneySiren notification preferences");
     expect(stdout).toContain("Source: default preference template");
     expect(stdout).toContain("Secrets returned: false");
     expect(stdout).toContain("HUD font size: 95%");
@@ -580,9 +580,9 @@ describe("StackSpend CLI", () => {
   });
 
   it("updates persisted notification preferences from CLI prefs commands", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const env = {
-      STACKSPEND_NOTIFICATION_PREFS_PATH: "prefs/notifications.json",
+      MONEYSIREN_NOTIFICATION_PREFS_PATH: "prefs/notifications.json",
       SLACK_WEBHOOK_URL: TEST_SLACK_WEBHOOK_URL,
     };
 
@@ -656,7 +656,7 @@ describe("StackSpend CLI", () => {
   });
 
   it("sends a sanitized notification test through the injected Slack transport", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const slackRequests: SlackReportTransportRequest[] = [];
     const result = await runCli(["notify", "test"], {
       ...testContext(cwd, {
@@ -678,14 +678,14 @@ describe("StackSpend CLI", () => {
     expect(result.stderr).toEqual([]);
     expect(slackRequests).toHaveLength(1);
     expect(slackRequests[0]?.webhookUrl).toBe(TEST_SLACK_WEBHOOK_URL);
-    expect(slackRequests[0]?.payload.text).toContain("StackSpend test notification");
+    expect(slackRequests[0]?.payload.text).toContain("MoneySiren test notification");
     expect(slackRequests[0]?.payload.text).toContain("Secrets returned: false");
-    expect(stdout).toContain("StackSpend test notification sent");
+    expect(stdout).toContain("MoneySiren test notification sent");
     expect(allOutput).not.toContain(TEST_SLACK_WEBHOOK_URL);
   });
 
   it("routes serve, open, and desktop status through the runtime adapter boundary", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const runtime: LocalRuntime = {
       pid: 12345,
       port: 47831,
@@ -790,10 +790,10 @@ describe("StackSpend CLI", () => {
       },
     ]);
     expect(openedUrls).toEqual([]);
-    expect(open.stdout.join("\n")).toContain("StackSpend local API runtime ready");
+    expect(open.stdout.join("\n")).toContain("MoneySiren local API runtime ready");
     expect(open.stdout.join("\n")).toContain("Local API URL: http://127.0.0.1:47831");
     expect(open.stdout.join("\n")).toContain("Dashboard UI: not opened because this runtime URL is a JSON API.");
-    expect(open.stdout.join("\n")).not.toContain("StackSpend dashboard opened");
+    expect(open.stdout.join("\n")).not.toContain("MoneySiren dashboard opened");
     expect(open.stdout.join("\n")).not.toContain("Dashboard URL: http://127.0.0.1:47831");
     expect(status.exitCode).toBe(0);
     expect(status.stdout.join("\n")).toContain("Runtime: healthy");
@@ -801,12 +801,12 @@ describe("StackSpend CLI", () => {
     expect(missingStatus.exitCode).toBe(0);
     expect(missingStatus.stdout.join("\n")).toContain("Runtime: not running");
     expect(missingStatus.stdout.join("\n")).toContain("Runtime lock: not found");
-    expect(missingStatus.stdout.join("\n")).toContain("run `stackspend serve`");
+    expect(missingStatus.stdout.join("\n")).toContain("run `moneysiren serve`");
     expect(missingStatus.stdout.join("\n")).not.toContain("pending packages/runtime integration");
   });
 
   it("syncs the mock provider and renders a Korean daily report from persisted normalized data", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
 
     const syncResult = await runCli(["sync", "--provider", "mock"], testContext(cwd));
     expect(syncResult.exitCode).toBe(0);
@@ -816,12 +816,12 @@ describe("StackSpend CLI", () => {
     const reportText = reportResult.stdout.join("\n");
 
     expect(reportResult.exitCode).toBe(0);
-    expect(reportText).toContain("StackSpend 일일 리포트");
+    expect(reportText).toContain("MoneySiren 일일 리포트");
     expect(reportText).toContain("Mock Provider");
     expect(reportText).toContain("- 예상 비용 USD 15.00");
     expect(reportText).not.toContain("예상 비용: USD 15.00");
 
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
       providers: number;
       usage_snapshots: number;
@@ -859,7 +859,7 @@ describe("StackSpend CLI", () => {
   }, 15000);
 
   it("uses the Asia/Seoul calendar date for Korean daily reports", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["report", "daily", "--lang", "ko"], {
       ...testContext(cwd),
       now: () => new Date("2026-06-01T15:30:00.000Z"),
@@ -869,7 +869,7 @@ describe("StackSpend CLI", () => {
     expect(result.exitCode).toBe(0);
     expect(stdout).toContain("2026-06-02");
 
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const reportRuns = querySqlite<{ report_date: string; created_at: string }>(
       dbPath,
       "SELECT report_date, created_at FROM report_runs ORDER BY created_at, id;",
@@ -884,7 +884,7 @@ describe("StackSpend CLI", () => {
   });
 
   it("sends the Korean daily report to Slack with an injected transport and records delivery status", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const slackRequests: SlackReportTransportRequest[] = [];
 
     const syncResult = await runCli(["sync", "--provider", "mock"], testContext(cwd));
@@ -912,12 +912,12 @@ describe("StackSpend CLI", () => {
     expect(stdout).toContain("Slack report sent");
     expect(stdout).not.toContain(TEST_SLACK_WEBHOOK_URL);
     expect(slackRequests).toHaveLength(1);
-    expect(slackRequests[0]?.payload.text).toContain("*StackSpend 일일 리포트*");
+    expect(slackRequests[0]?.payload.text).toContain("*MoneySiren 일일 리포트*");
     expect(slackRequests[0]?.payload.text).toContain("---");
     expect(slackRequests[0]?.payload.text).toContain("- 예상 비용 USD 15.00");
     expect(slackRequests[0]?.payload.text).not.toContain("동기화 상태:");
 
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const reportRuns = querySqlite<{ delivery_target: string; status: string }>(
       dbPath,
       "SELECT delivery_target, status FROM report_runs ORDER BY created_at, id;",
@@ -935,7 +935,7 @@ describe("StackSpend CLI", () => {
   });
 
   it("fails Slack report delivery gracefully without SLACK_WEBHOOK_URL and records error status", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
 
     const reportResult = await runCli(["report", "daily", "--lang", "ko", "--send", "slack"], testContext(cwd));
     const stderr = reportResult.stderr.join("\n");
@@ -944,7 +944,7 @@ describe("StackSpend CLI", () => {
     expect(stderr).toContain("SLACK_WEBHOOK_URL");
     expect(stderr).not.toMatch(/https?:\/\//i);
 
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const reportRuns = querySqlite<{ delivery_target: string; status: string }>(
       dbPath,
       "SELECT delivery_target, status FROM report_runs ORDER BY created_at, id;",
@@ -957,26 +957,26 @@ describe("StackSpend CLI", () => {
         status: "error",
       },
     ]);
-    expect(persistedText).not.toMatch(/hooks\.slack|fake-stackspend-slack-webhook-secret|sk-|@/i);
+    expect(persistedText).not.toMatch(/hooks\.slack|fake-moneysiren-slack-webhook-secret|sk-|@/i);
   });
 
   it("fails AWS sync gracefully without credentials or fixture mode", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["sync", "--provider", "aws"], testContext(cwd));
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr.join("\n")).toContain("AWS_PROFILE");
     expect(result.stderr.join("\n")).toContain("--profile <profile>");
-    expect(result.stderr.join("\n")).toContain("STACKSPEND_AWS_COST_EXPLORER_FIXTURE");
+    expect(result.stderr.join("\n")).toContain("MONEYSIREN_AWS_COST_EXPLORER_FIXTURE");
     expect(await fileExists(join(cwd, ".env"))).toBe(false);
-    expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
+    expect(await fileExists(join(cwd, ".moneysiren", "moneysiren.sqlite"))).toBe(false);
   });
 
   it("syncs AWS with an explicit profile flag without requiring AWS_PROFILE in the shell", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const awsFixture = JSON.parse(await readFile(AWS_FIXTURE_PATH, "utf8"));
     const sentCommands: string[] = [];
-    const result = await runCli(["sync", "--provider", "aws", "--profile", "fake-stackspend-live-profile"], {
+    const result = await runCli(["sync", "--provider", "aws", "--profile", "fake-moneysiren-live-profile"], {
       ...testContext(cwd),
       liveClients: {
         awsCostExplorer: {
@@ -988,7 +988,7 @@ describe("StackSpend CLI", () => {
       },
     });
 
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{ providers: number; usage_snapshots: number; cost_estimates: number }>(
       dbPath,
       `
@@ -1010,11 +1010,11 @@ describe("StackSpend CLI", () => {
   });
 
   it("records sanitized AWS Cost Explorer failures and exits non-zero", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const fakeAccessKeyId = "AKIA" + "ABCDEFGHIJKLMNOP";
     const result = await runCli(["sync", "--provider", "aws"], {
       ...testContext(cwd, {
-        AWS_PROFILE: "fake-stackspend-live-profile",
+        AWS_PROFILE: "fake-moneysiren-live-profile",
       }),
       liveClients: {
         awsCostExplorer: {
@@ -1026,7 +1026,7 @@ describe("StackSpend CLI", () => {
         },
       },
     });
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const alerts = querySqlite<{ severity: string; title: string; message: string }>(
       dbPath,
       "SELECT severity, title, message FROM alerts;",
@@ -1049,42 +1049,42 @@ describe("StackSpend CLI", () => {
   });
 
   it("fails OpenAI sync gracefully without admin key or fixture mode", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["sync", "--provider", "openai"], testContext(cwd));
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr.join("\n")).toContain("OPENAI_ADMIN_KEY");
-    expect(result.stderr.join("\n")).toContain("STACKSPEND_OPENAI_USAGE_FIXTURE");
-    expect(result.stderr.join("\n")).toContain("STACKSPEND_OPENAI_COSTS_FIXTURE");
+    expect(result.stderr.join("\n")).toContain("MONEYSIREN_OPENAI_USAGE_FIXTURE");
+    expect(result.stderr.join("\n")).toContain("MONEYSIREN_OPENAI_COSTS_FIXTURE");
     expect(await fileExists(join(cwd, ".env"))).toBe(false);
-    expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
+    expect(await fileExists(join(cwd, ".moneysiren", "moneysiren.sqlite"))).toBe(false);
   });
 
   it("fails Supabase sync gracefully without access token or fixture mode", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["sync", "--provider", "supabase"], testContext(cwd));
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr.join("\n")).toContain("SUPABASE_ACCESS_TOKEN");
-    expect(result.stderr.join("\n")).toContain("STACKSPEND_SUPABASE_FIXTURE");
+    expect(result.stderr.join("\n")).toContain("MONEYSIREN_SUPABASE_FIXTURE");
     expect(await fileExists(join(cwd, ".env"))).toBe(false);
-    expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
+    expect(await fileExists(join(cwd, ".moneysiren", "moneysiren.sqlite"))).toBe(false);
   });
 
   it("fails Cloudflare sync gracefully without API token or fixture mode", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["sync", "--provider", "cloudflare"], testContext(cwd));
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr.join("\n")).toContain("CLOUDFLARE_API_TOKEN");
     expect(result.stderr.join("\n")).toContain("CLOUDFLARE_ACCOUNT_IDS");
-    expect(result.stderr.join("\n")).toContain("STACKSPEND_CLOUDFLARE_FIXTURE");
+    expect(result.stderr.join("\n")).toContain("MONEYSIREN_CLOUDFLARE_FIXTURE");
     expect(await fileExists(join(cwd, ".env"))).toBe(false);
-    expect(await fileExists(join(cwd, ".stackspend", "stackspend.sqlite"))).toBe(false);
+    expect(await fileExists(join(cwd, ".moneysiren", "moneysiren.sqlite"))).toBe(false);
   });
 
   it("syncs live read-only client paths without fixture env or persisted credentials", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const awsFixture = JSON.parse(await readFile(AWS_FIXTURE_PATH, "utf8"));
     const openAiFixture = JSON.parse(await readFile(OPENAI_FIXTURE_PATH, "utf8"));
     const supabaseFixture = JSON.parse(await readFile(SUPABASE_FIXTURE_PATH, "utf8"));
@@ -1093,7 +1093,7 @@ describe("StackSpend CLI", () => {
 
     const aws = await runCli(["sync", "--provider", "aws"], {
       ...testContext(cwd, {
-        AWS_PROFILE: "fake-stackspend-live-profile",
+        AWS_PROFILE: "fake-moneysiren-live-profile",
       }),
       liveClients: {
         awsCostExplorer: {
@@ -1148,7 +1148,7 @@ describe("StackSpend CLI", () => {
     expect(cloudflare.exitCode).toBe(0);
     expect(awsCommands).toEqual(["GetCostAndUsage"]);
 
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const providers = querySqlite<{ provider_key: string }>(
       dbPath,
       "SELECT provider_key FROM providers ORDER BY provider_key;",
@@ -1161,7 +1161,7 @@ describe("StackSpend CLI", () => {
       "openai",
       "supabase",
     ]);
-    expect(persistedProviderDataText).not.toContain("fake-stackspend-live-profile");
+    expect(persistedProviderDataText).not.toContain("fake-moneysiren-live-profile");
     expect(persistedProviderDataText).not.toContain("sk-fake-openai-admin-key");
     expect(persistedProviderDataText).not.toContain("sbp_fake_supabase_token");
     expect(persistedProviderDataText).not.toContain("fake-cloudflare-token");
@@ -1170,18 +1170,18 @@ describe("StackSpend CLI", () => {
   });
 
   it("syncs AWS Cost Explorer from fixture mode without credentials or raw AWS persistence", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(
       ["sync", "--provider", "aws"],
       testContext(cwd, {
-        STACKSPEND_AWS_COST_EXPLORER_FIXTURE: AWS_FIXTURE_PATH,
+        MONEYSIREN_AWS_COST_EXPLORER_FIXTURE: AWS_FIXTURE_PATH,
       }),
     );
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.join("\n")).toContain("Synced AWS Cost Explorer snapshots");
 
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
       providers: number;
       usage_snapshots: number;
@@ -1249,19 +1249,19 @@ describe("StackSpend CLI", () => {
   });
 
   it("syncs OpenAI usage and costs from fixture mode without credentials or raw OpenAI persistence", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(
       ["sync", "--provider", "openai"],
       testContext(cwd, {
-        STACKSPEND_OPENAI_USAGE_FIXTURE: OPENAI_FIXTURE_PATH,
-        STACKSPEND_OPENAI_COSTS_FIXTURE: OPENAI_FIXTURE_PATH,
+        MONEYSIREN_OPENAI_USAGE_FIXTURE: OPENAI_FIXTURE_PATH,
+        MONEYSIREN_OPENAI_COSTS_FIXTURE: OPENAI_FIXTURE_PATH,
       }),
     );
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.join("\n")).toContain("Synced OpenAI usage and costs snapshots");
 
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
       providers: number;
       usage_snapshots: number;
@@ -1349,18 +1349,18 @@ describe("StackSpend CLI", () => {
   });
 
   it("syncs Supabase usage and health from fixture mode without credentials or raw Supabase persistence", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(
       ["sync", "--provider", "supabase"],
       testContext(cwd, {
-        STACKSPEND_SUPABASE_FIXTURE: SUPABASE_FIXTURE_PATH,
+        MONEYSIREN_SUPABASE_FIXTURE: SUPABASE_FIXTURE_PATH,
       }),
     );
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.join("\n")).toContain("Synced Supabase usage and health snapshots");
 
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
       providers: number;
       provider_accounts: number;
@@ -1471,22 +1471,22 @@ describe("StackSpend CLI", () => {
       ]),
     );
     expect(persistedProviderDataText).not.toMatch(FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN);
-    expect(persistedProviderDataText).not.toMatch(/fake-supabase-ref|fake-supabase-org|FAKE StackSpend/i);
+    expect(persistedProviderDataText).not.toMatch(/fake-supabase-ref|fake-supabase-org|FAKE MoneySiren/i);
   });
 
   it("syncs Cloudflare billing and usage from fixture mode without credentials or raw Cloudflare persistence", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-cli-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(
       ["sync", "--provider", "cloudflare"],
       testContext(cwd, {
-        STACKSPEND_CLOUDFLARE_FIXTURE: CLOUDFLARE_FIXTURE_PATH,
+        MONEYSIREN_CLOUDFLARE_FIXTURE: CLOUDFLARE_FIXTURE_PATH,
       }),
     );
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.join("\n")).toContain("Synced Cloudflare billing and usage snapshots");
 
-    const dbPath = join(cwd, ".stackspend", "stackspend.sqlite");
+    const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
       providers: number;
       provider_accounts: number;
@@ -1586,7 +1586,7 @@ describe("StackSpend CLI", () => {
       },
     ]);
     expect(persistedProviderDataText).not.toMatch(FORBIDDEN_PERSISTED_PROVIDER_DATA_PATTERN);
-    expect(persistedProviderDataText).not.toMatch(/FAKE StackSpend|FAKE Restricted|FAKE Subscription/i);
+    expect(persistedProviderDataText).not.toMatch(/FAKE MoneySiren|FAKE Restricted|FAKE Subscription/i);
   });
 });
 

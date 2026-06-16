@@ -21,7 +21,7 @@ describe("local dashboard security helpers", () => {
         host: "127.0.0.1:3000",
         origin: "http://127.0.0.1:3000",
         cookie: localSessionCookie(session),
-        "x-stackspend-csrf": session.csrfToken,
+        "x-moneysiren-csrf": session.csrfToken,
       },
     });
 
@@ -41,7 +41,7 @@ describe("local dashboard security helpers", () => {
         host: "127.0.0.1:3000",
         origin: "http://127.0.0.1:3000",
         cookie,
-        "x-stackspend-csrf": session.csrfToken,
+        "x-moneysiren-csrf": session.csrfToken,
       },
     });
 
@@ -58,7 +58,7 @@ describe("local dashboard security helpers", () => {
         host: "127.0.0.1:3000",
         origin: "http://127.0.0.1:3000",
         cookie: localSessionCookie(session),
-        "x-stackspend-csrf": "wrong-csrf-token",
+        "x-moneysiren-csrf": "wrong-csrf-token",
       },
     });
 
@@ -73,7 +73,7 @@ describe("local dashboard security helpers", () => {
         host: "127.0.0.1:3000",
         origin: "https://example.com",
         cookie: localSessionCookie(session),
-        "x-stackspend-csrf": session.csrfToken,
+        "x-moneysiren-csrf": session.csrfToken,
       },
     });
 

@@ -61,7 +61,7 @@ export function HudWindowControls({ initialPreferences, labels, locale }: HudWin
       try {
         await hudWindow.setAlwaysOnTop(initialPreferences.hud.alwaysOnTop);
       } catch (error) {
-        console.warn("StackSpend HUD always-on-top initial sync failed.", error);
+        console.warn("MoneySiren HUD always-on-top initial sync failed.", error);
       }
 
       try {
@@ -71,7 +71,7 @@ export function HudWindowControls({ initialPreferences, labels, locale }: HudWin
           setDraftAlwaysOnTop(currentAlwaysOnTop);
         }
       } catch (error) {
-        console.warn("StackSpend HUD always-on-top read failed.", error);
+        console.warn("MoneySiren HUD always-on-top read failed.", error);
       }
     }
   }, [initialPreferences.hud.alwaysOnTop]);
@@ -239,7 +239,7 @@ export function HudWindowControls({ initialPreferences, labels, locale }: HudWin
       router.refresh();
       setSaveState("saved");
     } catch (error) {
-      console.error("StackSpend HUD settings save failed.", error);
+      console.error("MoneySiren HUD settings save failed.", error);
       setSaveState("error");
     }
   }
@@ -248,7 +248,7 @@ export function HudWindowControls({ initialPreferences, labels, locale }: HudWin
     try {
       await runWindowAction(action);
     } catch (error) {
-      console.error(`StackSpend HUD ${action} action failed.`, error);
+      console.error(`MoneySiren HUD ${action} action failed.`, error);
     }
   }
 }
@@ -257,7 +257,7 @@ async function runWindowAction(action: HudWindowAction): Promise<void> {
   const hudWindow = await getCurrentHudWindow();
 
   if (hudWindow === null) {
-    throw new Error("StackSpend HUD window API is not available.");
+    throw new Error("MoneySiren HUD window API is not available.");
   }
 
   if (action === "close") {
@@ -277,7 +277,7 @@ async function applyAlwaysOnTop(alwaysOnTop: boolean): Promise<void> {
   try {
     await hudWindow.setAlwaysOnTop(alwaysOnTop);
   } catch (error) {
-    console.warn("StackSpend HUD always-on-top apply failed.", error);
+    console.warn("MoneySiren HUD always-on-top apply failed.", error);
   }
 }
 
@@ -312,7 +312,7 @@ async function saveHudPreferences(
     credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
-      "X-StackSpend-CSRF": session.csrfToken,
+      "X-MoneySiren-CSRF": session.csrfToken,
     },
     method: "PUT",
   });

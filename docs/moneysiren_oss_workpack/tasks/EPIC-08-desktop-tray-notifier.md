@@ -2,7 +2,7 @@
 
 ## 목표
 
-Windows 작업표시줄과 macOS 메뉴바에서 StackSpend 요약을 확인하고, toast 알림을 받을 수 있게 한다.
+Windows 작업표시줄과 macOS 메뉴바에서 MoneySiren 요약을 확인하고, toast 알림을 받을 수 있게 한다.
 
 ## 기술 선택
 

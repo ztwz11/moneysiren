@@ -7,7 +7,7 @@ Experimental connector for Cloudflare usage and billing-related data where avail
 Verified against Cloudflare public docs on 2026-06-05:
 
 - Cloudflare API reference: billing usage includes `GET /accounts/{account_id}/paygo-usage` and restricted alpha `GET /accounts/{account_id}/billable/usage`.
-- Cloudflare billing permissions: billing API endpoints require Account > Billing > Read, or Billing Edit for write operations. StackSpend only needs read.
+- Cloudflare billing permissions: billing API endpoints require Account > Billing > Read, or Billing Edit for write operations. MoneySiren only needs read.
 - Cloudflare API token permissions reference: Billing Read grants read access to billing profile, subscriptions, invoices, and entitlements.
 
 ## Credentials
@@ -17,15 +17,15 @@ CLOUDFLARE_API_TOKEN=FAKE_CLOUDFLARE_API_TOKEN_DO_NOT_USE
 CLOUDFLARE_ACCOUNT_IDS=fake-cloudflare-account-alpha
 ```
 
-Do not store the token or real account IDs in StackSpend.
+Do not store the token or real account IDs in MoneySiren.
 
 The CLI supports fake fixture mode for local review and a read-only live Cloudflare billing/usage path when `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_IDS` are configured in the invoking environment.
 
 Fixture mode:
 
 ```bash
-STACKSPEND_CLOUDFLARE_FIXTURE=tests/fixtures/providers/cloudflare/billing-usage.json \
-  pnpm --filter @stackspend/cli dev -- sync --provider cloudflare
+MONEYSIREN_CLOUDFLARE_FIXTURE=tests/fixtures/providers/cloudflare/billing-usage.json \
+  pnpm --filter moneysiren dev -- sync --provider cloudflare
 ```
 
 All examples in this repository are fake. Do not commit real Cloudflare account IDs, zone IDs, subscription IDs, billing profile data, invoice IDs, emails, payment details, API tokens, or webhook URLs.
@@ -48,16 +48,16 @@ export CLOUDFLARE_API_TOKEN=FAKE_CLOUDFLARE_API_TOKEN_DO_NOT_USE
 export CLOUDFLARE_ACCOUNT_IDS=fake-cloudflare-account-alpha
 ```
 
-Do not add this token or real account IDs to `.env`; StackSpend v0.1 uses env-only secrets and does not create `.env` files.
+Do not add this token or real account IDs to `.env`; MoneySiren v0.1 uses env-only secrets and does not create `.env` files.
 
 ## Experimental Status
 
 Cloudflare billing/usage APIs may be alpha, restricted, or account-dependent. The connector must degrade gracefully if APIs are unavailable.
 
-StackSpend treats Cloudflare as experimental and default-off:
+MoneySiren treats Cloudflare as experimental and default-off:
 
 - live Cloudflare sync requires both `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_IDS`
-- fixture mode is enabled with `STACKSPEND_CLOUDFLARE_FIXTURE` and takes precedence over live sync
+- fixture mode is enabled with `MONEYSIREN_CLOUDFLARE_FIXTURE` and takes precedence over live sync
 - restricted billing usage APIs produce warning alerts and degraded health snapshots
 - available billable usage records are normalized into local SQLite snapshots
 
@@ -89,7 +89,7 @@ If billing usage is restricted:
 - Billing profile payloads may contain sensitive metadata.
 - Cost estimates may not be possible for all accounts.
 - Cloudflare v2 billable usage is alpha/restricted and may be unavailable to many accounts.
-- Cloudflare Billing Read may expose more billing surfaces than StackSpend stores; keep token scope narrow.
+- Cloudflare Billing Read may expose more billing surfaces than MoneySiren stores; keep token scope narrow.
 
 ## References
 

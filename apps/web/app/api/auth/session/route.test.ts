@@ -20,7 +20,7 @@ describe("POST /api/auth/session", () => {
 
     expect(response.status).toBe(200);
     expect(payload.csrfToken).toEqual(expect.any(String));
-    expect(cookie).toContain("stackspend_session=");
+    expect(cookie).toContain("moneysiren_session=");
     expect(cookie).toContain("HttpOnly");
     expect(cookie).not.toContain(payload.csrfToken);
   });

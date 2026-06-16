@@ -1,4 +1,4 @@
-# StackSpend Review Gate Template
+# MoneySiren Review Gate Template
 
 Every implementation slice must report and be reviewed with this format.
 

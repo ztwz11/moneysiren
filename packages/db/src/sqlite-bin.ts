@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 
-export const SQLITE_BIN_ENV_KEY = "STACKSPEND_SQLITE_BIN";
+export const SQLITE_BIN_ENV_KEY = "MONEYSIREN_SQLITE_BIN";
 
 const DEFAULT_POSIX_SQLITE_BIN = "/usr/bin/sqlite3";
 const PATH_SQLITE_BIN = "sqlite3";

@@ -17,7 +17,7 @@ describe("dashboard data adapter", () => {
     let attemptedRead = false;
 
     const snapshot = await readDashboardSnapshot({
-      cwd: "/tmp/stackspend-dashboard-empty",
+      cwd: "/tmp/moneysiren-dashboard-empty",
       env: {},
       now: () => FIXED_NOW,
       fileExists: async () => false,
@@ -333,8 +333,8 @@ describe("dashboard data adapter", () => {
   });
 
   it("reads a temp SQLite database through the adapter", async () => {
-    const rootDir = await mkdtemp(join(tmpdir(), "stackspend-web-db-"));
-    const dbPath = join(rootDir, ".stackspend", "stackspend.sqlite");
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-web-db-"));
+    const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
 
     await initializeLocalStore({ dbPath });
     await saveLocalProviderCollection({
@@ -386,7 +386,7 @@ describe("dashboard data adapter", () => {
     const snapshot = await readDashboardSnapshot({
       cwd: rootDir,
       env: {
-        STACKSPEND_DB_PATH: dbPath,
+        MONEYSIREN_DB_PATH: dbPath,
       },
       now: () => FIXED_NOW,
     });

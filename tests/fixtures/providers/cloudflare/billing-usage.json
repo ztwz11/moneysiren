@@ -2,7 +2,7 @@
   "accounts": [
     {
       "id": "FAKE_CLOUDFLARE_ACCOUNT_ALPHA",
-      "name": "FAKE StackSpend Cloudflare Alpha"
+      "name": "FAKE MoneySiren Cloudflare Alpha"
     },
     {
       "id": "FAKE_CLOUDFLARE_ACCOUNT_RESTRICTED",
@@ -12,7 +12,7 @@
   "billableUsage": [
     {
       "BillingAccountId": "FAKE_CLOUDFLARE_ACCOUNT_ALPHA",
-      "BillingAccountName": "FAKE StackSpend Cloudflare Alpha",
+      "BillingAccountName": "FAKE MoneySiren Cloudflare Alpha",
       "BillingCurrency": "USD",
       "BillingPeriodStart": "2026-06-01T00:00:00Z",
       "BillingPeriodEnd": "2026-07-01T00:00:00Z",
@@ -36,7 +36,7 @@
     },
     {
       "BillingAccountId": "FAKE_CLOUDFLARE_ACCOUNT_ALPHA",
-      "BillingAccountName": "FAKE StackSpend Cloudflare Alpha",
+      "BillingAccountName": "FAKE MoneySiren Cloudflare Alpha",
       "BillingCurrency": "USD",
       "BillingPeriodStart": "2026-06-01T00:00:00Z",
       "BillingPeriodEnd": "2026-07-01T00:00:00Z",

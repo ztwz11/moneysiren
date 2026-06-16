@@ -21,7 +21,7 @@ export function RecentAlerts({ alerts }: RecentAlertsProps) {
                   {alert.severity}: {alert.title}
                 </strong>
                 <span style={mutedBlockStyle}>
-                  {alert.displayName ?? "StackSpend"} · {alert.category} · {alert.message}
+                  {alert.displayName ?? "MoneySiren"} · {alert.category} · {alert.message}
                 </span>
               </li>
             ))}

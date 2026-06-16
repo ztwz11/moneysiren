@@ -1,12 +1,12 @@
-# 00. StackSpend 공개 릴리스 개요
+# 00. MoneySiren 공개 릴리스 개요
 
 ## 제품 포지션
 
-StackSpend는 개인 개발자와 소규모 팀을 위한 **local-first cloud/SaaS/AI 사용량, 상태, 예상 과금 대시보드**다.
+MoneySiren는 개인 개발자와 소규모 팀을 위한 **local-first cloud/SaaS/AI 사용량, 상태, 예상 과금 대시보드**다.
 
 오픈소스 공개 시 핵심 메시지는 다음이어야 한다.
 
-> StackSpend는 사용자의 API key와 provider raw response를 서버로 보내지 않고, 로컬에서 read-only로 여러 서비스의 사용량과 비용 리스크를 확인하는 운영 도구다.
+> MoneySiren는 사용자의 API key와 provider raw response를 서버로 보내지 않고, 로컬에서 read-only로 여러 서비스의 사용량과 비용 리스크를 확인하는 운영 도구다.
 
 ## 공개 저장소에서 강조할 원칙
 

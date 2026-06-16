@@ -2,7 +2,7 @@
   "localOnly": true,
   "secretsReturned": false,
   "generatedAt": "2026-06-09T00:00:00.000Z",
-  "title": "StackSpend",
+  "title": "MoneySiren",
   "body": "Claude 5h 72% · Codex week 41% · High risks 1",
   "severity": "high",
   "clickUrl": "http://127.0.0.1:47831/ko/dashboard/risks",

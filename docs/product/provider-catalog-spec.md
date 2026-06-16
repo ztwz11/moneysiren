@@ -1,4 +1,4 @@
-# StackSpend Provider Catalog + Connections Spec
+# MoneySiren Provider Catalog + Connections Spec
 
 ```text
 SPEC_LOCKED: YES
@@ -7,7 +7,7 @@ CODING_LOOP_ALLOWED: YES
 
 ## Goal
 
-Provide a scalable provider catalog and convenient local connection flows while keeping StackSpend local-first, read-only by default, and secret-safe.
+Provide a scalable provider catalog and convenient local connection flows while keeping MoneySiren local-first, read-only by default, and secret-safe.
 
 ## Provider Catalog
 
@@ -160,7 +160,7 @@ Fallback vault:
 AWS:
 
 - prefer existing `AWS_PROFILE`, SDK default credential chain, and IAM Identity Center/SSO profile setup.
-- do not build a UI that stores raw AWS secret access keys in StackSpend.
+- do not build a UI that stores raw AWS secret access keys in MoneySiren.
 - validate read-only Cost Explorer access.
 
 OpenAI:

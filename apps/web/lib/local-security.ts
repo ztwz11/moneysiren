@@ -17,11 +17,11 @@ export interface OAuthTransaction {
   expiresAt: number;
 }
 
-const SESSION_COOKIE = "stackspend_session";
+const SESSION_COOKIE = "moneysiren_session";
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const OAUTH_TTL_MS = 10 * 60 * 1000;
 const SESSION_COOKIE_VERSION = "v1";
-const LOCAL_SESSION_SECRET_ENV = "STACKSPEND_LOCAL_SESSION_SECRET";
+const LOCAL_SESSION_SECRET_ENV = "MONEYSIREN_LOCAL_SESSION_SECRET";
 const sessions = new Map<string, LocalSession>();
 const oauthTransactions = new Map<string, OAuthTransaction>();
 
@@ -67,7 +67,7 @@ export function requireLocalSession(request: Request, now: Date = new Date()): L
   }
 
   const sessionId = parseCookies(request.headers.get("cookie"))[SESSION_COOKIE];
-  const csrfToken = request.headers.get("x-stackspend-csrf")?.trim();
+  const csrfToken = request.headers.get("x-moneysiren-csrf")?.trim();
 
   if (sessionId === undefined || csrfToken === undefined || csrfToken.length === 0) {
     throw new Error("Local session and CSRF token are required.");

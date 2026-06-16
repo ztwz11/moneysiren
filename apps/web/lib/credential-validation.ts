@@ -25,7 +25,7 @@ export async function validateReadOnlyCredential(
   now: Date = new Date(),
 ): Promise<CredentialValidationResult> {
   if (providerKey === "aws") {
-    throw new Error("AWS raw access keys are not stored by StackSpend. Use AWS_PROFILE or SDK SSO setup.");
+    throw new Error("AWS raw access keys are not stored by MoneySiren. Use AWS_PROFILE or SDK SSO setup.");
   }
 
   if (providerKey === "openai") {

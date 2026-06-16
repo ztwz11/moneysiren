@@ -6,7 +6,7 @@ import {
   type InstallSurface,
 } from "../install-profile.js";
 
-const MODES_USAGE = "Usage: stackspend modes";
+const MODES_USAGE = "Usage: moneysiren modes";
 
 export async function runModesCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   if (args.includes("--help") || args.includes("-h")) {
@@ -24,29 +24,29 @@ export async function runModesCommand(args: readonly string[], context: CliExecu
   });
   const selectedSurfaces = profile?.selectedSurfaces ?? DEFAULT_INSTALL_SURFACES;
 
-  context.stdout("StackSpend modes");
+  context.stdout("MoneySiren modes");
   context.stdout(`Platform: ${platformLabel()}`);
   context.stdout(`Install profile: ${formatInstallSurfaces(selectedSurfaces)}${profile === null ? " (recommended default)" : ""}`);
-  context.stdout("npm install: npm install -g @stackspend/cli@alpha");
+  context.stdout("npm install: npm install -g moneysiren@alpha");
   context.stdout(`Runtime lock: ${runtimeLockHint()}`);
   context.stdout("");
   context.stdout("1. CLI automation");
   context.stdout(`   Status: ${surfaceStatus("cli", selectedSurfaces)} from the npm CLI package`);
-  context.stdout("   Try: stackspend doctor");
-  context.stdout("   Try: stackspend sync --provider mock");
+  context.stdout("   Try: moneysiren doctor");
+  context.stdout("   Try: moneysiren sync --provider mock");
   context.stdout("");
   context.stdout("2. Local web dashboard/runtime");
   context.stdout(`   Status: ${surfaceStatus("web", selectedSurfaces)} local API runtime is available from the npm CLI package`);
-  context.stdout("   Try: stackspend serve [--port <port>]");
-  context.stdout("   Try: stackspend dashboard check");
+  context.stdout("   Try: moneysiren serve [--port <port>]");
+  context.stdout("   Try: moneysiren dashboard check");
   context.stdout("   Note: the full Next.js dashboard is run from the repo or a future bundled desktop app.");
   context.stdout("");
   context.stdout("3. Desktop tray/notifier");
-  context.stdout(`   Status: ${surfaceStatus("hud", selectedSurfaces)} Windows/macOS target is the thin Tauri tray shell; the native tray binary is not bundled in @stackspend/cli`);
-  context.stdout("   Try: stackspend desktop status");
-  context.stdout("   Try: stackspend notify once --dry-run");
+  context.stdout(`   Status: ${surfaceStatus("hud", selectedSurfaces)} Windows/macOS target is the thin Tauri tray shell; the native tray binary is not bundled in moneysiren`);
+  context.stdout("   Try: moneysiren desktop status");
+  context.stdout("   Try: moneysiren notify once --dry-run");
   context.stdout("");
-  context.stdout("Change selection: stackspend install");
+  context.stdout("Change selection: moneysiren install");
   return 0;
 }
 
@@ -72,12 +72,12 @@ function platformLabel(): string {
 
 function runtimeLockHint(): string {
   if (process.platform === "darwin") {
-    return "~/Library/Application Support/StackSpend/runtime.json";
+    return "~/Library/Application Support/MoneySiren/runtime.json";
   }
 
   if (process.platform === "win32") {
-    return "%APPDATA%\\StackSpend\\runtime.json";
+    return "%APPDATA%\\MoneySiren\\runtime.json";
   }
 
-  return "${XDG_CONFIG_HOME:-~/.config}/stackspend/runtime.json";
+  return "${XDG_CONFIG_HOME:-~/.config}/moneysiren/runtime.json";
 }

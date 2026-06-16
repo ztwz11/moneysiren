@@ -2,7 +2,7 @@
   "localOnly": true,
   "secretsReturned": false,
   "generatedAt": "2026-06-09T00:00:00.000Z",
-  "tooltip": "StackSpend · Claude 5h 72% · risks 1",
+  "tooltip": "MoneySiren · Claude 5h 72% · risks 1",
   "status": "warning",
   "items": [
     {
@@ -34,7 +34,7 @@
     },
     {
       "id": "quit",
-      "label": "Quit StackSpend",
+      "label": "Quit MoneySiren",
       "kind": "action",
       "action": "quit"
     }

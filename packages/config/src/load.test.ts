@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_DB_PATH } from "./schema.js";
-import { loadStackSpendConfig } from "./load.js";
+import { loadMoneySirenConfig } from "./load.js";
 
 const FAKE_SLACK_WEBHOOK_URL = [
   "https://hooks.slack.com",
@@ -10,16 +10,16 @@ const FAKE_SLACK_WEBHOOK_URL = [
   "CFAKE",
 ].join("/");
 
-describe("loadStackSpendConfig", () => {
+describe("loadMoneySirenConfig", () => {
   it("uses the local SQLite default path and disables telemetry", () => {
-    const config = loadStackSpendConfig({});
+    const config = loadMoneySirenConfig({});
 
     expect(config.dbPath).toBe(DEFAULT_DB_PATH);
     expect(config.telemetryEnabled).toBe(false);
   });
 
   it("loads env-only provider readiness without exposing secret values", () => {
-    const config = loadStackSpendConfig({
+    const config = loadMoneySirenConfig({
       AWS_PROFILE: "fake-local-profile",
       OPENAI_ADMIN_KEY: "sk-fake-openai-admin-key",
       SUPABASE_ACCESS_TOKEN: "sbp_fake_supabase_token",
@@ -38,23 +38,23 @@ describe("loadStackSpendConfig", () => {
   });
 
   it("trims a custom DB path and rejects blank paths", () => {
-    expect(loadStackSpendConfig({ STACKSPEND_DB_PATH: "  ./tmp/local.sqlite  " }).dbPath).toBe(
+    expect(loadMoneySirenConfig({ MONEYSIREN_DB_PATH: "  ./tmp/local.sqlite  " }).dbPath).toBe(
       "./tmp/local.sqlite",
     );
 
-    expect(() => loadStackSpendConfig({ STACKSPEND_DB_PATH: "  " })).toThrow(
-      /STACKSPEND_DB_PATH/i,
+    expect(() => loadMoneySirenConfig({ MONEYSIREN_DB_PATH: "  " })).toThrow(
+      /MONEYSIREN_DB_PATH/i,
     );
   });
 
   it("rejects telemetry opt-in during v0.1", () => {
-    expect(() => loadStackSpendConfig({ STACKSPEND_TELEMETRY: "true" })).toThrow(/telemetry/i);
+    expect(() => loadMoneySirenConfig({ MONEYSIREN_TELEMETRY: "true" })).toThrow(/telemetry/i);
   });
 
   it("does not mark local CLI providers configured from unused required env flags", () => {
-    const config = loadStackSpendConfig({
-      STACKSPEND_CODEX_CLI_USAGE: "deprecated",
-      STACKSPEND_CLAUDE_CLI_USAGE: "deprecated",
+    const config = loadMoneySirenConfig({
+      MONEYSIREN_CODEX_CLI_USAGE: "deprecated",
+      MONEYSIREN_CLAUDE_CLI_USAGE: "deprecated",
     });
 
     expect(config.providers["codex-cli"]).toMatchObject({

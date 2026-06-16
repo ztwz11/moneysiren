@@ -70,8 +70,8 @@ const SENSITIVE_PATH_PATTERNS = [
     allowed: /(^|\/)\.env\.example$/,
   },
   {
-    name: "local StackSpend runtime data",
-    pattern: /(^|\/)\.stackspend($|\/)|(^|\/)runtime\.json$/,
+    name: "local MoneySiren runtime data",
+    pattern: /(^|\/)\.(?:moneysiren|stackspend)($|\/)|(^|\/)runtime\.json$/,
   },
   {
     name: "local database file",

@@ -796,7 +796,7 @@ function createNodeSqliteDatabase(dbPath: string): NodeSqliteDatabase {
     return new nodeSqlite.DatabaseSync(dbPath);
   } catch (caught) {
     throw new Error(
-      `SQLite is unavailable. Install sqlite3 and put it on PATH, set ${SQLITE_BIN_ENV_KEY}, or run StackSpend with a Node.js version that includes node:sqlite. ${
+      `SQLite is unavailable. Install sqlite3 and put it on PATH, set ${SQLITE_BIN_ENV_KEY}, or run MoneySiren with a Node.js version that includes node:sqlite. ${
         caught instanceof Error ? caught.message : "node:sqlite could not be loaded."
       }`,
     );

@@ -1,13 +1,13 @@
-# StackSpend Development Rules
+# MoneySiren Development Rules
 
-Role: this repository is the product codebase for StackSpend.
+Role: this repository is the product codebase for MoneySiren.
 
 Goal: build a local-first, open-source cloud/SaaS usage, status, and expected billing dashboard for individual developers and small teams.
 
 ## Repository Boundary
 
 - `auto-driver` is only the automation controller.
-- StackSpend product files must live in this repository.
+- MoneySiren product files must live in this repository.
 - Do not place product code, product docs, tests, release notes, or README content in `auto-driver`.
 - Automation prompts may be launched from `auto-driver`, but implementation artifacts belong here.
 

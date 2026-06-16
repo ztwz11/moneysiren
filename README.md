@@ -1,12 +1,12 @@
-# StackSpend
+# MoneySiren
 
 Local-first cloud, SaaS, and AI usage dashboard for individual developers and small teams.
 
-StackSpend reads provider usage into local SQLite, shows expected billing and usage risk in a local dashboard, and can surface compact desktop notifications/HUD widgets. It is not a hosted SaaS: provider connectors are read-only, secrets stay local, and telemetry is off by default.
+MoneySiren reads provider usage into local SQLite, shows expected billing and usage risk in a local dashboard, and can surface compact desktop notifications/HUD widgets. It is not a hosted SaaS: provider connectors are read-only, secrets stay local, and telemetry is off by default.
 
 ## Current Status
 
-StackSpend is preparing `v0.1.0-alpha.0` for local review.
+MoneySiren is preparing `v0.1.0-alpha.0` for local review.
 
 The current alpha supports:
 
@@ -21,7 +21,7 @@ The current alpha supports:
 - Local Codex CLI and Claude CLI usage estimates from local logs.
 - Korean daily reports and optional Slack webhook delivery.
 
-The npm alpha package is prepared as `@stackspend/cli` so users can install the CLI without cloning this repository after the first npm publish. GitHub Releases can also attach a built web runtime archive plus unsigned Windows/macOS desktop artifacts for source-free alpha review.
+The npm alpha package is prepared as `moneysiren` so users can install the CLI without cloning this repository after the first npm publish. GitHub Releases can also attach a built web runtime archive plus unsigned Windows/macOS desktop artifacts for source-free alpha review.
 
 ## Screenshots
 
@@ -31,19 +31,19 @@ The screenshots below were regenerated from a fresh fixture-backed mock SQLite d
 
 Dashboard overview:
 
-![StackSpend mock dashboard](docs/assets/install/stackspend-english-mock-dashboard.png)
+![MoneySiren mock dashboard](docs/assets/install/moneysiren-english-mock-dashboard.png)
 
 CLI dashboard field settings:
 
-![StackSpend CLI dashboard settings](docs/assets/install/stackspend-english-mock-dashboard-settings.png)
+![MoneySiren CLI dashboard settings](docs/assets/install/moneysiren-english-mock-dashboard-settings.png)
 
 Desktop HUD:
 
-![StackSpend mock HUD](docs/assets/install/stackspend-english-mock-hud.png)
+![MoneySiren mock HUD](docs/assets/install/moneysiren-english-mock-hud.png)
 
 Notification and HUD settings:
 
-![StackSpend notification and HUD settings](docs/assets/install/stackspend-english-mock-hud-settings.png)
+![MoneySiren notification and HUD settings](docs/assets/install/moneysiren-english-mock-hud-settings.png)
 
 ### 한국어
 
@@ -51,19 +51,19 @@ Notification and HUD settings:
 
 대시보드 개요:
 
-![StackSpend 한국어 목업 대시보드](docs/assets/install/stackspend-korean-mock-dashboard.png)
+![MoneySiren 한국어 목업 대시보드](docs/assets/install/moneysiren-korean-mock-dashboard.png)
 
 CLI 대시보드 항목 설정:
 
-![StackSpend 한국어 CLI 대시보드 항목 설정](docs/assets/install/stackspend-korean-mock-dashboard-settings.png)
+![MoneySiren 한국어 CLI 대시보드 항목 설정](docs/assets/install/moneysiren-korean-mock-dashboard-settings.png)
 
 데스크톱 HUD:
 
-![StackSpend 한국어 목업 HUD](docs/assets/install/stackspend-korean-mock-hud.png)
+![MoneySiren 한국어 목업 HUD](docs/assets/install/moneysiren-korean-mock-hud.png)
 
 알림 및 HUD 설정:
 
-![StackSpend 한국어 알림 및 HUD 설정](docs/assets/install/stackspend-korean-mock-hud-settings.png)
+![MoneySiren 한국어 알림 및 HUD 설정](docs/assets/install/moneysiren-korean-mock-hud-settings.png)
 
 ## Provider Model
 
@@ -81,11 +81,11 @@ Cost providers and usage-only providers are intentionally shown separately in th
 
 Supabase is currently modeled as usage/health, not billing. Fixed subscription costs and flat-plan SaaS spend need a separate local subscription-cost model or a provider billing connector before they should appear in the cost table.
 
-For local AI CLIs, StackSpend prioritizes 5-hour quota percent, weekly quota percent, and rolling token usage where those values can be derived safely. The dashboard Preferences screen lets users choose which local CLI metrics appear in the usage table. See [docs/local-ai-cli-usage.md](docs/local-ai-cli-usage.md).
+For local AI CLIs, MoneySiren prioritizes 5-hour quota percent, weekly quota percent, and rolling token usage where those values can be derived safely. The dashboard Preferences screen lets users choose which local CLI metrics appear in the usage table. See [docs/local-ai-cli-usage.md](docs/local-ai-cli-usage.md).
 
 ## Local-First Security
 
-Cloud, SaaS, and AI usage data often contains sensitive identifiers and billing context. StackSpend is designed so users can inspect cost and usage risk without sending API keys or raw provider responses to a hosted service.
+Cloud, SaaS, and AI usage data often contains sensitive identifiers and billing context. MoneySiren is designed so users can inspect cost and usage risk without sending API keys or raw provider responses to a hosted service.
 
 Core rules:
 
@@ -104,7 +104,7 @@ See [docs/security-model.md](docs/security-model.md) and [SECURITY.md](SECURITY.
 - Node.js 20.11 or newer.
 - pnpm 11.5.0 through Corepack.
 - Git.
-- Node.js SQLite runtime, or `sqlite3` on `PATH` / `STACKSPEND_SQLITE_BIN` as a fallback.
+- Node.js SQLite runtime, or `sqlite3` on `PATH` / `MONEYSIREN_SQLITE_BIN` as a fallback.
 - Rust/Cargo plus platform toolchains only when building the native Tauri tray/HUD.
 
 For platform-specific setup, source builds, npm CLI installation notes, and screenshot fixture commands, see [docs/install.md](docs/install.md).
@@ -116,9 +116,9 @@ corepack enable
 corepack prepare pnpm@11.5.0 --activate
 pnpm install
 
-pnpm --filter @stackspend/cli dev -- init
-pnpm --filter @stackspend/cli dev -- sync --provider mock
-pnpm --filter @stackspend/cli dev -- report daily --lang ko
+pnpm --filter moneysiren dev -- init
+pnpm --filter moneysiren dev -- sync --provider mock
+pnpm --filter moneysiren dev -- report daily --lang ko
 
 npm run dev:web
 ```
@@ -134,73 +134,73 @@ npm run build:local
 npm start
 ```
 
-`npm start` starts the built Next.js dashboard, waits for `http://127.0.0.1:3000/ko/dashboard/overview`, and then launches the built StackSpend tray/Tauri executable.
+`npm start` starts the built Next.js dashboard, waits for `http://127.0.0.1:3000/ko/dashboard/overview`, and then launches the built MoneySiren tray/Tauri executable.
 
 ## Fixture Review
 
 Fixture mode uses committed fake payloads under `tests/fixtures/providers` and does not require live credentials.
 
 ```bash
-STACKSPEND_AWS_COST_EXPLORER_FIXTURE=tests/fixtures/providers/aws/cost-explorer-grouped-by-service.json \
-  pnpm --filter @stackspend/cli dev -- sync --provider aws
+MONEYSIREN_AWS_COST_EXPLORER_FIXTURE=tests/fixtures/providers/aws/cost-explorer-grouped-by-service.json \
+  pnpm --filter moneysiren dev -- sync --provider aws
 
-STACKSPEND_OPENAI_USAGE_FIXTURE=tests/fixtures/providers/openai/usage-costs.json \
-STACKSPEND_OPENAI_COSTS_FIXTURE=tests/fixtures/providers/openai/usage-costs.json \
-  pnpm --filter @stackspend/cli dev -- sync --provider openai
+MONEYSIREN_OPENAI_USAGE_FIXTURE=tests/fixtures/providers/openai/usage-costs.json \
+MONEYSIREN_OPENAI_COSTS_FIXTURE=tests/fixtures/providers/openai/usage-costs.json \
+  pnpm --filter moneysiren dev -- sync --provider openai
 
-STACKSPEND_SUPABASE_FIXTURE=tests/fixtures/providers/supabase/usage-health.json \
-  pnpm --filter @stackspend/cli dev -- sync --provider supabase
+MONEYSIREN_SUPABASE_FIXTURE=tests/fixtures/providers/supabase/usage-health.json \
+  pnpm --filter moneysiren dev -- sync --provider supabase
 
-STACKSPEND_CLOUDFLARE_FIXTURE=tests/fixtures/providers/cloudflare/billing-usage.json \
-  pnpm --filter @stackspend/cli dev -- sync --provider cloudflare
+MONEYSIREN_CLOUDFLARE_FIXTURE=tests/fixtures/providers/cloudflare/billing-usage.json \
+  pnpm --filter moneysiren dev -- sync --provider cloudflare
 ```
 
 Live connector paths are read-only and env-only in this alpha. Do not create `.env` files or commit live credentials.
 
 ## CLI Commands
 
-Running `stackspend` without subcommands prints a slash-command home guide. In a local TTY it may continue into a minimal line-based slash prompt; in CI or non-TTY package review it prints the guide and exits `0`.
+Running `moneysiren` without subcommands prints a slash-command home guide. In a local TTY it may continue into a minimal line-based slash prompt; in CI or non-TTY package review it prints the guide and exits `0`.
 
 ```bash
-pnpm --filter @stackspend/cli dev
-pnpm --filter @stackspend/cli dev -- --help
-pnpm --filter @stackspend/cli dev -- --version
-pnpm --filter @stackspend/cli dev -- doctor
-pnpm --filter @stackspend/cli dev -- install --status
-pnpm --filter @stackspend/cli dev -- modes
-pnpm --filter @stackspend/cli dev -- init
-pnpm --filter @stackspend/cli dev -- sync --provider mock
-pnpm --filter @stackspend/cli dev -- dashboard check
-pnpm --filter @stackspend/cli dev -- report daily --lang ko
+pnpm --filter moneysiren dev
+pnpm --filter moneysiren dev -- --help
+pnpm --filter moneysiren dev -- --version
+pnpm --filter moneysiren dev -- doctor
+pnpm --filter moneysiren dev -- install --status
+pnpm --filter moneysiren dev -- modes
+pnpm --filter moneysiren dev -- init
+pnpm --filter moneysiren dev -- sync --provider mock
+pnpm --filter moneysiren dev -- dashboard check
+pnpm --filter moneysiren dev -- report daily --lang ko
 ```
 
 Slash aliases are thin wrappers around the same commands:
 
 ```bash
-pnpm --filter @stackspend/cli dev -- /help
-pnpm --filter @stackspend/cli dev -- /version
-pnpm --filter @stackspend/cli dev -- /doctor
-pnpm --filter @stackspend/cli dev -- /install status
-pnpm --filter @stackspend/cli dev -- /modes
-pnpm --filter @stackspend/cli dev -- /init
-pnpm --filter @stackspend/cli dev -- /dashboard check
-pnpm --filter @stackspend/cli dev -- /sync mock
-pnpm --filter @stackspend/cli dev -- /report ko
+pnpm --filter moneysiren dev -- /help
+pnpm --filter moneysiren dev -- /version
+pnpm --filter moneysiren dev -- /doctor
+pnpm --filter moneysiren dev -- /install status
+pnpm --filter moneysiren dev -- /modes
+pnpm --filter moneysiren dev -- /init
+pnpm --filter moneysiren dev -- /dashboard check
+pnpm --filter moneysiren dev -- /sync mock
+pnpm --filter moneysiren dev -- /report ko
 ```
 
 Home/help never creates `.env`, prints secret values, calls provider APIs, or enables telemetry.
 
 ## NPM Alpha CLI Preview
 
-After `@stackspend/cli@alpha` is published:
+After `moneysiren@alpha` is published:
 
 ```bash
-npm install -g @stackspend/cli@alpha
-stackspend --version
-stackspend install --status
-stackspend modes
-stackspend doctor
-stackspend sync --provider mock
+npm install -g moneysiren@alpha
+moneysiren --version
+moneysiren install --status
+moneysiren modes
+moneysiren doctor
+moneysiren sync --provider mock
 ```
 
 Maintainers can verify and publish the alpha package from the repository root:
@@ -218,20 +218,20 @@ During an interactive PowerShell, cmd, or shell install, the package asks which 
 - Web dashboard
 - HUD
 
-Press Enter to accept the recommended default, which selects all three. In CI or non-interactive npm installs, StackSpend writes that same all-selected profile automatically. Re-run `stackspend install` to change the local profile later.
+Press Enter to accept the recommended default, which selects all three. In CI or non-interactive npm installs, MoneySiren writes that same all-selected profile automatically. Re-run `moneysiren install` to change the local profile later.
 
-The same source tree supports Windows and macOS. Local config paths and native desktop artifacts are selected per OS. The shared runtime lock defaults to `%APPDATA%\StackSpend\runtime.json` on Windows and `~/Library/Application Support/StackSpend/runtime.json` on macOS so the npm CLI and native tray can discover the same local runtime.
+The same source tree supports Windows and macOS. Local config paths and native desktop artifacts are selected per OS. The shared runtime lock defaults to `%APPDATA%\MoneySiren\runtime.json` on Windows and `~/Library/Application Support/MoneySiren/runtime.json` on macOS so the npm CLI and native tray can discover the same local runtime.
 
 ## Source-Free Desktop Alpha
 
-After a `desktop-release` GitHub Actions run publishes assets, users can review StackSpend without cloning the repository:
+After a `desktop-release` GitHub Actions run publishes assets, users can review MoneySiren without cloning the repository:
 
 ```bash
-npm install -g @stackspend/cli@alpha
-stackspend sync --provider mock
+npm install -g moneysiren@alpha
+moneysiren sync --provider mock
 ```
 
-Then download `stackspend-web-runtime-*.tar.gz` from the GitHub Release, extract it, and start the local dashboard runtime:
+Then download `moneysiren-web-runtime-*.tar.gz` from the GitHub Release, extract it, and start the local dashboard runtime:
 
 ```bash
 node start.mjs
@@ -242,7 +242,7 @@ Finally install/open the Windows or macOS desktop artifact from the same Release
 For local tarball review without publishing:
 
 ```bash
-pnpm --filter @stackspend/cli build
+pnpm --filter moneysiren build
 cd apps/cli
 npm pack
 ```
@@ -262,8 +262,8 @@ Useful URLs:
 Use the CLI check command from another terminal:
 
 ```bash
-pnpm --filter @stackspend/cli dev -- dashboard check
-pnpm --filter @stackspend/cli dev -- dashboard check --url http://localhost:3000
+pnpm --filter moneysiren dev -- dashboard check
+pnpm --filter moneysiren dev -- dashboard check --url http://localhost:3000
 ```
 
 The check command sanitizes the printed dashboard URL and ignores path, query, and hash values. It rejects URL credentials and does not start, package, or serve the Next.js app.
@@ -286,9 +286,9 @@ From the web dashboard:
 From the CLI:
 
 ```bash
-stackspend notify prefs list
-stackspend notify prefs hud-enable codex_weekly_percent
-stackspend notify prefs hud-disable month_forecast
+moneysiren notify prefs list
+moneysiren notify prefs hud-enable codex_weekly_percent
+moneysiren notify prefs hud-disable month_forecast
 ```
 
 ## Slack Report
@@ -296,8 +296,8 @@ stackspend notify prefs hud-disable month_forecast
 Slack delivery is opt-in per run and requires `SLACK_WEBHOOK_URL` in the process environment:
 
 ```bash
-pnpm --filter @stackspend/cli dev -- report daily --lang ko
-pnpm --filter @stackspend/cli dev -- report daily --lang ko --send slack
+pnpm --filter moneysiren dev -- report daily --lang ko
+pnpm --filter moneysiren dev -- report daily --lang ko --send slack
 ```
 
 Do not write webhook URLs into `.env`, docs, test fixtures, or committed files.
@@ -308,25 +308,25 @@ Docker support is for local self-host/dev review only. The image and Compose fil
 
 ```bash
 docker compose build
-docker compose run --rm stackspend pnpm --filter @stackspend/cli dev -- sync --provider mock
-docker compose up stackspend
+docker compose run --rm moneysiren pnpm --filter moneysiren dev -- sync --provider mock
+docker compose up moneysiren
 ```
 
-Compose stores SQLite data in the `stackspend_data` volume at `/data/stackspend.sqlite` and exposes the dashboard on `http://localhost:3000`.
+Compose stores SQLite data in the `moneysiren_data` volume at `/data/moneysiren.sqlite` and exposes the dashboard on `http://localhost:3000`.
 
 The Compose environment includes fake fixture paths, so fixture connector review can run without secrets:
 
 ```bash
-docker compose run --rm stackspend pnpm --filter @stackspend/cli dev -- sync --provider aws
-docker compose run --rm stackspend pnpm --filter @stackspend/cli dev -- sync --provider openai
-docker compose run --rm stackspend pnpm --filter @stackspend/cli dev -- sync --provider supabase
-docker compose run --rm stackspend pnpm --filter @stackspend/cli dev -- sync --provider cloudflare
+docker compose run --rm moneysiren pnpm --filter moneysiren dev -- sync --provider aws
+docker compose run --rm moneysiren pnpm --filter moneysiren dev -- sync --provider openai
+docker compose run --rm moneysiren pnpm --filter moneysiren dev -- sync --provider supabase
+docker compose run --rm moneysiren pnpm --filter moneysiren dev -- sync --provider cloudflare
 ```
 
 For a Docker build dry validation:
 
 ```bash
-docker build --pull=false --target verify -t stackspend:m10-verify .
+docker build --pull=false --target verify -t moneysiren:m10-verify .
 ```
 
 ## Validation

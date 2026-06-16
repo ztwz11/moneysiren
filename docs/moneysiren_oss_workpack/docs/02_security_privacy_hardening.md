@@ -2,7 +2,7 @@
 
 ## 핵심 원칙
 
-StackSpend는 보안 모델이 제품의 일부다.  
+MoneySiren는 보안 모델이 제품의 일부다.
 공개 저장소에서는 기능보다 아래 원칙을 우선한다.
 
 1. secret 저장 금지
@@ -53,7 +53,7 @@ provider/local raw input
 ## Local AI CLI 보안
 
 Codex/Claude CLI 로그에는 prompt text, file path, command, tool input이 들어갈 수 있다.  
-StackSpend는 다음 값만 저장/표시한다.
+MoneySiren는 다음 값만 저장/표시한다.
 
 허용:
 

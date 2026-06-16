@@ -12,7 +12,7 @@ const DIGEST: LocalNotificationDigest = {
   generatedAt: "2026-06-10T00:00:00.000Z",
   localOnly: true,
   secretsReturned: false,
-  title: "StackSpend",
+  title: "MoneySiren",
   body: "OpenAI today USD 3.20 | High risks 1",
   severity: "high",
   clickUrl: "http://127.0.0.1:47831/ko/dashboard/risks",
@@ -47,7 +47,7 @@ describe("notification polling model", () => {
       fingerprint: computeDigestFingerprint(DIGEST),
       deliveredAt: "2026-06-10T22:00:00.000Z",
       severity: "high",
-      title: "StackSpend",
+      title: "MoneySiren",
       bodyPreview: "OpenAI today USD 3.20",
     };
 

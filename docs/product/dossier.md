@@ -1,8 +1,8 @@
-# StackSpend Product Dossier
+# MoneySiren Product Dossier
 
 ## Product
 
-StackSpend is an open-source, local-first cloud/SaaS usage, service status, and expected billing dashboard for individual developers and small teams.
+MoneySiren is an open-source, local-first cloud/SaaS usage, service status, and expected billing dashboard for individual developers and small teams.
 
 ## Problem
 

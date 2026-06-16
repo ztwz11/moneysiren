@@ -36,14 +36,14 @@ import { initializeLocalStore, saveLocalProviderCollection } from "../../../../p
 import type { CliExecutionContext } from "../cli.js";
 import { loadCliConfig, readFlag, resolveDbPath } from "./shared.js";
 
-const AWS_COST_EXPLORER_FIXTURE_ENV_KEY = "STACKSPEND_AWS_COST_EXPLORER_FIXTURE";
-const AWS_REGION_ENV_KEY = "STACKSPEND_AWS_REGION";
-const OPENAI_USAGE_FIXTURE_ENV_KEY = "STACKSPEND_OPENAI_USAGE_FIXTURE";
-const OPENAI_COSTS_FIXTURE_ENV_KEY = "STACKSPEND_OPENAI_COSTS_FIXTURE";
-const SUPABASE_FIXTURE_ENV_KEY = "STACKSPEND_SUPABASE_FIXTURE";
-const CLOUDFLARE_FIXTURE_ENV_KEY = "STACKSPEND_CLOUDFLARE_FIXTURE";
+const AWS_COST_EXPLORER_FIXTURE_ENV_KEY = "MONEYSIREN_AWS_COST_EXPLORER_FIXTURE";
+const AWS_REGION_ENV_KEY = "MONEYSIREN_AWS_REGION";
+const OPENAI_USAGE_FIXTURE_ENV_KEY = "MONEYSIREN_OPENAI_USAGE_FIXTURE";
+const OPENAI_COSTS_FIXTURE_ENV_KEY = "MONEYSIREN_OPENAI_COSTS_FIXTURE";
+const SUPABASE_FIXTURE_ENV_KEY = "MONEYSIREN_SUPABASE_FIXTURE";
+const CLOUDFLARE_FIXTURE_ENV_KEY = "MONEYSIREN_CLOUDFLARE_FIXTURE";
 const CLOUDFLARE_ACCOUNT_IDS_ENV_KEY = "CLOUDFLARE_ACCOUNT_IDS";
-const SYNC_USAGE = "Usage: stackspend sync --provider <mock|aws|openai|supabase|cloudflare> [--profile <aws-profile>]";
+const SYNC_USAGE = "Usage: moneysiren sync --provider <mock|aws|openai|supabase|cloudflare> [--profile <aws-profile>]";
 
 export async function runSyncCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   const providerFlag = readFlag(args, "--provider");

@@ -18,7 +18,7 @@ export async function promptForInstallSurfaces(
   options: InstallSelectionPromptOptions,
 ): Promise<readonly InstallSurface[]> {
   options.output.write([
-    "StackSpend setup",
+    "MoneySiren setup",
     "Recommended default: CLI, Web dashboard, HUD",
     "Select components to enable after npm install:",
     "  1. CLI",

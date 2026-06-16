@@ -1,8 +1,8 @@
-# StackSpend Decision Log
+# MoneySiren Decision Log
 
 ## D001 — Separate product repository from automation controller
 
-Decision: StackSpend product files live only in the `stackspend` repository. `auto-driver` remains an automation controller.
+Decision: MoneySiren product files live only in the `moneysiren` repository. `auto-driver` remains an automation controller.
 
 Reason: avoid mixing reusable workflow tooling with product code and product documentation.
 
@@ -12,7 +12,7 @@ Status: accepted.
 
 Decision: v0.1 uses local SQLite by default.
 
-Reason: users can run StackSpend without hosted infrastructure, and sensitive billing data remains local.
+Reason: users can run MoneySiren without hosted infrastructure, and sensitive billing data remains local.
 
 Status: accepted.
 
@@ -82,7 +82,7 @@ Status: accepted.
 
 ## D011 - Provider catalog before broad connector expansion
 
-Decision: StackSpend shows a broad provider catalog, but only current implemented providers are connectable in this slice.
+Decision: MoneySiren shows a broad provider catalog, but only current implemented providers are connectable in this slice.
 
 Reason: connector implementation requires provider-specific auth, normalization, redaction, fixtures, tests, and docs; cataloging planned providers keeps the UI extensible without overstating support.
 

@@ -5,14 +5,14 @@ import {
   type SlackReportTransportRequest,
 } from "./slack.js";
 
-const TEST_WEBHOOK_URL = "fake-stackspend-slack-webhook-secret";
-const REPORT_TEXT = "*StackSpend daily report*\n- Date 2026-06-02";
+const TEST_WEBHOOK_URL = "fake-moneysiren-slack-webhook-secret";
+const REPORT_TEXT = "*MoneySiren daily report*\n- Date 2026-06-02";
 
 describe("Slack report delivery", () => {
   it("builds a Slack-readable text payload without dense key/value formatting", () => {
     const payload = buildSlackReportPayload(
       [
-        "*StackSpend daily report*",
+        "*MoneySiren daily report*",
         "- Date 2026-06-02",
         "",
         "---",

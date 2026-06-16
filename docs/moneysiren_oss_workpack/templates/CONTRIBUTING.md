@@ -1,6 +1,6 @@
-# Contributing to StackSpend
+# Contributing to MoneySiren
 
-StackSpend is a local-first usage, cost, and risk dashboard for individual developers and small teams.
+MoneySiren is a local-first usage, cost, and risk dashboard for individual developers and small teams.
 
 ## Development principles
 

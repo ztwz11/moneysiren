@@ -1,8 +1,8 @@
-# StackSpend Desktop Alpha
+# MoneySiren Desktop Alpha
 
 This prerelease publishes source-free alpha artifacts for local review:
 
-- `stackspend-web-runtime-*.tar.gz`: built Next.js dashboard runtime.
+- `moneysiren-web-runtime-*.tar.gz`: built Next.js dashboard runtime.
 - Windows desktop installer: unsigned Tauri NSIS `.exe`.
 - macOS desktop app archive: unsigned Tauri `.app` in `.tar.gz`.
 - SHA256 checksum files for the release assets.
@@ -12,10 +12,10 @@ This prerelease publishes source-free alpha artifacts for local review:
 1. Install the CLI from npm:
 
    ```bash
-   npm install -g @stackspend/cli@alpha
+   npm install -g moneysiren@alpha
    ```
 
-2. Download and extract `stackspend-web-runtime-*.tar.gz`, then start the local dashboard runtime:
+2. Download and extract `moneysiren-web-runtime-*.tar.gz`, then start the local dashboard runtime:
 
    ```bash
    node start.mjs

@@ -7,7 +7,7 @@ import {
   type LocalStore,
 } from "../../../packages/db/src/index";
 
-const DEFAULT_DASHBOARD_DB_PATH = ".stackspend/stackspend.sqlite";
+const DEFAULT_DASHBOARD_DB_PATH = ".moneysiren/moneysiren.sqlite";
 const DEFAULT_CURRENCY = "USD";
 const SENSITIVE_TEXT_PATTERN =
   /(sk-[A-Za-z0-9_-]+|hooks\.slack[^\s]*|acct_[A-Za-z0-9_-]+|project_[A-Za-z0-9_-]+|invoice_[A-Za-z0-9_-]+|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/gi;
@@ -133,7 +133,7 @@ export async function readDashboardSnapshot(options: ReadDashboardSnapshotOption
   const generatedAt = now().toISOString();
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
-  const dbPath = resolveDashboardDbPath(cwd, env.STACKSPEND_DB_PATH);
+  const dbPath = resolveDashboardDbPath(cwd, env.MONEYSIREN_DB_PATH);
   const exists = await (options.fileExists ?? pathExists)(dbPath);
 
   if (!exists) {

@@ -1,6 +1,6 @@
 # Support
 
-StackSpend is an open-source local-first tool.
+MoneySiren is an open-source local-first tool.
 
 ## Before opening an issue
 
@@ -20,7 +20,7 @@ Use fake values:
 
 ```text
 OPENAI_ADMIN_KEY=sk-admin-FAKE
-AWS_PROFILE=stackspend-readonly
+AWS_PROFILE=moneysiren-readonly
 CLOUDFLARE_ACCOUNT_IDS=acct_FAKE
 ```
 
@@ -30,7 +30,7 @@ For local AI CLI issues, do not paste raw Codex or Claude log lines if they cont
 
 - OS and version
 - Node and pnpm version
-- StackSpend commit/version
+- MoneySiren commit/version
 - provider name
 - command executed
 - sanitized error message

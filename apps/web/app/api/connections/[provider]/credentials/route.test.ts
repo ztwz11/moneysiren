@@ -7,21 +7,21 @@ import { POST as createSession } from "../../../auth/session/route";
 import { DELETE, POST } from "./route";
 
 const ORIGINAL_ENV = {
-  backend: process.env.STACKSPEND_CREDENTIAL_BACKEND,
-  passphrase: process.env.STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE,
-  vaultPath: process.env.STACKSPEND_CREDENTIAL_VAULT_PATH,
+  backend: process.env.MONEYSIREN_CREDENTIAL_BACKEND,
+  passphrase: process.env.MONEYSIREN_CREDENTIAL_VAULT_PASSPHRASE,
+  vaultPath: process.env.MONEYSIREN_CREDENTIAL_VAULT_PATH,
   openai: process.env.OPENAI_ADMIN_KEY,
-  credentialWrites: process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES,
+  credentialWrites: process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES,
 };
 const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
   clearLocalSecurityState();
-  const dir = await mkdtemp(join(tmpdir(), "stackspend-credential-route-"));
-  process.env.STACKSPEND_CREDENTIAL_BACKEND = "vault";
-  process.env.STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE = "fake local passphrase";
-  process.env.STACKSPEND_CREDENTIAL_VAULT_PATH = join(dir, "credentials-vault.json");
-  delete process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES;
+  const dir = await mkdtemp(join(tmpdir(), "moneysiren-credential-route-"));
+  process.env.MONEYSIREN_CREDENTIAL_BACKEND = "vault";
+  process.env.MONEYSIREN_CREDENTIAL_VAULT_PASSPHRASE = "fake local passphrase";
+  process.env.MONEYSIREN_CREDENTIAL_VAULT_PATH = join(dir, "credentials-vault.json");
+  delete process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES;
   delete process.env.OPENAI_ADMIN_KEY;
   globalThis.fetch = (async () => Response.json({
     data: [],
@@ -30,11 +30,11 @@ beforeEach(async () => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  restoreEnv("STACKSPEND_CREDENTIAL_BACKEND", ORIGINAL_ENV.backend);
-  restoreEnv("STACKSPEND_CREDENTIAL_VAULT_PASSPHRASE", ORIGINAL_ENV.passphrase);
-  restoreEnv("STACKSPEND_CREDENTIAL_VAULT_PATH", ORIGINAL_ENV.vaultPath);
+  restoreEnv("MONEYSIREN_CREDENTIAL_BACKEND", ORIGINAL_ENV.backend);
+  restoreEnv("MONEYSIREN_CREDENTIAL_VAULT_PASSPHRASE", ORIGINAL_ENV.passphrase);
+  restoreEnv("MONEYSIREN_CREDENTIAL_VAULT_PATH", ORIGINAL_ENV.vaultPath);
   restoreEnv("OPENAI_ADMIN_KEY", ORIGINAL_ENV.openai);
-  restoreEnv("STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES", ORIGINAL_ENV.credentialWrites);
+  restoreEnv("MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES", ORIGINAL_ENV.credentialWrites);
 });
 
 describe("provider credential routes", () => {
@@ -62,7 +62,7 @@ describe("provider credential routes", () => {
   });
 
   it("stores and deletes a read-only credential only when experimental local writes are enabled", async () => {
-    process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
+    process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
     const session = await createLocalSessionHeaders();
     const response = await POST(new Request("http://127.0.0.1:3000/api/connections/openai/credentials", {
       method: "POST",
@@ -140,8 +140,8 @@ describe("provider credential routes", () => {
     });
   });
 
-  it("does not store raw AWS access keys through StackSpend", async () => {
-    process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
+  it("does not store raw AWS access keys through MoneySiren", async () => {
+    process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
     const session = await createLocalSessionHeaders();
     const response = await POST(new Request("http://127.0.0.1:3000/api/connections/aws/credentials", {
       method: "POST",
@@ -165,7 +165,7 @@ describe("provider credential routes", () => {
   });
 
   it("rejects roadmap provider credential writes even when experimental writes are enabled", async () => {
-    process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
+    process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
     const session = await createLocalSessionHeaders();
     globalThis.fetch = (async () => {
       throw new Error("Roadmap provider credentials must not call live validation.");
@@ -209,7 +209,7 @@ async function createLocalSessionHeaders(): Promise<Record<string, string>> {
     host: "127.0.0.1:3000",
     origin: "http://127.0.0.1:3000",
     cookie: response.headers.get("set-cookie") ?? "",
-    "x-stackspend-csrf": payload.csrfToken,
+    "x-moneysiren-csrf": payload.csrfToken,
   };
 }
 

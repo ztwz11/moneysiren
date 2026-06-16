@@ -19,14 +19,14 @@ interface ParsedDailyReportArgs {
   deliveryTarget: ReportDeliveryTarget;
 }
 
-const DAILY_REPORT_TIME_ZONE_ENV_KEY = "STACKSPEND_REPORT_TIME_ZONE";
+const DAILY_REPORT_TIME_ZONE_ENV_KEY = "MONEYSIREN_REPORT_TIME_ZONE";
 const DEFAULT_DAILY_REPORT_TIME_ZONE = "Asia/Seoul";
 
 export async function runReportCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   const parsedArgs = parseDailyReportArgs(args);
 
   if (parsedArgs === undefined) {
-    context.stderr("Usage: stackspend report daily --lang ko [--send slack]");
+    context.stderr("Usage: moneysiren report daily --lang ko [--send slack]");
     return 1;
   }
 

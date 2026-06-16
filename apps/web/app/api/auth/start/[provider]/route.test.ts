@@ -3,20 +3,20 @@ import { clearLocalSecurityState } from "../../../../../lib/local-security";
 import { POST as createSession } from "../../session/route";
 import { POST } from "./route";
 
-const originalCredentialWrites = process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES;
+const originalCredentialWrites = process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES;
 
 beforeEach(() => {
   clearLocalSecurityState();
-  delete process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES;
+  delete process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES;
 });
 
 afterEach(() => {
   if (originalCredentialWrites === undefined) {
-    delete process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES;
+    delete process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES;
     return;
   }
 
-  process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES = originalCredentialWrites;
+  process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES = originalCredentialWrites;
 });
 
 describe("POST /api/auth/start/[provider]", () => {
@@ -42,7 +42,7 @@ describe("POST /api/auth/start/[provider]", () => {
   });
 
   it("creates server-held OAuth state, nonce, and PKCE only when experimental local writes are enabled", async () => {
-    process.env.STACKSPEND_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
+    process.env.MONEYSIREN_ENABLE_LOCAL_CREDENTIAL_WRITES = "1";
     const session = await createLocalSessionHeaders();
     const response = await POST(new Request("http://127.0.0.1:3000/api/auth/start/supabase", {
       method: "POST",
@@ -81,6 +81,6 @@ async function createLocalSessionHeaders(): Promise<Record<string, string>> {
     host: "127.0.0.1:3000",
     origin: "http://127.0.0.1:3000",
     cookie: response.headers.get("set-cookie") ?? "",
-    "x-stackspend-csrf": payload.csrfToken,
+    "x-moneysiren-csrf": payload.csrfToken,
   };
 }

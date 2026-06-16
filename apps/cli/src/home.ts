@@ -4,7 +4,7 @@ export function renderHomeScreen(input: { version: string; theme: Theme }): stri
   const { theme, version } = input;
 
   return [
-    `${theme.brand("StackSpend")} ${theme.muted(version)}`,
+    `${theme.brand("MoneySiren")} ${theme.muted(version)}`,
     "Local-first cloud/SaaS usage, status, and expected billing.",
     "",
     theme.heading("Slash commands"),
@@ -30,23 +30,23 @@ export function renderHomeScreen(input: { version: string; theme: Theme }): stri
     `  ${theme.command("/quit")}                 Exit the slash prompt`,
     "",
     theme.heading("Classic CLI"),
-    "  stackspend doctor",
-    "  stackspend install",
-    "  stackspend install --status",
-    "  stackspend modes",
-    "  stackspend init",
-    "  stackspend serve [--port <port>]",
-    "  stackspend open",
-    "  stackspend sync --provider mock",
-    "  stackspend summary --json",
-    "  stackspend notify once --dry-run",
-    "  stackspend notify prefs list",
-    "  stackspend desktop status",
-    "  stackspend report daily --lang ko",
-    "  stackspend dashboard check",
-    "  stackspend theme preview",
-    "  stackspend theme image-prompt",
-    "  stackspend theme image-generate",
+    "  moneysiren doctor",
+    "  moneysiren install",
+    "  moneysiren install --status",
+    "  moneysiren modes",
+    "  moneysiren init",
+    "  moneysiren serve [--port <port>]",
+    "  moneysiren open",
+    "  moneysiren sync --provider mock",
+    "  moneysiren summary --json",
+    "  moneysiren notify once --dry-run",
+    "  moneysiren notify prefs list",
+    "  moneysiren desktop status",
+    "  moneysiren report daily --lang ko",
+    "  moneysiren dashboard check",
+    "  moneysiren theme preview",
+    "  moneysiren theme image-prompt",
+    "  moneysiren theme image-generate",
     "",
     theme.warning("Security"),
     "  Home/help does not call provider APIs, read secret values, create .env, or enable telemetry.",
@@ -54,47 +54,47 @@ export function renderHomeScreen(input: { version: string; theme: Theme }): stri
 }
 
 export function renderHelpScreen(version: string): string {
-  return `StackSpend ${version}
+  return `MoneySiren ${version}
 
 Local-first cloud/SaaS usage, status, and expected billing dashboard.
 
 Usage:
-  stackspend
-  stackspend --help
-  stackspend --version
-  stackspend init
-  stackspend install [--status|--all|--cli|--web|--hud|--no-cli|--no-web|--no-hud]
-  stackspend doctor
-  stackspend modes
-  stackspend dashboard check [--url <local-dashboard-url>]
-  stackspend serve [--port <port>]
-  stackspend open
-  stackspend theme preview
-  stackspend theme image-prompt
-  stackspend theme image-generate [--out <png> --theme-out <json> --model <model>]
-  stackspend sync --provider <mock|aws|openai|supabase|cloudflare>
-  stackspend summary --json
-  stackspend notify once --dry-run
-  stackspend notify prefs list
-  stackspend desktop status
-  stackspend report daily --lang ko [--send slack]
+  moneysiren
+  moneysiren --help
+  moneysiren --version
+  moneysiren init
+  moneysiren install [--status|--all|--cli|--web|--hud|--no-cli|--no-web|--no-hud]
+  moneysiren doctor
+  moneysiren modes
+  moneysiren dashboard check [--url <local-dashboard-url>]
+  moneysiren serve [--port <port>]
+  moneysiren open
+  moneysiren theme preview
+  moneysiren theme image-prompt
+  moneysiren theme image-generate [--out <png> --theme-out <json> --model <model>]
+  moneysiren sync --provider <mock|aws|openai|supabase|cloudflare>
+  moneysiren summary --json
+  moneysiren notify once --dry-run
+  moneysiren notify prefs list
+  moneysiren desktop status
+  moneysiren report daily --lang ko [--send slack]
 
 Slash commands:
-  stackspend /help
-  stackspend /version
-  stackspend /doctor
-  stackspend /install
-  stackspend /modes
-  stackspend /init
-  stackspend /dashboard
-  stackspend /dashboard check
-  stackspend /summary json
-  stackspend /notify dry-run
-  stackspend /notify prefs
-  stackspend /desktop status
-  stackspend /theme <preview|image-prompt|image-generate>
-  stackspend /sync <mock|aws|openai|supabase|cloudflare>
-  stackspend /report ko
-  stackspend /quit
+  moneysiren /help
+  moneysiren /version
+  moneysiren /doctor
+  moneysiren /install
+  moneysiren /modes
+  moneysiren /init
+  moneysiren /dashboard
+  moneysiren /dashboard check
+  moneysiren /summary json
+  moneysiren /notify dry-run
+  moneysiren /notify prefs
+  moneysiren /desktop status
+  moneysiren /theme <preview|image-prompt|image-generate>
+  moneysiren /sync <mock|aws|openai|supabase|cloudflare>
+  moneysiren /report ko
+  moneysiren /quit
 `;
 }

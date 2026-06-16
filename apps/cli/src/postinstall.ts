@@ -12,15 +12,15 @@ try {
     recommendedDefault: selectedSurfaces.length === DEFAULT_INSTALL_SURFACES.length,
   });
 
-  console.log("StackSpend setup profile saved.");
+  console.log("MoneySiren setup profile saved.");
   console.log(formatInstallSelectionLine(profile.selectedSurfaces));
-  console.log("Run `stackspend install --status` to review or `stackspend install` to change it.");
+  console.log("Run `moneysiren install --status` to review or `moneysiren install` to change it.");
 } catch (error) {
-  console.warn(`StackSpend setup profile skipped: ${error instanceof Error ? error.message : String(error)}`);
+  console.warn(`MoneySiren setup profile skipped: ${error instanceof Error ? error.message : String(error)}`);
 }
 
 async function selectSurfaces() {
-  if (isTruthy(process.env.STACKSPEND_SKIP_POSTINSTALL)) {
+  if (isTruthy(process.env.MONEYSIREN_SKIP_POSTINSTALL)) {
     return DEFAULT_INSTALL_SURFACES;
   }
 

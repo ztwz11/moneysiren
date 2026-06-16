@@ -2,7 +2,7 @@
 
 ## 결론
 
-StackSpend의 장기 방향은 **Tauri thin tray shell**이 더 적합하다. 이유는 local-first, 보안, 작은 앱 크기, system tray 중심 도구라는 제품 성격과 잘 맞기 때문이다.
+MoneySiren의 장기 방향은 **Tauri thin tray shell**이 더 적합하다. 이유는 local-first, 보안, 작은 앱 크기, system tray 중심 도구라는 제품 성격과 잘 맞기 때문이다.
 
 다만 현재 코드가 TypeScript/Next.js 중심이고, 빠른 dogfood가 필요하면 Electron prototype도 현실적인 선택이다.
 

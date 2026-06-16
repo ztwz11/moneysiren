@@ -73,7 +73,7 @@ export const providerCatalog: readonly ProviderCatalogItem[] = [
     dataSurfaces: ["cost", "usage", "forecast", "health"],
     liveGranularity: "current_period",
     requiredEnvKeys: ["AWS_PROFILE"],
-    credentialRequirements: ["AWS_PROFILE or SDK default credential chain outside StackSpend"],
+    credentialRequirements: ["AWS_PROFILE or SDK default credential chain outside MoneySiren"],
     setupLinks: [
       {
         label: "Install AWS CLI",
@@ -90,7 +90,7 @@ export const providerCatalog: readonly ProviderCatalogItem[] = [
       {
         label: "AWS IAM Identity Center SSO",
         href: "https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html",
-        description: "Create a local SSO profile that StackSpend can read through AWS_PROFILE.",
+        description: "Create a local SSO profile that MoneySiren can read through AWS_PROFILE.",
         valueHints: ["aws configure sso", "aws sso login", "AWS_PROFILE"],
       },
       {
@@ -230,7 +230,7 @@ export const providerCatalog: readonly ProviderCatalogItem[] = [
       {
         label: "Application Default Credentials",
         href: "https://docs.cloud.google.com/sdk/gcloud/reference/auth/application-default/login",
-        description: "Create local ADC credentials for Google SDK reads without storing keys in StackSpend.",
+        description: "Create local ADC credentials for Google SDK reads without storing keys in MoneySiren.",
         valueHints: ["gcloud auth application-default login", "application_default_credentials.json"],
       },
       {
@@ -630,13 +630,13 @@ export const providerCatalog: readonly ProviderCatalogItem[] = [
     dataSurfaces: ["usage", "health"],
     liveGranularity: "usage_only",
     requiredEnvKeys: [],
-    credentialRequirements: ["Local codex command, STACKSPEND_CODEX_SESSIONS_DIR, CODEX_HOME, or Codex session logs"],
+    credentialRequirements: ["Local codex command, MONEYSIREN_CODEX_SESSIONS_DIR, CODEX_HOME, or Codex session logs"],
     setupLinks: [
       {
         label: "Codex CLI command",
         href: "https://help.openai.com/en/articles/11096431",
         description: "Install or inspect the local Codex CLI used for local usage estimates.",
-        valueHints: ["codex --version", "STACKSPEND_CODEX_SESSIONS_DIR", "CODEX_HOME", ".codex/sessions"],
+        valueHints: ["codex --version", "MONEYSIREN_CODEX_SESSIONS_DIR", "CODEX_HOME", ".codex/sessions"],
       },
     ],
   },

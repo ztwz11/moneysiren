@@ -4,7 +4,7 @@ import {
   type CredentialStatus,
   type CredentialStore,
 } from "../../../packages/credentials/src/index";
-import { loadStackSpendConfig } from "../../../packages/config/src/index";
+import { loadMoneySirenConfig } from "../../../packages/config/src/index";
 import {
   CONNECTABLE_PROVIDER_KEYS,
   findAvailableProvider,
@@ -89,7 +89,7 @@ export async function readConnectionsStatus(
   const env = options.env ?? process.env;
   const now = options.now ?? (() => new Date());
   const credentialStore = options.credentialStore ?? createDefaultCredentialStore({ env, now });
-  const config = loadStackSpendConfig(env);
+  const config = loadMoneySirenConfig(env);
   const localAiCliStatus = options.localAiCliStatus ?? await readLocalAiCliStatus({
     env,
     now,

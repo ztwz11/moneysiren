@@ -1,4 +1,4 @@
-# StackSpend Execution Plan
+# MoneySiren Execution Plan
 
 Status: approved for v0.1 planning gate.
 
@@ -33,7 +33,7 @@ Deliver Docker, documentation, and npm alpha packageability support for local `v
 
 - Dockerfile for local self-host/dev review
 - `compose.yaml` with no embedded secrets and fake fixture paths only
-- `@stackspend/cli` package metadata/bin/files for npm alpha dry-run and tarball install review
+- `moneysiren` package metadata/bin/files for npm alpha dry-run and tarball install review
 - README quickstart for CLI, mock/provider fixtures, local dashboard, Slack report, and Docker
 - security docs for env-only secrets, redaction, local SQLite storage, and Docker/Compose boundaries
 - `docs/product/v0.1.0-alpha-checklist.md`
@@ -56,5 +56,5 @@ git diff --name-only --diff-filter=ACM -z | xargs -0 rg -n -e 'sk-[A-Za-z0-9_-]{
 If Docker is available and local policy allows it:
 
 ```bash
-docker build --pull=false --target verify -t stackspend:m10-verify .
+docker build --pull=false --target verify -t moneysiren:m10-verify .
 ```

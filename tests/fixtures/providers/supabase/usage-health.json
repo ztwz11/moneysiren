@@ -2,14 +2,14 @@
   "projects": [
     {
       "id": "fake-supabase-ref-alpha",
-      "name": "FAKE StackSpend Alpha",
+      "name": "FAKE MoneySiren Alpha",
       "region": "ap-northeast-2",
       "status": "ACTIVE",
       "organization_id": "fake-supabase-org-alpha"
     },
     {
       "id": "fake-supabase-ref-beta",
-      "name": "FAKE StackSpend Beta",
+      "name": "FAKE MoneySiren Beta",
       "region": "us-east-1",
       "status": "PAUSED",
       "organization_id": "fake-supabase-org-beta"

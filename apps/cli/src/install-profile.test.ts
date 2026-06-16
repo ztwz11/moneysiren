@@ -11,9 +11,9 @@ import {
 } from "./install-profile.js";
 import { parseInstallSurfaceSelection } from "./install-selector.js";
 
-describe("StackSpend install profile", () => {
+describe("MoneySiren install profile", () => {
   it("defaults npm setup selection to CLI, web dashboard, and HUD", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "stackspend-install-"));
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-install-"));
     const profilePath = join(cwd, "install-profile.json");
     const profile = await writeInstallProfileFile({
       selectedSurfaces: DEFAULT_INSTALL_SURFACES,
@@ -21,7 +21,7 @@ describe("StackSpend install profile", () => {
       recommendedDefault: true,
     }, {
       env: {
-        STACKSPEND_INSTALL_PROFILE_PATH: profilePath,
+        MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
       },
       now: () => new Date("2026-06-12T00:00:00.000Z"),
     });
@@ -31,7 +31,7 @@ describe("StackSpend install profile", () => {
     expect(profile.secretsReturned).toBe(false);
     expect(await readInstallProfileFile({
       env: {
-        STACKSPEND_INSTALL_PROFILE_PATH: profilePath,
+        MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
       },
     })).toEqual(profile);
     expect(await readFile(profilePath, "utf8")).not.toMatch(/sk-|hooks\.slack|FAKE_/i);
@@ -61,9 +61,9 @@ describe("StackSpend install profile", () => {
       platform: "darwin",
     });
 
-    expect(windowsPath).toContain("StackSpend");
+    expect(windowsPath).toContain("MoneySiren");
     expect(windowsPath).toContain("install-profile.json");
     expect(windowsPath).toContain("AppData");
-    expect(macPath).toBe("/Users/tester/Library/Application Support/StackSpend/install-profile.json");
+    expect(macPath).toBe("/Users/tester/Library/Application Support/MoneySiren/install-profile.json");
   });
 });

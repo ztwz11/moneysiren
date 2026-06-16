@@ -2,11 +2,11 @@
 
 ## v0.1 Scope
 
-Google Cloud cost collection is planned, not enabled as a live v0.1 connector. The local web dashboard can inspect Google Cloud CLI setup status so the operator can prepare authentication without storing Google credentials in StackSpend.
+Google Cloud cost collection is planned, not enabled as a live v0.1 connector. The local web dashboard can inspect Google Cloud CLI setup status so the operator can prepare authentication without storing Google credentials in MoneySiren.
 
 ## Credentials
 
-Use Google Cloud CLI and Application Default Credentials outside StackSpend. StackSpend must not store raw service account JSON, OAuth refresh tokens, or provider account identifiers.
+Use Google Cloud CLI and Application Default Credentials outside MoneySiren. MoneySiren must not store raw service account JSON, OAuth refresh tokens, or provider account identifiers.
 
 Recommended local setup:
 
@@ -15,13 +15,13 @@ gcloud --version
 gcloud init
 gcloud auth login
 gcloud auth application-default login
-gcloud config set project fake-stackspend-project
+gcloud config set project fake-moneysiren-project
 ```
 
 Optional env-only inputs:
 
 ```text
-GOOGLE_CLOUD_PROJECT=fake-stackspend-project
+GOOGLE_CLOUD_PROJECT=fake-moneysiren-project
 GOOGLE_APPLICATION_CREDENTIALS=
 CLOUDSDK_CONFIG=
 ```

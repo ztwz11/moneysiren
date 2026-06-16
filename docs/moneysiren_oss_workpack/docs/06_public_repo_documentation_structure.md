@@ -31,11 +31,11 @@ docs/
 ## README 요약 구조
 
 ```md
-# StackSpend
+# MoneySiren
 
 Local-first cloud, SaaS, and AI usage dashboard for individual developers and small teams.
 
-## Why StackSpend?
+## Why MoneySiren?
 
 ## Security model
 
@@ -77,7 +77,7 @@ Local-first cloud, SaaS, and AI usage dashboard for individual developers and sm
 
 ```text
 Codex CLI와 Claude CLI는 API billing provider가 아니다.
-StackSpend는 로컬 설치 여부, 로컬 로그, statusline metadata로 사용량을 추정한다.
+MoneySiren는 로컬 설치 여부, 로컬 로그, statusline metadata로 사용량을 추정한다.
 가능하면 5시간 한도 %, 주간 한도 %, context %, rolling token 사용량을 표시한다.
 값에는 source/confidence가 붙는다.
 ```

@@ -80,7 +80,7 @@ function style(colorEnabled: boolean, code: string): (text: string) => string {
 }
 
 function resolveThemePalette(options: ThemeOptions): { palette: ThemePalette; source: string } {
-  const themeFile = options.env.STACKSPEND_CLI_THEME_FILE?.trim();
+  const themeFile = options.env.MONEYSIREN_CLI_THEME_FILE?.trim();
 
   if (themeFile !== undefined && themeFile.length > 0) {
     const loaded = loadThemeFile(themeFile, options.cwd ?? process.cwd());
@@ -90,7 +90,7 @@ function resolveThemePalette(options: ThemeOptions): { palette: ThemePalette; so
     }
   }
 
-  if (options.env.STACKSPEND_CLI_THEME?.trim().toLowerCase() === "image2-dashboard") {
+  if (options.env.MONEYSIREN_CLI_THEME?.trim().toLowerCase() === "image2-dashboard") {
     return {
       palette: IMAGE_DASHBOARD_PALETTE,
       source: "image2-dashboard",

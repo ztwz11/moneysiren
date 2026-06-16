@@ -22,8 +22,8 @@ describe("local SQLite store", () => {
   });
 
   it("initializes a SQL-migration-backed local store without creating .env", async () => {
-    const rootDir = await mkdtemp(join(tmpdir(), "stackspend-db-"));
-    const dbPath = join(rootDir, ".stackspend", "stackspend.sqlite");
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
+    const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
 
     const result = await initializeLocalStore({ dbPath });
     const tables = querySqlite<{ name: string }>(
@@ -41,8 +41,8 @@ describe("local SQLite store", () => {
   });
 
   it("persists normalized mock snapshots and report_runs without raw payload fields", async () => {
-    const rootDir = await mkdtemp(join(tmpdir(), "stackspend-db-"));
-    const dbPath = join(rootDir, ".stackspend", "stackspend.sqlite");
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
+    const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
 
     await initializeLocalStore({ dbPath });
     await saveLocalProviderCollection({
@@ -125,8 +125,8 @@ describe("local SQLite store", () => {
   });
 
   it("clears stale provider-sync alerts after a successful provider collection", async () => {
-    const rootDir = await mkdtemp(join(tmpdir(), "stackspend-db-"));
-    const dbPath = join(rootDir, ".stackspend", "stackspend.sqlite");
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
+    const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
     const provider = {
       key: "mock",
       displayName: "Mock Provider",
@@ -184,8 +184,8 @@ describe("local SQLite store", () => {
   });
 
   it("does not inflate the read model when the same cost estimate is collected twice", async () => {
-    const rootDir = await mkdtemp(join(tmpdir(), "stackspend-db-"));
-    const dbPath = join(rootDir, ".stackspend", "stackspend.sqlite");
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
+    const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
     const costEstimate: LocalCostEstimateInput = {
       provider: "mock",
       collectedAt: FIXED_NOW,
@@ -259,8 +259,8 @@ describe("local SQLite store", () => {
   });
 
   it("does not inflate the read model when the same billing snapshot is collected twice", async () => {
-    const rootDir = await mkdtemp(join(tmpdir(), "stackspend-db-"));
-    const dbPath = join(rootDir, ".stackspend", "stackspend.sqlite");
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
+    const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
     const billingSnapshot: LocalBillingSnapshotInput = {
       provider: "mock",
       collectedAt: FIXED_NOW,

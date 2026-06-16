@@ -412,7 +412,7 @@ export function buildNotificationDigest(
     generatedAt: overview.generatedAt,
     localOnly: true,
     secretsReturned: false,
-    title: "StackSpend",
+    title: "MoneySiren",
     status,
     suppressedReason: preferences.enabled
       ? preferences.digestEnabled

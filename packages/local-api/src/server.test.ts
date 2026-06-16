@@ -40,12 +40,13 @@ const STORE_WITH_SENSITIVE_VALUES: ViewModelStore = {
 
 describe("local API server", () => {
   it("serves loopback-only local-safe endpoints", async () => {
-    const runtimeCwd = await mkdtemp(join(tmpdir(), "stackspend-local-api-"));
+    const runtimeCwd = await mkdtemp(join(tmpdir(), "moneysiren-local-api-"));
     const api = await startLocalApiServer({
       port: 0,
       now: () => NOW,
       runtimeLock: {
         cwd: runtimeCwd,
+        lockPath: ".moneysiren/runtime.json",
       },
       viewModel: {
         store: STORE_WITH_SENSITIVE_VALUES,
@@ -140,12 +141,13 @@ describe("local API server", () => {
   });
 
   it("stores notification preferences through token-protected local writes and reflects them in digest", async () => {
-    const runtimeCwd = await mkdtemp(join(tmpdir(), "stackspend-local-api-prefs-"));
+    const runtimeCwd = await mkdtemp(join(tmpdir(), "moneysiren-local-api-prefs-"));
     const api = await startLocalApiServer({
       port: 0,
       localSessionToken: "fake-local-session-token",
       runtimeLock: {
         cwd: runtimeCwd,
+        lockPath: ".moneysiren/runtime.json",
       },
       viewModel: {
         store: STORE_WITH_SENSITIVE_VALUES,
@@ -181,7 +183,7 @@ describe("local API server", () => {
         }),
         headers: {
           "Content-Type": "application/json",
-          "X-StackSpend-Local-Session": "fake-local-session-token",
+          "X-MoneySiren-Local-Session": "fake-local-session-token",
         },
         method: "PUT",
       });

@@ -5,6 +5,7 @@ build/
 coverage/
 .next/
 .turbo/
+.moneysiren/
 .stackspend/
 tmp/
 var/
@@ -14,4 +15,3 @@ var/
 !.env.example
 .git/
 .DS_Store
-

@@ -20,7 +20,7 @@ CHANGELOG.md
 ### README 필수 섹션
 
 ```text
-What is StackSpend?
+What is MoneySiren?
 Why local-first?
 Supported providers
 Security model
@@ -38,7 +38,7 @@ License
 
 ### README에서 반드시 말해야 하는 것
 
-- StackSpend는 local-first 도구다.
+- MoneySiren는 local-first 도구다.
 - secret은 로컬 env/keychain/vault에서 읽는다.
 - SQLite에는 credential material을 저장하지 않는다.
 - provider connector는 read-only다.
@@ -152,9 +152,9 @@ UI 문구 예시:
 ## 6. Release notes 초안
 
 ```md
-# StackSpend v0.1.0-alpha.0
+# MoneySiren v0.1.0-alpha.0
 
-StackSpend is a local-first dashboard for cloud, SaaS, and AI usage visibility.
+MoneySiren is a local-first dashboard for cloud, SaaS, and AI usage visibility.
 
 ## Highlights
 

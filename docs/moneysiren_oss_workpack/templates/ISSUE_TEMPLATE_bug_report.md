@@ -12,7 +12,7 @@ labels: bug
 - OS:
 - Node:
 - pnpm:
-- StackSpend version or commit:
+- MoneySiren version or commit:
 - Provider:
 
 ## Steps to reproduce

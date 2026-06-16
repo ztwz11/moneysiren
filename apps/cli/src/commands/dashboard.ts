@@ -4,7 +4,7 @@ import { loadCliConfig, resolveDbPath } from "./shared.js";
 
 const DEFAULT_DASHBOARD_URL = "http://localhost:3000";
 const DASHBOARD_CHECK_TIMEOUT_MS = 2_000;
-const DASHBOARD_CHECK_USAGE = "Usage: stackspend dashboard check [--url <local-dashboard-url>]";
+const DASHBOARD_CHECK_USAGE = "Usage: moneysiren dashboard check [--url <local-dashboard-url>]";
 
 interface ParsedDashboardCheckArgs {
   dashboardUrl: string;
@@ -67,7 +67,7 @@ export async function runDashboardCommand(args: readonly string[], context: CliE
   const dbPath = resolveDbPath(context.cwd, config.dbPath);
   const dbExists = await pathExists(dbPath);
 
-  context.stdout("StackSpend dashboard check");
+  context.stdout("MoneySiren dashboard check");
   context.stdout(`Dashboard URL: ${sanitizedUrl.dashboardUrl}`);
   context.stdout(`API endpoint: ${sanitizedUrl.apiUrl}`);
 
@@ -302,15 +302,15 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 
 function writeDashboardDevGuidance(context: CliExecutionContext): void {
   context.stderr("Next step: start the local dashboard from the repo root:");
-  context.stderr("  pnpm --filter @stackspend/web dev");
+  context.stderr("  pnpm --filter @moneysiren/web dev");
   context.stderr("Then re-run:");
-  context.stderr("  pnpm --filter @stackspend/cli dev -- dashboard check");
+  context.stderr("  pnpm --filter moneysiren dev -- dashboard check");
 }
 
 function writeDashboardSuccessGuidance(context: CliExecutionContext, payload: DashboardPayloadSummary): void {
   if (isSafeEmptyDashboardState(payload)) {
     context.stdout("Next step: sync mock data if you want a populated dashboard review:");
-    context.stdout("  pnpm --filter @stackspend/cli dev -- sync --provider mock");
+    context.stdout("  pnpm --filter moneysiren dev -- sync --provider mock");
     return;
   }
 

@@ -1,8 +1,8 @@
 # Windows and macOS Install Guide
 
-StackSpend is a local-first cloud, SaaS, and AI usage dashboard. The alpha has three local surfaces:
+MoneySiren is a local-first cloud, SaaS, and AI usage dashboard. The alpha has three local surfaces:
 
-- CLI automation through `stackspend`.
+- CLI automation through `moneysiren`.
 - Local web dashboard through Next.js.
 - Desktop tray/notifier and HUD through the native Tauri shell.
 
@@ -17,7 +17,7 @@ Required for the CLI and web dashboard:
 - Node.js 20.11 or newer.
 - pnpm 11.5.0 through Corepack.
 - Git.
-- Node.js with the SQLite runtime, or `sqlite3` on `PATH`/`STACKSPEND_SQLITE_BIN` as a fallback.
+- Node.js with the SQLite runtime, or `sqlite3` on `PATH`/`MONEYSIREN_SQLITE_BIN` as a fallback.
 
 Required for the native desktop tray/HUD:
 
@@ -29,28 +29,28 @@ Do not create `.env` files with live credentials. For v0.1, use process-local en
 
 ## Install The CLI From npm
 
-After `@stackspend/cli@alpha` is published, install the CLI with npm.
+After `moneysiren@alpha` is published, install the CLI with npm.
 
 Windows PowerShell:
 
 ```powershell
-npm install -g @stackspend/cli@alpha
-stackspend --version
-stackspend install --status
-stackspend modes
-stackspend doctor
-stackspend sync --provider mock
+npm install -g moneysiren@alpha
+moneysiren --version
+moneysiren install --status
+moneysiren modes
+moneysiren doctor
+moneysiren sync --provider mock
 ```
 
 macOS zsh:
 
 ```bash
-npm install -g @stackspend/cli@alpha
-stackspend --version
-stackspend install --status
-stackspend modes
-stackspend doctor
-stackspend sync --provider mock
+npm install -g moneysiren@alpha
+moneysiren --version
+moneysiren install --status
+moneysiren modes
+moneysiren doctor
+moneysiren sync --provider mock
 ```
 
 During a PowerShell, cmd, or shell install with an interactive TTY, npm `postinstall` asks which local surfaces to enable:
@@ -59,24 +59,24 @@ During a PowerShell, cmd, or shell install with an interactive TTY, npm `postins
 - Web dashboard
 - HUD
 
-Press Enter to accept the recommended default, which selects all three. In CI or non-interactive npm installs, StackSpend writes that same all-selected profile automatically. Re-run `stackspend install` to change the profile later.
+Press Enter to accept the recommended default, which selects all three. In CI or non-interactive npm installs, MoneySiren writes that same all-selected profile automatically. Re-run `moneysiren install` to change the profile later.
 
-`stackspend modes` should show the selected install profile plus the CLI, local web dashboard/runtime, and desktop tray/notifier surfaces. The same source tree supports Windows and macOS; npm installs the cross-platform CLI, while native tray/HUD artifacts are built per OS.
+`moneysiren modes` should show the selected install profile plus the CLI, local web dashboard/runtime, and desktop tray/notifier surfaces. The same source tree supports Windows and macOS; npm installs the cross-platform CLI, while native tray/HUD artifacts are built per OS.
 
 ## Install Desktop Alpha Without Cloning Source
 
 GitHub Releases publish three source-free artifact types:
 
-- `stackspend-web-runtime-*.tar.gz`: the built local Next.js dashboard runtime.
+- `moneysiren-web-runtime-*.tar.gz`: the built local Next.js dashboard runtime.
 - Windows installer: unsigned Tauri NSIS `.exe`.
 - macOS app archive: unsigned Tauri `.app` inside `.tar.gz`.
 
 Install the CLI first:
 
 ```bash
-npm install -g @stackspend/cli@alpha
-stackspend install --status
-stackspend sync --provider mock
+npm install -g moneysiren@alpha
+moneysiren install --status
+moneysiren sync --provider mock
 ```
 
 Download and extract the web runtime archive from the GitHub Release, then start it:
@@ -106,8 +106,8 @@ Install Visual Studio Build Tools 2022 with the Desktop development with C++ wor
 Clone and install:
 
 ```powershell
-git clone https://github.com/ztwz11/stackspend.git
-cd stackspend
+git clone https://github.com/ztwz11/moneysiren.git
+cd moneysiren
 corepack enable
 corepack prepare pnpm@11.5.0 --activate
 pnpm install
@@ -116,38 +116,38 @@ pnpm install
 Create a local SQLite database and seed safe demo data:
 
 ```powershell
-New-Item -ItemType Directory -Force .stackspend | Out-Null
+New-Item -ItemType Directory -Force .moneysiren | Out-Null
 $root = (Get-Location).Path
-$env:STACKSPEND_DB_PATH = Join-Path $root ".stackspend\stackspend.sqlite"
+$env:MONEYSIREN_DB_PATH = Join-Path $root ".moneysiren\moneysiren.sqlite"
 
-pnpm --filter @stackspend/cli dev -- init
-pnpm --filter @stackspend/cli dev -- sync --provider mock
+pnpm --filter moneysiren dev -- init
+pnpm --filter moneysiren dev -- sync --provider mock
 
-$env:STACKSPEND_AWS_COST_EXPLORER_FIXTURE = Join-Path $root "tests\fixtures\providers\aws\cost-explorer-grouped-by-service.json"
-$env:STACKSPEND_OPENAI_USAGE_FIXTURE = Join-Path $root "tests\fixtures\providers\openai\usage-costs.json"
-$env:STACKSPEND_OPENAI_COSTS_FIXTURE = Join-Path $root "tests\fixtures\providers\openai\usage-costs.json"
-$env:STACKSPEND_SUPABASE_FIXTURE = Join-Path $root "tests\fixtures\providers\supabase\usage-health.json"
-$env:STACKSPEND_CLOUDFLARE_FIXTURE = Join-Path $root "tests\fixtures\providers\cloudflare\billing-usage.json"
+$env:MONEYSIREN_AWS_COST_EXPLORER_FIXTURE = Join-Path $root "tests\fixtures\providers\aws\cost-explorer-grouped-by-service.json"
+$env:MONEYSIREN_OPENAI_USAGE_FIXTURE = Join-Path $root "tests\fixtures\providers\openai\usage-costs.json"
+$env:MONEYSIREN_OPENAI_COSTS_FIXTURE = Join-Path $root "tests\fixtures\providers\openai\usage-costs.json"
+$env:MONEYSIREN_SUPABASE_FIXTURE = Join-Path $root "tests\fixtures\providers\supabase\usage-health.json"
+$env:MONEYSIREN_CLOUDFLARE_FIXTURE = Join-Path $root "tests\fixtures\providers\cloudflare\billing-usage.json"
 
-pnpm --filter @stackspend/cli dev -- sync --provider aws
-pnpm --filter @stackspend/cli dev -- sync --provider openai
-pnpm --filter @stackspend/cli dev -- sync --provider supabase
-pnpm --filter @stackspend/cli dev -- sync --provider cloudflare
+pnpm --filter moneysiren dev -- sync --provider aws
+pnpm --filter moneysiren dev -- sync --provider openai
+pnpm --filter moneysiren dev -- sync --provider supabase
+pnpm --filter moneysiren dev -- sync --provider cloudflare
 ```
 
 Run the web dashboard with fake connection labels for demo display only:
 
 ```powershell
-$env:AWS_PROFILE = "FAKE_STACKSPEND_INSTALL_GUIDE_PROFILE"
-$env:OPENAI_ADMIN_KEY = "FAKE_STACKSPEND_INSTALL_GUIDE_OPENAI_ADMIN_KEY"
-$env:SUPABASE_ACCESS_TOKEN = "FAKE_STACKSPEND_INSTALL_GUIDE_SUPABASE_ACCESS_TOKEN"
-$env:CLOUDFLARE_API_TOKEN = "FAKE_STACKSPEND_INSTALL_GUIDE_CLOUDFLARE_API_TOKEN"
-$env:CLOUDFLARE_ACCOUNT_IDS = "FAKE_STACKSPEND_INSTALL_GUIDE_ACCOUNT_ID"
+$env:AWS_PROFILE = "FAKE_MONEYSIREN_INSTALL_GUIDE_PROFILE"
+$env:OPENAI_ADMIN_KEY = "FAKE_MONEYSIREN_INSTALL_GUIDE_OPENAI_ADMIN_KEY"
+$env:SUPABASE_ACCESS_TOKEN = "FAKE_MONEYSIREN_INSTALL_GUIDE_SUPABASE_ACCESS_TOKEN"
+$env:CLOUDFLARE_API_TOKEN = "FAKE_MONEYSIREN_INSTALL_GUIDE_CLOUDFLARE_API_TOKEN"
+$env:CLOUDFLARE_ACCOUNT_IDS = "FAKE_MONEYSIREN_INSTALL_GUIDE_ACCOUNT_ID"
 
 npm run dev:web
 ```
 
-For live AWS SSO, `aws sso login --profile <profile>` refreshes the SSO cache but does not set `AWS_PROFILE` in the current shell. Use `pnpm --filter @stackspend/cli dev -- sync --provider aws --profile <profile>` or set `$env:AWS_PROFILE` before syncing.
+For live AWS SSO, `aws sso login --profile <profile>` refreshes the SSO cache but does not set `AWS_PROFILE` in the current shell. Use `pnpm --filter moneysiren dev -- sync --provider aws --profile <profile>` or set `$env:AWS_PROFILE` before syncing.
 
 Open:
 
@@ -185,46 +185,46 @@ Install Rust from `https://rustup.rs/`, then restart the terminal or source Carg
 Clone and install:
 
 ```bash
-git clone https://github.com/ztwz11/stackspend.git
-cd stackspend
+git clone https://github.com/ztwz11/moneysiren.git
+cd moneysiren
 pnpm install
 ```
 
 Create a local SQLite database and seed safe demo data:
 
 ```bash
-mkdir -p .stackspend
-export STACKSPEND_ROOT="$PWD"
-export STACKSPEND_DB_PATH="$STACKSPEND_ROOT/.stackspend/stackspend.sqlite"
+mkdir -p .moneysiren
+export MONEYSIREN_ROOT="$PWD"
+export MONEYSIREN_DB_PATH="$MONEYSIREN_ROOT/.moneysiren/moneysiren.sqlite"
 
-pnpm --filter @stackspend/cli dev -- init
-pnpm --filter @stackspend/cli dev -- sync --provider mock
+pnpm --filter moneysiren dev -- init
+pnpm --filter moneysiren dev -- sync --provider mock
 
-export STACKSPEND_AWS_COST_EXPLORER_FIXTURE="$STACKSPEND_ROOT/tests/fixtures/providers/aws/cost-explorer-grouped-by-service.json"
-export STACKSPEND_OPENAI_USAGE_FIXTURE="$STACKSPEND_ROOT/tests/fixtures/providers/openai/usage-costs.json"
-export STACKSPEND_OPENAI_COSTS_FIXTURE="$STACKSPEND_ROOT/tests/fixtures/providers/openai/usage-costs.json"
-export STACKSPEND_SUPABASE_FIXTURE="$STACKSPEND_ROOT/tests/fixtures/providers/supabase/usage-health.json"
-export STACKSPEND_CLOUDFLARE_FIXTURE="$STACKSPEND_ROOT/tests/fixtures/providers/cloudflare/billing-usage.json"
+export MONEYSIREN_AWS_COST_EXPLORER_FIXTURE="$MONEYSIREN_ROOT/tests/fixtures/providers/aws/cost-explorer-grouped-by-service.json"
+export MONEYSIREN_OPENAI_USAGE_FIXTURE="$MONEYSIREN_ROOT/tests/fixtures/providers/openai/usage-costs.json"
+export MONEYSIREN_OPENAI_COSTS_FIXTURE="$MONEYSIREN_ROOT/tests/fixtures/providers/openai/usage-costs.json"
+export MONEYSIREN_SUPABASE_FIXTURE="$MONEYSIREN_ROOT/tests/fixtures/providers/supabase/usage-health.json"
+export MONEYSIREN_CLOUDFLARE_FIXTURE="$MONEYSIREN_ROOT/tests/fixtures/providers/cloudflare/billing-usage.json"
 
-pnpm --filter @stackspend/cli dev -- sync --provider aws
-pnpm --filter @stackspend/cli dev -- sync --provider openai
-pnpm --filter @stackspend/cli dev -- sync --provider supabase
-pnpm --filter @stackspend/cli dev -- sync --provider cloudflare
+pnpm --filter moneysiren dev -- sync --provider aws
+pnpm --filter moneysiren dev -- sync --provider openai
+pnpm --filter moneysiren dev -- sync --provider supabase
+pnpm --filter moneysiren dev -- sync --provider cloudflare
 ```
 
 Run the web dashboard with fake connection labels for demo display only:
 
 ```bash
-export AWS_PROFILE="FAKE_STACKSPEND_INSTALL_GUIDE_PROFILE"
-export OPENAI_ADMIN_KEY="FAKE_STACKSPEND_INSTALL_GUIDE_OPENAI_ADMIN_KEY"
-export SUPABASE_ACCESS_TOKEN="FAKE_STACKSPEND_INSTALL_GUIDE_SUPABASE_ACCESS_TOKEN"
-export CLOUDFLARE_API_TOKEN="FAKE_STACKSPEND_INSTALL_GUIDE_CLOUDFLARE_API_TOKEN"
-export CLOUDFLARE_ACCOUNT_IDS="FAKE_STACKSPEND_INSTALL_GUIDE_ACCOUNT_ID"
+export AWS_PROFILE="FAKE_MONEYSIREN_INSTALL_GUIDE_PROFILE"
+export OPENAI_ADMIN_KEY="FAKE_MONEYSIREN_INSTALL_GUIDE_OPENAI_ADMIN_KEY"
+export SUPABASE_ACCESS_TOKEN="FAKE_MONEYSIREN_INSTALL_GUIDE_SUPABASE_ACCESS_TOKEN"
+export CLOUDFLARE_API_TOKEN="FAKE_MONEYSIREN_INSTALL_GUIDE_CLOUDFLARE_API_TOKEN"
+export CLOUDFLARE_ACCOUNT_IDS="FAKE_MONEYSIREN_INSTALL_GUIDE_ACCOUNT_ID"
 
 npm run dev:web
 ```
 
-For live AWS SSO, `aws sso login --profile <profile>` refreshes the SSO cache but does not set `AWS_PROFILE` in the current shell. Use `pnpm --filter @stackspend/cli dev -- sync --provider aws --profile <profile>` or export `AWS_PROFILE` before syncing.
+For live AWS SSO, `aws sso login --profile <profile>` refreshes the SSO cache but does not set `AWS_PROFILE` in the current shell. Use `pnpm --filter moneysiren dev -- sync --provider aws --profile <profile>` or export `AWS_PROFILE` before syncing.
 
 Open:
 
@@ -241,7 +241,7 @@ Build an unsigned macOS desktop app:
 
 ```bash
 npm run build:native
-open "apps/tray/src-tauri/target/release/bundle/macos/StackSpend Tray.app"
+open "apps/tray/src-tauri/target/release/bundle/macos/MoneySiren Tray.app"
 ```
 
 If macOS blocks the unsigned alpha app, use Finder, right-click the app, and choose Open. Do not use this unsigned build as a distribution artifact.
@@ -269,19 +269,19 @@ The following screenshots were regenerated from a fresh fixture-backed SQLite da
 
 Dashboard overview:
 
-![StackSpend English mock dashboard](assets/install/stackspend-english-mock-dashboard.png)
+![MoneySiren English mock dashboard](assets/install/moneysiren-english-mock-dashboard.png)
 
 CLI dashboard field settings:
 
-![StackSpend English CLI dashboard field settings](assets/install/stackspend-english-mock-dashboard-settings.png)
+![MoneySiren English CLI dashboard field settings](assets/install/moneysiren-english-mock-dashboard-settings.png)
 
 Desktop HUD:
 
-![StackSpend English mock HUD](assets/install/stackspend-english-mock-hud.png)
+![MoneySiren English mock HUD](assets/install/moneysiren-english-mock-hud.png)
 
 Notification and HUD settings:
 
-![StackSpend English notification and HUD settings](assets/install/stackspend-english-mock-hud-settings.png)
+![MoneySiren English notification and HUD settings](assets/install/moneysiren-english-mock-hud-settings.png)
 
 ## Korean Mock Screenshots
 
@@ -289,19 +289,19 @@ The following screenshots use the same fixture-backed SQLite database and Korean
 
 Dashboard overview:
 
-![StackSpend Korean mock dashboard](assets/install/stackspend-korean-mock-dashboard.png)
+![MoneySiren Korean mock dashboard](assets/install/moneysiren-korean-mock-dashboard.png)
 
 CLI dashboard field settings:
 
-![StackSpend Korean CLI dashboard field settings](assets/install/stackspend-korean-mock-dashboard-settings.png)
+![MoneySiren Korean CLI dashboard field settings](assets/install/moneysiren-korean-mock-dashboard-settings.png)
 
 Desktop HUD:
 
-![StackSpend Korean mock HUD](assets/install/stackspend-korean-mock-hud.png)
+![MoneySiren Korean mock HUD](assets/install/moneysiren-korean-mock-hud.png)
 
 Notification and HUD settings:
 
-![StackSpend Korean notification and HUD settings](assets/install/stackspend-korean-mock-hud-settings.png)
+![MoneySiren Korean notification and HUD settings](assets/install/moneysiren-korean-mock-hud-settings.png)
 
 ## Validation
 
@@ -322,7 +322,7 @@ git diff --check -- README.md docs/install.md
 ## Security Notes
 
 - Fixture sync commands use committed fake payloads under `tests/fixtures/providers`.
-- The `FAKE_STACKSPEND_INSTALL_GUIDE_*` values are examples only.
+- The `FAKE_MONEYSIREN_INSTALL_GUIDE_*` values are examples only.
 - Do not commit `.env`, API keys, account IDs, project IDs, invoice IDs, card data, emails from provider payloads, raw billing profiles, or webhook URLs.
 - Provider connectors must remain read-only.
 - Telemetry is off by default.

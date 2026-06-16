@@ -57,7 +57,7 @@ describe("connection status", () => {
   });
 
   it("reports a locked vault without exposing credential material", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "stackspend-web-connections-"));
+    const dir = await mkdtemp(join(tmpdir(), "moneysiren-web-connections-"));
     const vaultPath = join(dir, "locked-vault.json");
     const unlocked = createEncryptedVaultCredentialStore({
       passphrase: "fake passphrase",

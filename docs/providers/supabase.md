@@ -8,7 +8,7 @@ The CLI supports fake fixture mode for local review and a read-only live Managem
 
 ## Credentials
 
-Use env-only secrets in the invoking shell or process environment. Do not create `.env`, commit credentials, or store the token in StackSpend.
+Use env-only secrets in the invoking shell or process environment. Do not create `.env`, commit credentials, or store the token in MoneySiren.
 
 ```text
 # FAKE EXAMPLE ONLY. Do not use or commit real tokens.
@@ -17,11 +17,11 @@ SUPABASE_ACCESS_TOKEN=sbp_fake_supabase_access_token_for_docs
 
 ## Fixture Mode
 
-CLI fixture mode uses fake local JSON payloads and does not require credentials. When `STACKSPEND_SUPABASE_FIXTURE` is set, it takes precedence over live sync.
+CLI fixture mode uses fake local JSON payloads and does not require credentials. When `MONEYSIREN_SUPABASE_FIXTURE` is set, it takes precedence over live sync.
 
 ```text
 # FAKE EXAMPLE ONLY. Local test fixture path only.
-STACKSPEND_SUPABASE_FIXTURE=tests/fixtures/providers/supabase/usage-health.json
+MONEYSIREN_SUPABASE_FIXTURE=tests/fixtures/providers/supabase/usage-health.json
 ```
 
 Fixture payloads must use fake project refs, fake organization IDs, and fake usage values only. Do not copy provider exports that include real project IDs, account IDs, invoice IDs, emails, billing profiles, card data, or access tokens.
@@ -49,7 +49,7 @@ The connector must not call mutation endpoints, create or modify projects, chang
 
 Project IDs, project refs, and organization IDs must be redacted or hashed before persistence. Raw Management API responses, raw project payloads, raw billing profiles, and provider payload dumps must not be stored.
 
-Persist normalized StackSpend snapshots only. Do not persist `SUPABASE_ACCESS_TOKEN`, fixture paths containing secrets, real project refs, real organization IDs, invoice IDs, emails, card data, or telemetry.
+Persist normalized MoneySiren snapshots only. Do not persist `SUPABASE_ACCESS_TOKEN`, fixture paths containing secrets, real project refs, real organization IDs, invoice IDs, emails, card data, or telemetry.
 
 ## Risks
 

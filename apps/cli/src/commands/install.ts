@@ -16,7 +16,7 @@ import {
 } from "../install-selector.js";
 
 const INSTALL_USAGE = [
-  "Usage: stackspend install [--status|--all|--cli|--web|--hud|--no-cli|--no-web|--no-hud]",
+  "Usage: moneysiren install [--status|--all|--cli|--web|--hud|--no-cli|--no-web|--no-hud]",
   "",
   "Components:",
   installSelectionHelp(),
@@ -51,7 +51,7 @@ export async function runInstallCommand(args: readonly string[], context: CliExe
     now: context.now,
   });
 
-  context.stdout("StackSpend install profile updated.");
+  context.stdout("MoneySiren install profile updated.");
   context.stdout(formatInstallSelectionLine(profile.selectedSurfaces));
   context.stdout("Secrets returned: false");
   return 0;
@@ -63,7 +63,7 @@ async function writeInstallStatus(context: CliExecutionContext): Promise<number>
   });
   const selectedSurfaces = profile?.selectedSurfaces ?? DEFAULT_INSTALL_SURFACES;
 
-  context.stdout("StackSpend install profile");
+  context.stdout("MoneySiren install profile");
   context.stdout(`Status: ${profile === null ? "not configured; using recommended default" : "configured"}`);
   context.stdout(formatInstallSelectionLine(selectedSurfaces));
   context.stdout(`Recommended default: ${isDefaultSelection(selectedSurfaces) ? "yes" : "no"}`);

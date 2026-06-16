@@ -273,7 +273,7 @@ export async function setAwsProfileGlobally(
   const runCommand = options.runCommand ?? defaultRunCommand;
 
   if (platform !== "win32") {
-    throw new Error("Persisting AWS_PROFILE from StackSpend is currently supported on Windows only.");
+    throw new Error("Persisting AWS_PROFILE from MoneySiren is currently supported on Windows only.");
   }
 
   try {
@@ -297,7 +297,7 @@ export async function setAwsProfileGlobally(
     profileName: normalizedProfileName,
     target: "windows_user_environment",
     activeForCurrentProcess: true,
-    restartHint: "New terminals inherit the saved AWS_PROFILE. The current StackSpend server process was updated immediately.",
+    restartHint: "New terminals inherit the saved AWS_PROFILE. The current MoneySiren server process was updated immediately.",
   };
 }
 
@@ -425,12 +425,12 @@ function localAiCliStatusCacheKey(
 ): string {
   return JSON.stringify({
     claudeConfigDir: trimToNull(env.CLAUDE_CONFIG_DIR),
-    claudeFiveHourLimit: trimToNull(env.STACKSPEND_CLAUDE_FIVE_HOUR_TOKEN_LIMIT),
-    claudeWeeklyLimit: trimToNull(env.STACKSPEND_CLAUDE_WEEKLY_TOKEN_LIMIT),
+    claudeFiveHourLimit: trimToNull(env.MONEYSIREN_CLAUDE_FIVE_HOUR_TOKEN_LIMIT),
+    claudeWeeklyLimit: trimToNull(env.MONEYSIREN_CLAUDE_WEEKLY_TOKEN_LIMIT),
     codexHome: trimToNull(env.CODEX_HOME),
-    codexSessionsDir: trimToNull(env.STACKSPEND_CODEX_SESSIONS_DIR),
-    codexFiveHourLimit: trimToNull(env.STACKSPEND_CODEX_FIVE_HOUR_TOKEN_LIMIT),
-    codexWeeklyLimit: trimToNull(env.STACKSPEND_CODEX_WEEKLY_TOKEN_LIMIT),
+    codexSessionsDir: trimToNull(env.MONEYSIREN_CODEX_SESSIONS_DIR),
+    codexFiveHourLimit: trimToNull(env.MONEYSIREN_CODEX_FIVE_HOUR_TOKEN_LIMIT),
+    codexWeeklyLimit: trimToNull(env.MONEYSIREN_CODEX_WEEKLY_TOKEN_LIMIT),
     homeDir,
     providerKeys: [...providerKeys].sort(),
   });
@@ -495,7 +495,7 @@ async function readCodexCliUsage(context: {
   homeDir: string;
   now: Date;
 }): Promise<LocalCliUsageSummary> {
-  const sessionsRoot = trimToNull(context.env.STACKSPEND_CODEX_SESSIONS_DIR) ??
+  const sessionsRoot = trimToNull(context.env.MONEYSIREN_CODEX_SESSIONS_DIR) ??
     join(trimToNull(context.env.CODEX_HOME) ?? join(context.homeDir, ".codex"), "sessions");
   const result = await readJsonlUsageFiles({
     env: context.env,
@@ -1385,10 +1385,10 @@ function createUsageAccumulator(
 ): UsageAccumulator {
   const statusLine = emptyStatusLineUsage();
   const fiveHourLimit = readConfiguredTokenLimit(
-    env[providerKind === "codex" ? "STACKSPEND_CODEX_FIVE_HOUR_TOKEN_LIMIT" : "STACKSPEND_CLAUDE_FIVE_HOUR_TOKEN_LIMIT"],
+    env[providerKind === "codex" ? "MONEYSIREN_CODEX_FIVE_HOUR_TOKEN_LIMIT" : "MONEYSIREN_CLAUDE_FIVE_HOUR_TOKEN_LIMIT"],
   );
   const weeklyLimit = readConfiguredTokenLimit(
-    env[providerKind === "codex" ? "STACKSPEND_CODEX_WEEKLY_TOKEN_LIMIT" : "STACKSPEND_CLAUDE_WEEKLY_TOKEN_LIMIT"],
+    env[providerKind === "codex" ? "MONEYSIREN_CODEX_WEEKLY_TOKEN_LIMIT" : "MONEYSIREN_CLAUDE_WEEKLY_TOKEN_LIMIT"],
   );
 
   statusLine.fiveHourLimitTokens = fiveHourLimit;

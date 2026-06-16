@@ -36,7 +36,7 @@ export function resolveSlashCommand(args: readonly string[]): SlashDispatch {
     return {
       kind: "error",
       message: "Slash commands must start with `/`.",
-      usage: "Run `stackspend /help` for slash usage.",
+      usage: "Run `moneysiren /help` for slash usage.",
     };
   }
 
@@ -101,19 +101,19 @@ export function resolveSlashCommand(args: readonly string[]): SlashDispatch {
       };
     }
 
-    return invalidUsage(command, "Usage: stackspend /quit");
+    return invalidUsage(command, "Usage: moneysiren /quit");
   }
 
   return {
     kind: "error",
     message: `Unknown slash command: ${formatSlashCommand(args)}`,
-    usage: "Run `stackspend /help` for slash usage.",
+    usage: "Run `moneysiren /help` for slash usage.",
   };
 }
 
 function noExtraArgs(command: string, rest: readonly string[], mappedArgs: readonly string[]): SlashDispatch {
   if (rest.length > 0) {
-    return invalidUsage(command, `Usage: stackspend ${command}`);
+    return invalidUsage(command, `Usage: moneysiren ${command}`);
   }
 
   return {
@@ -139,7 +139,7 @@ function resolveDashboardSlash(rest: readonly string[]): SlashDispatch {
     };
   }
 
-  return invalidUsage("/dashboard", "Usage: stackspend /dashboard [check]");
+  return invalidUsage("/dashboard", "Usage: moneysiren /dashboard [check]");
 }
 
 function resolveInstallSlash(rest: readonly string[]): SlashDispatch {
@@ -167,7 +167,7 @@ function resolveSyncSlash(rest: readonly string[]): SlashDispatch {
   const [provider, ...extra] = rest;
 
   if (provider === undefined || extra.length > 0 || !isSupportedSyncProvider(provider)) {
-    return invalidUsage("/sync", "Usage: stackspend /sync <mock|aws|openai|supabase|cloudflare>");
+    return invalidUsage("/sync", "Usage: moneysiren /sync <mock|aws|openai|supabase|cloudflare>");
   }
 
   return {
@@ -178,7 +178,7 @@ function resolveSyncSlash(rest: readonly string[]): SlashDispatch {
 
 function resolveSummarySlash(rest: readonly string[]): SlashDispatch {
   if (rest.length !== 1 || rest[0] !== "json") {
-    return invalidUsage("/summary", "Usage: stackspend /summary json");
+    return invalidUsage("/summary", "Usage: moneysiren /summary json");
   }
 
   return {
@@ -202,12 +202,12 @@ function resolveNotifySlash(rest: readonly string[]): SlashDispatch {
     };
   }
 
-  return invalidUsage("/notify", "Usage: stackspend /notify <dry-run|prefs>");
+  return invalidUsage("/notify", "Usage: moneysiren /notify <dry-run|prefs>");
 }
 
 function resolveDesktopSlash(rest: readonly string[]): SlashDispatch {
   if (rest.length !== 1 || rest[0] !== "status") {
-    return invalidUsage("/desktop", "Usage: stackspend /desktop status");
+    return invalidUsage("/desktop", "Usage: moneysiren /desktop status");
   }
 
   return {
@@ -218,7 +218,7 @@ function resolveDesktopSlash(rest: readonly string[]): SlashDispatch {
 
 function resolveReportSlash(rest: readonly string[]): SlashDispatch {
   if (rest.length !== 1 || rest[0] !== "ko") {
-    return invalidUsage("/report", "Usage: stackspend /report ko");
+    return invalidUsage("/report", "Usage: moneysiren /report ko");
   }
 
   return {
@@ -232,7 +232,7 @@ function resolveThemeSlash(rest: readonly string[]): SlashDispatch {
 
   if (subcommand === "preview" || subcommand === "image-prompt") {
     if (extra.length > 0) {
-      return invalidUsage("/theme", "Usage: stackspend /theme <preview|image-prompt|image-generate>");
+      return invalidUsage("/theme", "Usage: moneysiren /theme <preview|image-prompt|image-generate>");
     }
 
     return {
@@ -248,7 +248,7 @@ function resolveThemeSlash(rest: readonly string[]): SlashDispatch {
     };
   }
 
-  return invalidUsage("/theme", "Usage: stackspend /theme <preview|image-prompt|image-generate>");
+  return invalidUsage("/theme", "Usage: moneysiren /theme <preview|image-prompt|image-generate>");
 }
 
 function invalidUsage(command: string, usage: string): SlashDispatch {

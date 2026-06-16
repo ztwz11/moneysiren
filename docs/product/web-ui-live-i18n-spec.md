@@ -1,4 +1,4 @@
-# StackSpend Web UI Live + i18n Spec
+# MoneySiren Web UI Live + i18n Spec
 
 ```text
 SPEC_LOCKED: YES
@@ -11,7 +11,7 @@ Replace the alpha single-page SQLite-only dashboard with a route-based local ope
 
 ## Product Model
 
-StackSpend displays two different data classes:
+MoneySiren displays two different data classes:
 
 - `canonical`: normalized SQLite data finalized through the previous local dashboard day.
 - `live_today`: provisional data fetched on demand for the current dashboard day.
@@ -20,8 +20,8 @@ StackSpend displays two different data classes:
 
 ## Time Boundary
 
-- `STACKSPEND_TIMEZONE` defines the dashboard day boundary.
-- If unset, StackSpend uses the host OS timezone.
+- `MONEYSIREN_TIMEZONE` defines the dashboard day boundary.
+- If unset, MoneySiren uses the host OS timezone.
 - Stored timestamps remain UTC ISO strings.
 - Dashboard grouping converts timestamps into the dashboard timezone.
 - `Confirmed through yesterday` means the last complete day before the current dashboard date.
@@ -164,7 +164,7 @@ Do not translate:
 
 ## Visual Direction
 
-StackSpend is an operational tool, not a marketing page.
+MoneySiren is an operational tool, not a marketing page.
 
 - Use a quiet, dense dashboard layout.
 - Prefer tables, compact panels, status badges, segmented navigation, and clear hierarchy.

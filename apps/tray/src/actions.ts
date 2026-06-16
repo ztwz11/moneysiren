@@ -135,7 +135,7 @@ export const DEFAULT_TRAY_ACTIONS: readonly TrayAction[] = [
   },
   {
     id: "quit",
-    label: "Quit StackSpend",
+    label: "Quit MoneySiren",
     kind: "quit",
     intent: "quit",
     enabled: true,

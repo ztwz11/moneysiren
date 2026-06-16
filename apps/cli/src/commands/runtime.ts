@@ -6,9 +6,9 @@ import {
   type StartRuntimeResult,
 } from "../runtime-adapter.js";
 
-const SERVE_USAGE = "Usage: stackspend serve [--port <port>]";
-const OPEN_USAGE = "Usage: stackspend open";
-const DESKTOP_USAGE = "Usage: stackspend desktop status";
+const SERVE_USAGE = "Usage: moneysiren serve [--port <port>]";
+const OPEN_USAGE = "Usage: moneysiren open";
+const DESKTOP_USAGE = "Usage: moneysiren desktop status";
 
 interface ParsedServeArgs {
   port?: number;
@@ -32,7 +32,7 @@ export async function runServeCommand(args: readonly string[], context: CliExecu
     ...(parsed.port === undefined ? {} : { port: parsed.port }),
   });
 
-  return writeStartRuntimeResult(context, result, "StackSpend local runtime");
+  return writeStartRuntimeResult(context, result, "MoneySiren local runtime");
 }
 
 export async function runOpenCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
@@ -58,15 +58,15 @@ export async function runOpenCommand(args: readonly string[], context: CliExecut
       };
 
   if (startResult.status === "unavailable") {
-    return writeStartRuntimeResult(context, startResult, "StackSpend open");
+    return writeStartRuntimeResult(context, startResult, "MoneySiren open");
   }
 
-  context.stdout("StackSpend local API runtime ready");
+  context.stdout("MoneySiren local API runtime ready");
   context.stdout(`Runtime: ${startResult.status}`);
   context.stdout(`Local API URL: ${startResult.runtime.baseUrl}`);
   context.stdout("Dashboard UI: not opened because this runtime URL is a JSON API.");
   context.stdout("Start the web dashboard:");
-  context.stdout("  pnpm --filter @stackspend/web dev");
+  context.stdout("  pnpm --filter @moneysiren/web dev");
   context.stdout("Then open: http://localhost:3000");
   return 0;
 }
@@ -87,13 +87,13 @@ export async function runDesktopCommand(args: readonly string[], context: CliExe
   const adapter = runtimeAdapter(context);
   const runtime = await adapter.findRuntime();
 
-  context.stdout("StackSpend desktop status");
+  context.stdout("MoneySiren desktop status");
 
   if (runtime === null) {
     context.stdout("Runtime: not running");
     context.stdout("Runtime lock: not found");
     context.stdout("Desktop shell: not detected by CLI");
-    context.stdout("Next step: run `stackspend serve` or start the native tray app.");
+    context.stdout("Next step: run `moneysiren serve` or start the native tray app.");
     return 0;
   }
 

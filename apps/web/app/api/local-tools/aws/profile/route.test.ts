@@ -21,7 +21,7 @@ describe("AWS local profile route", () => {
       generatedAt: "2026-06-09T00:00:00.000Z",
       localOnly: true,
       secretsReturned: false,
-      profileName: "stackspend-readonly",
+      profileName: "moneysiren-readonly",
       target: "windows_user_environment",
       activeForCurrentProcess: true,
       restartHint: "New terminals inherit the saved AWS_PROFILE.",
@@ -34,17 +34,17 @@ describe("AWS local profile route", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        profileName: "stackspend-readonly",
+        profileName: "moneysiren-readonly",
       }),
     }));
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(setAwsProfileGloballyMock).toHaveBeenCalledWith("stackspend-readonly");
+    expect(setAwsProfileGloballyMock).toHaveBeenCalledWith("moneysiren-readonly");
     expect(payload).toMatchObject({
       localOnly: true,
       secretsReturned: false,
-      profileName: "stackspend-readonly",
+      profileName: "moneysiren-readonly",
       target: "windows_user_environment",
     });
     expect(JSON.stringify(payload)).not.toContain("AWS_SECRET_ACCESS_KEY");
@@ -55,7 +55,7 @@ describe("AWS local profile route", () => {
       generatedAt: "2026-06-09T00:00:00.000Z",
       localOnly: true,
       secretsReturned: false,
-      profileName: "stackspend-readonly",
+      profileName: "moneysiren-readonly",
       target: "windows_user_environment",
       activeForCurrentProcess: true,
       restartHint: "New terminals inherit the saved AWS_PROFILE.",
@@ -70,12 +70,12 @@ describe("AWS local profile route", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        profileName: "stackspend-readonly",
+        profileName: "moneysiren-readonly",
       }),
     }));
 
     expect(response.status).toBe(200);
-    expect(setAwsProfileGloballyMock).toHaveBeenCalledWith("stackspend-readonly");
+    expect(setAwsProfileGloballyMock).toHaveBeenCalledWith("moneysiren-readonly");
   });
 
   it("rejects AWS_PROFILE persistence without CSRF", async () => {
@@ -87,7 +87,7 @@ describe("AWS local profile route", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        profileName: "stackspend-readonly",
+        profileName: "moneysiren-readonly",
       }),
     }));
 
@@ -113,6 +113,6 @@ async function createLocalSessionHeaders(): Promise<Record<string, string>> {
     host: "127.0.0.1:3000",
     origin: "http://127.0.0.1:3000",
     cookie: response.headers.get("set-cookie") ?? "",
-    "x-stackspend-csrf": payload.csrfToken,
+    "x-moneysiren-csrf": payload.csrfToken,
   };
 }

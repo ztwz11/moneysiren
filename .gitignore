@@ -12,6 +12,7 @@ coverage/
 tmp/
 .tmp/
 *.log
+.moneysiren/
 .stackspend/
 var/
 apps/tray/src-tauri/target/

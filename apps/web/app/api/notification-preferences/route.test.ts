@@ -6,17 +6,17 @@ import { clearLocalSecurityState } from "../../../lib/local-security";
 import { POST as createSession } from "../auth/session/route";
 import { GET, PUT } from "./route";
 
-const ORIGINAL_PREFS_PATH = process.env.STACKSPEND_NOTIFICATION_PREFS_PATH;
+const ORIGINAL_PREFS_PATH = process.env.MONEYSIREN_NOTIFICATION_PREFS_PATH;
 
 beforeEach(async () => {
   clearLocalSecurityState();
-  const dir = await mkdtemp(join(tmpdir(), "stackspend-notification-prefs-"));
-  process.env.STACKSPEND_NOTIFICATION_PREFS_PATH = join(dir, "notification-preferences.json");
+  const dir = await mkdtemp(join(tmpdir(), "moneysiren-notification-prefs-"));
+  process.env.MONEYSIREN_NOTIFICATION_PREFS_PATH = join(dir, "notification-preferences.json");
 });
 
 afterEach(() => {
   clearLocalSecurityState();
-  restoreEnv("STACKSPEND_NOTIFICATION_PREFS_PATH", ORIGINAL_PREFS_PATH);
+  restoreEnv("MONEYSIREN_NOTIFICATION_PREFS_PATH", ORIGINAL_PREFS_PATH);
 });
 
 describe("notification preference route", () => {
@@ -153,7 +153,7 @@ async function createLocalSessionHeaders(): Promise<Record<string, string>> {
 
   return {
     cookie: response.headers.get("set-cookie") ?? "",
-    "x-stackspend-csrf": payload.csrfToken,
+    "x-moneysiren-csrf": payload.csrfToken,
   };
 }
 

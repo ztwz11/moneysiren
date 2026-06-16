@@ -6,13 +6,13 @@ const PROVIDER_ORDER: readonly ConfiguredProvider[] = ["aws", "openai", "supabas
 
 export async function runDoctorCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   if (args.length > 0) {
-    context.stderr("Usage: stackspend doctor");
+    context.stderr("Usage: moneysiren doctor");
     return 1;
   }
 
   const config = loadCliConfig(context.env);
 
-  context.stdout("StackSpend doctor");
+  context.stdout("MoneySiren doctor");
   context.stdout(`DB path: ${config.dbPath}`);
   context.stdout(`telemetry: ${config.telemetryEnabled ? "enabled" : "disabled"}`);
   context.stdout("mock provider: available");

@@ -71,7 +71,7 @@ export async function pollNotificationDigestOnce(
       shouldNotify: false,
       reason: "health_unavailable",
       fingerprint: "health_unavailable",
-      title: "StackSpend",
+      title: "MoneySiren",
       body: "Local API health is unavailable.",
     };
   }
@@ -91,7 +91,7 @@ export function evaluateNotificationDigest(
 ): NotificationDecision {
   const now = options.now ?? new Date();
   const fingerprint = computeDigestFingerprint(digest);
-  const title = digest.title.trim().length > 0 ? digest.title : "StackSpend";
+  const title = digest.title.trim().length > 0 ? digest.title : "MoneySiren";
   const body = digest.body ?? summarizeDigestItems(digest.items);
   const baseDecision = {
     fingerprint,

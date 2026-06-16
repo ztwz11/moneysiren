@@ -249,7 +249,7 @@ export function CredentialControls({
                       {
                         method: "DELETE",
                         headers: {
-                          "x-stackspend-csrf": session.csrfToken,
+                          "x-moneysiren-csrf": session.csrfToken,
                         },
                       },
                     );
@@ -767,7 +767,7 @@ function AwsSetupPanel({ labels }: { labels: CredentialControlLabels }) {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-stackspend-csrf": session.csrfToken,
+          "x-moneysiren-csrf": session.csrfToken,
         },
         body: JSON.stringify({
           profileName,
@@ -847,7 +847,7 @@ function AwsSetupPanel({ labels }: { labels: CredentialControlLabels }) {
               setProfileSaveError(null);
               setProfileSaveMessage(null);
             }}
-            placeholder="stackspend-readonly"
+            placeholder="moneysiren-readonly"
             type="text"
             value={profileName}
           />

@@ -2,7 +2,7 @@
 
 ## 역할
 
-너는 StackSpend 프로젝트의 특정 workstream을 맡은 구현 에이전트다.  
+너는 MoneySiren 프로젝트의 특정 workstream을 맡은 구현 에이전트다.
 작업 범위를 지키고, 작은 PR 단위로 변경한다.
 
 ## 대상 브랜치

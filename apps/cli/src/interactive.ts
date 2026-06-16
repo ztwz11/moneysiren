@@ -10,7 +10,7 @@ export async function runSlashPrompt(
     return 0;
   }
 
-  const prompt = context.theme.command("stackspend> ");
+  const prompt = context.theme.command("moneysiren> ");
   const readline = createInterface({
     input: context.stdin,
     output: context.output,

@@ -1,14 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "stackspend-local-desktop",
-  "description": "Local StackSpend desktop windows can drag, minimize, close, and toggle always-on-top.",
+  "identifier": "moneysiren-local-desktop",
+  "description": "Local MoneySiren desktop windows can drag, minimize, close, and toggle always-on-top.",
   "remote": {
     "urls": [
       "http://127.0.0.1:3000/*",
       "http://localhost:3000/*"
     ]
   },
-  "windows": ["main", "stackspend-hud"],
+  "windows": ["main", "moneysiren-hud"],
   "permissions": [
     "core:default",
     "core:window:allow-close",

@@ -6,7 +6,7 @@
   Fix: no blocking fix required.
 
 **Open Questions**
-- The reference image is populated with sample services and saved credentials; this local capture is an empty-state dashboard because no local StackSpend data is saved. That content mismatch is expected for the current runtime state.
+- The reference image is populated with sample services and saved credentials; this local capture is an empty-state dashboard because no local MoneySiren data is saved. That content mismatch is expected for the current runtime state.
 - Provider marks now use downloaded local SVG assets from `apps/web/public/provider-icons/`. The assets were generated with `C:\Users\chunjae\Downloads\brand-svg-icon-pack-builder\icon-pack-builder\download-icons.mjs`.
 
 **Implementation Checklist**

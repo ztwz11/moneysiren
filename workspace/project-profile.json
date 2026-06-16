@@ -1,8 +1,8 @@
 {
-  "project_name": "stackspend",
+  "project_name": "moneysiren",
   "commands": {
     "install": "pnpm install",
-    "dev": "pnpm --filter @stackspend/web dev",
+    "dev": "pnpm --filter @moneysiren/web dev",
     "build": "pnpm build",
     "test": "pnpm test",
     "lint": "pnpm lint",
@@ -31,7 +31,7 @@
   "evidence_paths": {
     "plans": "docs/product",
     "reviews": "docs/reviews",
-    "artifacts": ".stackspend/artifacts"
+    "artifacts": ".moneysiren/artifacts"
   },
   "template": {
     "family": "local-first-typescript-monorepo",
@@ -49,10 +49,10 @@
     "M8/S8-slack-report completed locally.",
     "M9/S9-local-dashboard completed locally.",
     "M10/S10-alpha-release is the current approved slice; canonical details live in docs/product/execution-plan.md.",
-    "M10/S10-alpha-release now includes @stackspend/cli public alpha npm packageability and tarball install review.",
+    "M10/S10-alpha-release now includes moneysiren public alpha npm packageability and tarball install review.",
     "Do not create .env; use env-only secrets only.",
-    "Cloudflare fixture mode uses STACKSPEND_CLOUDFLARE_FIXTURE with fake local payloads only.",
-    "Slack delivery uses SLACK_WEBHOOK_URL only when stackspend report daily --lang ko --send slack is requested.",
+    "Cloudflare fixture mode uses MONEYSIREN_CLOUDFLARE_FIXTURE with fake local payloads only.",
+    "Slack delivery uses SLACK_WEBHOOK_URL only when moneysiren report daily --lang ko --send slack is requested.",
     "Slack tests must use injectable transport and must not call live Slack.",
     "Local dashboard reads normalized SQLite snapshots and returns a safe empty state when the database is missing.",
     "Docker and Compose are local self-host/dev review paths only and must not embed secrets.",

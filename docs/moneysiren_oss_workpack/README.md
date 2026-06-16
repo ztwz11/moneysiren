@@ -1,6 +1,6 @@
-# StackSpend Three Runtime Modes Workpack
+# MoneySiren Three Runtime Modes Workpack
 
-이 작업팩은 StackSpend를 다음 3가지 사용 방식으로 제공하기 위한 설계와 병렬 작업 지침이다.
+이 작업팩은 MoneySiren를 다음 3가지 사용 방식으로 제공하기 위한 설계와 병렬 작업 지침이다.
 
 1. 로컬 웹 대시보드: 브라우저에서 전체 사용량, 연결 설정, 리스크, 상세 화면 확인
 2. CLI: 터미널에서 init, doctor, sync, report, summary, notify, serve, open 실행

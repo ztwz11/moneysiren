@@ -1,6 +1,6 @@
-# StackSpend Tray Tauri Scaffold
+# MoneySiren Tray Tauri Scaffold
 
-This directory is the Tauri tray shell for the local StackSpend desktop surface.
+This directory is the Tauri tray shell for the local MoneySiren desktop surface.
 
 The TypeScript package defines the local API client, action model, and notification suppression model. The native entrypoint currently provides:
 

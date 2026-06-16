@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const ALLOWED_WORKSPACE_SCRIPTS = new Set(["build", "test", "typecheck", "lint"]);
-const RUNTIME_WORKSPACE_PACKAGES = new Set(["@stackspend/cli", "@stackspend/web", "@stackspend/tray"]);
+const RUNTIME_WORKSPACE_PACKAGES = new Set(["moneysiren", "@moneysiren/web", "@moneysiren/tray"]);
 const RUNTIME_WORKSPACE_SCRIPTS = new Set(["dev", "start", "tauri:dev", "tauri:build", "tauri:build:unsigned"]);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../..");
@@ -14,12 +14,12 @@ const env = {
 };
 
 if (env.COREPACK_HOME === undefined || env.COREPACK_HOME.trim().length === 0) {
-  env.COREPACK_HOME = resolve(repoRoot, ".stackspend", "corepack");
+  env.COREPACK_HOME = resolve(repoRoot, ".moneysiren", "corepack");
 }
 
-if (env.STACKSPEND_DB_PATH === undefined || env.STACKSPEND_DB_PATH.trim().length === 0) {
+if (env.MONEYSIREN_DB_PATH === undefined || env.MONEYSIREN_DB_PATH.trim().length === 0) {
   if (usesRuntimeWorkspace(args)) {
-    env.STACKSPEND_DB_PATH = resolve(repoRoot, ".stackspend", "stackspend.sqlite");
+    env.MONEYSIREN_DB_PATH = resolve(repoRoot, ".moneysiren", "moneysiren.sqlite");
   }
 }
 
@@ -36,7 +36,7 @@ if (args[0] === "--workspace-script") {
   pnpmArgs = ["-r", workspaceScript];
 
   if (workspaceScript === "test") {
-    const tmpDir = resolve(repoRoot, ".stackspend", "tmp");
+    const tmpDir = resolve(repoRoot, ".moneysiren", "tmp");
     mkdirSync(tmpDir, { recursive: true });
     env.TMPDIR = tmpDir;
   }

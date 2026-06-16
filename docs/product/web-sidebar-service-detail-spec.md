@@ -1,4 +1,4 @@
-# StackSpend Sidebar + Service Detail Spec
+# MoneySiren Sidebar + Service Detail Spec
 
 ```text
 SPEC_LOCKED: YES

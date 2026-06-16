@@ -56,7 +56,7 @@ describe("local API client", () => {
   });
 
   it("rejects non-loopback hosts and unapproved paths", async () => {
-    expect(() => buildLocalApiUrl("https://stackspend.example", LOCAL_API_ENDPOINTS.health)).toThrow(/loopback/i);
+    expect(() => buildLocalApiUrl("https://moneysiren.example", LOCAL_API_ENDPOINTS.health)).toThrow(/loopback/i);
     expect(() =>
       buildLocalApiUrl("http://127.0.0.1:47831", "/api/local/credentials" as LocalApiEndpointPath)
     ).toThrow(/not allowed/i);
@@ -95,8 +95,8 @@ function responseForPath(pathname: string): unknown {
   if (pathname === LOCAL_API_ENDPOINTS.trayMenu) {
     return {
       ...envelope,
-      title: "StackSpend",
-      tooltip: "StackSpend local status",
+      title: "MoneySiren",
+      tooltip: "MoneySiren local status",
       status: "ok",
       items: [],
     };
@@ -105,7 +105,7 @@ function responseForPath(pathname: string): unknown {
   if (pathname === LOCAL_API_ENDPOINTS.notificationDigest) {
     return {
       ...envelope,
-      title: "StackSpend",
+      title: "MoneySiren",
       body: "Today live USD 0.00",
       severity: "info",
       suppressedReason: null,

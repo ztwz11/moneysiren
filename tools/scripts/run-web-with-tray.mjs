@@ -27,13 +27,13 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 }
 
 const dashboardUrl = options.dashboardUrl ??
-  process.env.STACKSPEND_WEB_URL ??
+  process.env.MONEYSIREN_WEB_URL ??
   (options.desktopMode === "hud" ? "http://127.0.0.1:3000/hud?locale=ko" : "http://127.0.0.1:3000/ko/dashboard/overview");
 
 if (!options.skipWeb) {
   children.push(startProcess({
     name: "web",
-    args: [runPnpmScript, "--filter", "@stackspend/web", options.webScript],
+    args: [runPnpmScript, "--filter", "@moneysiren/web", options.webScript],
   }));
 }
 
@@ -76,13 +76,13 @@ function startProcess(processSpec) {
 function startTrayProcess(trayMode, desktopMode) {
   const trayEnv = {
     ...process.env,
-    STACKSPEND_DESKTOP_MODE: desktopMode,
+    MONEYSIREN_DESKTOP_MODE: desktopMode,
   };
 
   if (trayMode === "dev") {
     return startProcess({
       name: "tray",
-      args: [runPnpmScript, "--filter", "@stackspend/tray", "tauri:dev"],
+      args: [runPnpmScript, "--filter", "@moneysiren/tray", "tauri:dev"],
       env: trayEnv,
     });
   }
@@ -117,19 +117,19 @@ function builtTrayExecutableCandidates(platform) {
 
   if (platform === "win32") {
     return [
-      resolve(releaseDir, "stackspend-tray.exe"),
+      resolve(releaseDir, "moneysiren-tray.exe"),
     ];
   }
 
   if (platform === "darwin") {
     return [
-      resolve(releaseDir, "bundle/macos/StackSpend Tray.app/Contents/MacOS/StackSpend Tray"),
-      resolve(releaseDir, "stackspend-tray"),
+      resolve(releaseDir, "bundle/macos/MoneySiren Tray.app/Contents/MacOS/MoneySiren Tray"),
+      resolve(releaseDir, "moneysiren-tray"),
     ];
   }
 
   return [
-    resolve(releaseDir, "stackspend-tray"),
+    resolve(releaseDir, "moneysiren-tray"),
   ];
 }
 

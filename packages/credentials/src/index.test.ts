@@ -44,7 +44,7 @@ describe("credential store abstraction", () => {
   });
 
   it("stores fallback vault secrets encrypted on disk", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "stackspend-credentials-"));
+    const dir = await mkdtemp(join(tmpdir(), "moneysiren-credentials-"));
     const vaultPath = join(dir, "credentials-vault.json");
     const store = createEncryptedVaultCredentialStore({
       vaultPath,
@@ -72,7 +72,7 @@ describe("credential store abstraction", () => {
   });
 
   it("does not delete existing vault credentials while testing store writability", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "stackspend-credentials-"));
+    const dir = await mkdtemp(join(tmpdir(), "moneysiren-credentials-"));
     const vaultPath = join(dir, "credentials-vault.json");
     const store = createEncryptedVaultCredentialStore({
       vaultPath,
@@ -146,7 +146,7 @@ describe("credential store abstraction", () => {
   });
 
   it("reports an existing encrypted vault as locked when no passphrase is loaded", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "stackspend-credentials-"));
+    const dir = await mkdtemp(join(tmpdir(), "moneysiren-credentials-"));
     const vaultPath = join(dir, "credentials-vault.json");
     const unlocked = createEncryptedVaultCredentialStore({
       vaultPath,
@@ -174,7 +174,7 @@ describe("credential store abstraction", () => {
   it("supports an injectable OS keychain-compatible backend", async () => {
     const entries = new Map<string, string>();
     const store = createOsKeychainCredentialStore({
-      serviceName: "StackSpendTests",
+      serviceName: "MoneySirenTests",
       now: () => FIXED_NOW,
       async loadKeyring() {
         return {

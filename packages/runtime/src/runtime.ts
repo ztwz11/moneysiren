@@ -22,7 +22,7 @@ export interface RuntimeHealthCheckOptions {
   timeoutMs?: number;
 }
 
-const RUNTIME_LOCK_ENV_KEY = "STACKSPEND_RUNTIME_LOCK_PATH";
+const RUNTIME_LOCK_ENV_KEY = "MONEYSIREN_RUNTIME_LOCK_PATH";
 const DEFAULT_HEALTH_TIMEOUT_MS = 2_000;
 
 export function isLoopbackHost(host: string): boolean {
@@ -38,7 +38,7 @@ export function isLoopbackHost(host: string): boolean {
 
 export function assertLoopbackHost(host: string): void {
   if (!isLoopbackHost(host)) {
-    throw new Error("StackSpend local runtime must bind to a loopback host.");
+    throw new Error("MoneySiren local runtime must bind to a loopback host.");
   }
 }
 
@@ -186,7 +186,7 @@ function parseLoopbackUrl(value: string): URL {
   const parsedUrl = new URL(value);
 
   if (parsedUrl.protocol !== "http:") {
-    throw new Error("StackSpend local runtime must use http on loopback.");
+    throw new Error("MoneySiren local runtime must use http on loopback.");
   }
 
   assertLoopbackHost(parsedUrl.hostname);
@@ -200,16 +200,16 @@ function resolveRuntimePath(path: string, cwd = process.cwd()): string {
 
 function defaultRuntimeLockPath(env: Record<string, string | undefined>, platform: NodeJS.Platform): string {
   if (platform === "darwin") {
-    return joinForPlatform(platform, resolveHomeDirectory(env), "Library", "Application Support", "StackSpend", "runtime.json");
+    return joinForPlatform(platform, resolveHomeDirectory(env), "Library", "Application Support", "MoneySiren", "runtime.json");
   }
 
   if (platform === "win32") {
-    return joinForPlatform(platform, resolveWindowsAppDataDirectory(env), "StackSpend", "runtime.json");
+    return joinForPlatform(platform, resolveWindowsAppDataDirectory(env), "MoneySiren", "runtime.json");
   }
 
   const configHome = trimToNull(env.XDG_CONFIG_HOME) ?? joinForPlatform(platform, resolveHomeDirectory(env), ".config");
 
-  return joinForPlatform(platform, configHome, "stackspend", "runtime.json");
+  return joinForPlatform(platform, configHome, "moneysiren", "runtime.json");
 }
 
 function resolveWindowsAppDataDirectory(env: Record<string, string | undefined>): string {

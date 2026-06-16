@@ -5,7 +5,7 @@ export {
   type ProviderConfig,
   type ProviderConfigMap,
   type SlackConfig,
-  type StackSpendConfig,
-  type StackSpendEnv,
+  type MoneySirenConfig,
+  type MoneySirenEnv,
 } from "./schema.js";
-export { loadStackSpendConfig } from "./load.js";
+export { loadMoneySirenConfig } from "./load.js";

@@ -117,7 +117,7 @@ jobs:
       - run: npm run tray:native:check
 
       - name: Build unsigned desktop bundle
-        run: node tools/scripts/run-pnpm.mjs --filter @moneysiren/tray tauri:build:unsigned -- --bundles ${{ matrix.bundles }}
+        run: node tools/scripts/run-pnpm.mjs --filter @moneysiren/tray tauri:build:unsigned --ci --no-sign --bundles ${{ matrix.bundles }}
 
       - name: Collect Windows installer
         if: runner.os == 'Windows'

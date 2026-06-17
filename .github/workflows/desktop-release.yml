@@ -227,6 +227,26 @@ jobs:
             ForEach-Object { "$($_.Hash.ToLower())  $([System.IO.Path]::GetFileName($_.Path))" } |
             Set-Content dist\desktop-release\moneysiren-tray-windows-SHA256SUMS.txt
 
+      - name: Verify Windows installer signature
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installers = @(Get-ChildItem -LiteralPath dist\desktop-release -Filter *.exe)
+          if ($installers.Count -eq 0) {
+            throw 'No Windows installer was collected for signature verification.'
+          }
+
+          foreach ($installer in $installers) {
+            $signature = Get-AuthenticodeSignature -LiteralPath $installer.FullName
+            if ($signature.Status -ne 'Valid') {
+              throw "Windows installer signature is not valid for $($installer.Name): $($signature.Status) $($signature.StatusMessage)"
+            }
+            if ($null -eq $signature.SignerCertificate) {
+              throw "Windows installer has no signer certificate: $($installer.Name)"
+            }
+          }
+
       - name: Collect macOS app archive
         if: runner.os == 'macOS'
         shell: bash
@@ -242,6 +262,21 @@ jobs:
           tar -czf "dist/desktop-release/${app_name}-macos-${RUNNER_ARCH}.tar.gz" -C "$(dirname "$app_path")" "$(basename "$app_path")"
           cd dist/desktop-release
           shasum -a 256 *.tar.gz > moneysiren-tray-macos-SHA256SUMS.txt
+
+      - name: Verify macOS app signature and notarization
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$(find apps/tray/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' -type d | head -n 1)"
+          if [ -z "$app_path" ]; then
+            echo "No macOS .app bundle found for signature verification." >&2
+            exit 1
+          fi
+
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          xcrun stapler validate "$app_path"
+          spctl -a -vv -t exec "$app_path"
 
       - uses: actions/upload-artifact@v4
         with:

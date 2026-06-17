@@ -489,13 +489,15 @@ async function verifyWindowsAuthenticodeSignature(
   path: string,
   expectedSignerThumbprints: readonly string[],
 ): Promise<ReleaseAssetSignatureVerificationResult> {
+  const literalPath = powerShellSingleQuotedString(path);
+
   try {
     const { stdout } = await execFileAsync("powershell.exe", [
       "-NoProfile",
       "-NonInteractive",
       "-Command",
       [
-        "$signature = Get-AuthenticodeSignature -LiteralPath $args[0]",
+        `$signature = Get-AuthenticodeSignature -LiteralPath ${literalPath}`,
         "$status = [string]$signature.Status",
         "$message = [string]$signature.StatusMessage",
         "if ($signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) {",
@@ -504,7 +506,6 @@ async function verifyWindowsAuthenticodeSignature(
         "}",
         "Write-Output ($status + \"|\" + $signature.SignerCertificate.Thumbprint + \"|\" + $signature.SignerCertificate.Subject)",
       ].join("; "),
-      path,
     ], {
       windowsHide: true,
       timeout: 30_000,
@@ -553,6 +554,10 @@ function parseThumbprintEnv(value: string | undefined): readonly string[] {
   }
 
   return value.split(/[,\s;]+/).map((part) => part.trim()).filter((part) => part.length > 0);
+}
+
+function powerShellSingleQuotedString(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 function sanitizeAssetFileName(name: string): string {

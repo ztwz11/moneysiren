@@ -247,6 +247,14 @@ node start.mjs
 
 Finally install/open the Windows or macOS desktop artifact from the same install directory. The desktop shell connects to `http://127.0.0.1:3000` for the dashboard and HUD. In this alpha, the native app does not yet embed or auto-start the web runtime.
 
+Release maintainers should verify published assets before announcing a desktop build:
+
+```bash
+npm run release:check -- --tag v0.1.0-alpha.0
+```
+
+The check downloads the published assets, verifies SHA256 entries, requires Windows signature metadata, and validates Windows Authenticode signatures when run on Windows.
+
 For local tarball review without publishing:
 
 ```bash

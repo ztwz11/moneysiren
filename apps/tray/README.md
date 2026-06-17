@@ -69,6 +69,14 @@ Optional repository variables:
 
 The desktop app remains a thin native shell in this alpha. It expects the local web runtime to be running on `http://127.0.0.1:3000`; it does not yet embed or auto-start the Next.js dashboard runtime.
 
+After publishing release assets, validate them from the repository root:
+
+```bash
+npm run release:check -- --tag v0.1.0-alpha.0
+```
+
+On Windows this check also rejects installers whose Authenticode signature is missing or invalid.
+
 ## Validation
 
 ```bash

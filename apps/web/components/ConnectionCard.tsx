@@ -2,15 +2,18 @@
 
 import { ChevronUp, ExternalLink } from "lucide-react";
 import { useState } from "react";
-import type { Messages } from "../lib/i18n";
+import type { Locale, Messages } from "../lib/i18n";
 import type { OperationsProvider } from "../lib/operations-data";
 import { CredentialControls } from "./CredentialControls";
 import { ProviderIcon } from "./ProviderIcon";
+import { ServiceRemediationPanel } from "./ServiceRemediation";
 
 export function ConnectionCard({
+  locale,
   messages,
   provider,
 }: {
+  locale: Locale;
   messages: Messages;
   provider: OperationsProvider;
 }) {
@@ -136,6 +139,7 @@ export function ConnectionCard({
           <span className="metric-label">{messages.settings.requiredEnv}</span>
           <RequirementLinks provider={provider} messages={messages} />
         </div>
+        <ServiceRemediationPanel locale={locale} service={provider} />
       </div>
     </article>
   );

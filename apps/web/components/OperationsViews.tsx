@@ -14,6 +14,11 @@ import { DashboardDisplaySettings } from "./DashboardDisplaySettings";
 import { LiveRefreshButton } from "./LiveRefreshButton";
 import { ProviderIcon } from "./ProviderIcon";
 import { RefreshPageButton } from "./RefreshPageButton";
+import {
+  ServiceRemediationHeader,
+  ServiceRemediationPanel,
+  ServiceRemediationSummary,
+} from "./ServiceRemediation";
 import type {
   OperationsDashboard,
   OperationsProvider,
@@ -368,6 +373,7 @@ export function RisksView({ dashboard, locale, messages, grouping = "service", g
                   <th>{messages.services.canonicalFreshness}</th>
                   <th>{messages.services.liveFreshness}</th>
                   <th>{messages.table.latest}</th>
+                  <th><ServiceRemediationHeader locale={locale} /></th>
                 </tr>
               </thead>
               <tbody>
@@ -382,6 +388,7 @@ export function RisksView({ dashboard, locale, messages, grouping = "service", g
                     <td><StatusBadge messages={messages} state={provider.canonicalFreshness} /></td>
                     <td><StatusBadge messages={messages} state={provider.liveFreshness} /></td>
                     <td>{formatOptionalDate(provider.latestCanonicalSync, locale, dashboard.timezone, messages)}</td>
+                    <td><ServiceRemediationSummary locale={locale} service={provider} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -430,6 +437,7 @@ export function ServiceDetail({
 
   return (
     <div className="stack">
+      <ServiceRemediationPanel locale={locale} service={provider} />
       <section className="metric-grid">
         <MetricCard
           label={messages.services.connection}
@@ -589,6 +597,7 @@ function LocalAiCliServiceDetail({
 
   return (
     <div className="stack">
+      <ServiceRemediationPanel locale={locale} service={provider} />
       {remainingRows.length === 0 ? null : (
         <section className="local-cli-usage-menu" aria-label={messages.settings.localCliRemaining}>
           <div className="local-cli-usage-header">
@@ -707,12 +716,12 @@ export function ProviderCatalogView({
   );
 }
 
-export function ConnectionsView({ dashboard, messages }: ViewProps) {
+export function ConnectionsView({ dashboard, locale, messages }: ViewProps) {
   return (
     <div className="stack">
       <div className="connection-card-list">
         {dashboard.providers.map((provider) => (
-          <ConnectionCard key={provider.providerKey} messages={messages} provider={provider} />
+          <ConnectionCard key={provider.providerKey} locale={locale} messages={messages} provider={provider} />
         ))}
       </div>
     </div>
@@ -775,12 +784,13 @@ function TodayLiveDisplayTables({
                 <th>{messages.services.liveGranularity}</th>
                 <th>{messages.services.latestLiveCheck}</th>
                 <th>{messages.services.confidence}</th>
+                <th><ServiceRemediationHeader locale={locale} /></th>
               </tr>
             </thead>
             <tbody>
               {amountRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>{emptyGroupLabel(amountTitle, rows.length, messages)}</td>
+                  <td colSpan={7}>{emptyGroupLabel(amountTitle, rows.length, messages)}</td>
                 </tr>
               ) : (
                 amountRows.map((provider) => (
@@ -802,6 +812,7 @@ function TodayLiveDisplayTables({
                     <td>{labelFor(messages, provider.liveGranularity)}</td>
                     <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
                     <td>{provider.liveConfidence}</td>
+                    <td><ServiceRemediationSummary locale={locale} service={provider} /></td>
                   </tr>
                 ))
               )}
@@ -824,12 +835,13 @@ function TodayLiveDisplayTables({
                 <th>{messages.services.currentUsage}</th>
                 <th>{messages.services.latestLiveCheck}</th>
                 <th>{messages.services.confidence}</th>
+                <th><ServiceRemediationHeader locale={locale} /></th>
               </tr>
             </thead>
             <tbody>
               {usageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>{emptyGroupLabel(usageTitle, rows.length, messages)}</td>
+                  <td colSpan={7}>{emptyGroupLabel(usageTitle, rows.length, messages)}</td>
                 </tr>
               ) : (
                 usageRows.map((provider) => (
@@ -843,6 +855,7 @@ function TodayLiveDisplayTables({
                     <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages, dashboardMetricKeysForRow(provider, dashboard))}</td>
                     <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
                     <td>{provider.liveConfidence}</td>
+                    <td><ServiceRemediationSummary locale={locale} service={provider} /></td>
                   </tr>
                 ))
               )}
@@ -1391,13 +1404,14 @@ function DashboardAmountServicesTable({
               <th>{messages.dashboard.confirmedThroughYesterday}</th>
               <th>{messages.dashboard.todayLive}</th>
               <th>{messages.dashboard.confirmedCoverage}</th>
+              <th><ServiceRemediationHeader locale={locale} /></th>
               <th aria-label="actions" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8}>{emptyGroupLabel(title, totalRows, messages)}</td>
+                <td colSpan={9}>{emptyGroupLabel(title, totalRows, messages)}</td>
               </tr>
             ) : (
               rows.map((provider) => {
@@ -1424,6 +1438,7 @@ function DashboardAmountServicesTable({
                         <ProgressBar value={ratio} state="low" />
                       </div>
                     </td>
+                    <td><ServiceRemediationSummary locale={locale} service={provider} /></td>
                     <td className="table-action-cell">
                       <div className="table-action-buttons">
                         <ProviderSourceLink provider={provider} />
@@ -1477,13 +1492,14 @@ function DashboardUsageServicesTable({
               <th>{messages.services.currentUsage}</th>
               <th>{messages.services.latestLiveCheck}</th>
               <th>{messages.services.confidence}</th>
+              <th><ServiceRemediationHeader locale={locale} /></th>
               <th aria-label="actions" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8}>{emptyGroupLabel(title, totalRows, messages)}</td>
+                <td colSpan={9}>{emptyGroupLabel(title, totalRows, messages)}</td>
               </tr>
             ) : (
               rows.map((provider) => (
@@ -1495,6 +1511,7 @@ function DashboardUsageServicesTable({
                   <td>{renderUsageSummary(provider.currentUsageSummary, locale, messages, dashboardMetricKeysForRow(provider, dashboard))}</td>
                   <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
                   <td>{provider.liveConfidence}</td>
+                  <td><ServiceRemediationSummary locale={locale} service={provider} /></td>
                   <td className="table-action-cell">
                     <div className="table-action-buttons">
                       <ProviderSourceLink provider={provider} />
@@ -1561,12 +1578,13 @@ function ProviderAmountSummaryTable({
               <th>{messages.services.liveFreshness}</th>
               <th>{messages.table.health}</th>
               <th>{messages.table.latest}</th>
+              <th><ServiceRemediationHeader locale={locale} /></th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8}>{emptyGroupLabel(title, totalRows, messages)}</td>
+                <td colSpan={9}>{emptyGroupLabel(title, totalRows, messages)}</td>
               </tr>
             ) : (
               rows.map((provider) => (
@@ -1579,6 +1597,7 @@ function ProviderAmountSummaryTable({
                   <td><StatusBadge messages={messages} state={provider.liveFreshness} /></td>
                   <td><StatusBadge messages={messages} state={provider.healthStatus} /></td>
                   <td>{formatOptionalDate(provider.latestCanonicalSync, locale, dashboard.timezone, messages)}</td>
+                  <td><ServiceRemediationSummary locale={locale} service={provider} /></td>
                 </tr>
               ))
             )}
@@ -1635,12 +1654,13 @@ function ProviderUsageSummaryTable({
               <th>{messages.services.latestLiveCheck}</th>
               <th>{messages.services.confidence}</th>
               <th>{messages.table.health}</th>
+              <th><ServiceRemediationHeader locale={locale} /></th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8}>{emptyGroupLabel(title, totalRows, messages)}</td>
+                <td colSpan={9}>{emptyGroupLabel(title, totalRows, messages)}</td>
               </tr>
             ) : (
               rows.map((provider) => (
@@ -1653,6 +1673,7 @@ function ProviderUsageSummaryTable({
                   <td>{formatOptionalDate(provider.latestLiveCheck, locale, dashboard.timezone, messages)}</td>
                   <td>{provider.liveConfidence}</td>
                   <td><StatusBadge messages={messages} state={provider.healthStatus} /></td>
+                  <td><ServiceRemediationSummary locale={locale} service={provider} /></td>
                 </tr>
               ))
             )}

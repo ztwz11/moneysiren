@@ -2962,6 +2962,61 @@ body:has(.hud-page) {
   padding-left: 18px;
 }
 
+.service-remediation-panel {
+  border-color: #d9e2e7;
+}
+
+.service-remediation-list {
+  display: grid;
+  gap: 10px;
+}
+
+.service-remediation-item {
+  border: 1px solid var(--border);
+  border-left: 4px solid #95a3ae;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.service-remediation-item p {
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+
+.service-remediation-item ul {
+  color: var(--muted);
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.service-remediation-item-critical {
+  border-left-color: #dc2626;
+}
+
+.service-remediation-item-warning {
+  border-left-color: #d97706;
+}
+
+.service-remediation-item-info {
+  border-left-color: var(--accent);
+}
+
+.service-remediation-summary {
+  color: #92400e;
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1.35;
+  max-width: 280px;
+}
+
+.service-remediation-summary-ok {
+  color: var(--muted);
+}
+
 .reset-credit-footer {
   color: var(--muted);
   font-size: 12px;

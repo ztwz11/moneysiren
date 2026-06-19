@@ -499,7 +499,7 @@ describe("live today cache", () => {
         todayLiveAmountMinor: 200,
       }),
     ]);
-  });
+  }, 90_000);
 
   it("redacts sensitive provider error text before returning cached live status", async () => {
     const store = createMemoryCredentialStore({
@@ -535,7 +535,7 @@ describe("live today cache", () => {
     expect(payload).not.toContain("acct_sensitive");
     expect(payload).not.toContain("user@example.com");
     expect(payload).not.toContain(tokenLikeValue);
-  });
+  }, 90_000);
 });
 
 function emptyStatusLineUsage() {

@@ -2,28 +2,39 @@
 
 import { AlertTriangle } from "lucide-react";
 import type { ResetCreditApiFailure } from "../../lib/codex-reset-credits/types";
+import { resetCreditErrorRemediation } from "../../lib/codex-reset-credits/remediation";
 
 const TEXT = {
   title: "\uc870\ud68c \uc2e4\ud328",
-  loginHint: "\ud130\ubbf8\ub110\uc5d0\uc11c codex login\uc744 \uc2e4\ud589\ud55c \ud6c4 \ub2e4\uc2dc \uc2dc\ub3c4\ud558\uc138\uc694.",
-  localOnlyHint: "\u0056\u0065\u0072\u0063\u0065\u006c \uac19\uc740 \uc6d0\uaca9 \uc11c\ubc84\uc5d0 auth.json\uc744 \uc5c5\ub85c\ub4dc\ud558\uc9c0 \ub9d0\uace0, Codex\uac00 \ub85c\uadf8\uc778\ub41c \uac19\uc740 PC\uc5d0\uc11c \uc2e4\ud589\ud558\uc138\uc694.",
+  likelyCause: "\uc608\uc0c1 \uc6d0\uc778",
+  nextActions: "\uc870\uce58 \ubc29\ubc95",
 };
 
 export function ResetCreditError({ error }: { error: ResetCreditApiFailure["error"] }) {
+  const remediation = resetCreditErrorRemediation(error.code);
+
   return (
     <section className="panel reset-credit-error" role="alert">
       <div className="reset-credit-error-title">
         <AlertTriangle aria-hidden="true" size={18} />
-        <h2>{TEXT.title}</h2>
+        <h2>{TEXT.title}: {remediation.title}</h2>
       </div>
       <p>{error.message}</p>
       <code>{error.code}</code>
-      {error.code === "UPSTREAM_UNAUTHORIZED" ? (
-        <p>{TEXT.loginHint}</p>
-      ) : null}
-      {error.code === "LOCAL_CODEX_AUTH_UNAVAILABLE" ? (
-        <p>{TEXT.localOnlyHint}</p>
-      ) : null}
+      <div className="reset-credit-remediation">
+        <div>
+          <h3>{TEXT.likelyCause}</h3>
+          <p>{remediation.cause}</p>
+        </div>
+        <div>
+          <h3>{TEXT.nextActions}</h3>
+          <ul>
+            {remediation.actions.map((action) => (
+              <li key={action}>{action}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </section>
   );
 }

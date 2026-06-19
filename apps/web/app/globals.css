@@ -2944,6 +2944,24 @@ body:has(.hud-page) {
   padding: 3px 6px;
 }
 
+.reset-credit-remediation {
+  display: grid;
+  gap: 10px;
+}
+
+.reset-credit-remediation h3 {
+  font-size: 13px;
+  margin: 0 0 5px;
+}
+
+.reset-credit-remediation ul {
+  color: var(--muted);
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+}
+
 .reset-credit-footer {
   color: var(--muted);
   font-size: 12px;

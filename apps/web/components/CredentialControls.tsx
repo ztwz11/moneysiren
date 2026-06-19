@@ -212,9 +212,12 @@ export function CredentialControls({
   connections: readonly CredentialConnectionView[];
   labels: CredentialControlLabels;
 }) {
+  const catalog = findAvailableProvider(providerKey);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const catalog = findAvailableProvider(providerKey);
+  const [credentialSecret, setCredentialSecret] = useState("");
+  const [accountIds, setAccountIds] = useState("");
+  const [savingCredential, setSavingCredential] = useState(false);
 
   if (providerKey === "aws") {
     return <AwsSetupPanel labels={labels} />;
@@ -284,6 +287,45 @@ export function CredentialControls({
       )}
       <div className="credential-form" role="note">
         <p className="credential-hint">{labels.envOnlySecrets}</p>
+        <form className="credential-form" onSubmit={(event) => void saveCredential(event)}>
+          <div className="credential-form-grid">
+            <label className="credential-field">
+              <span className="metric-label">{labels.credentialSecret}</span>
+              <input
+                autoComplete="off"
+                className="credential-input"
+                minLength={8}
+                onChange={(event) => setCredentialSecret(event.currentTarget.value)}
+                placeholder={credentialPlaceholder(providerKey, labels)}
+                type="password"
+                value={credentialSecret}
+              />
+            </label>
+            {providerKey === "cloudflare" ? (
+              <label className="credential-field">
+                <span className="metric-label">{labels.accountIds}</span>
+                <input
+                  autoComplete="off"
+                  className="credential-input"
+                  minLength={8}
+                  onChange={(event) => setAccountIds(event.currentTarget.value)}
+                  placeholder={labels.accountIds}
+                  type="text"
+                  value={accountIds}
+                />
+              </label>
+            ) : null}
+          </div>
+          <div className="credential-actions">
+            <button
+              className="primary-button"
+              disabled={savingCredential || credentialSecret.trim().length < 8 || (providerKey === "cloudflare" && accountIds.trim().length < 8)}
+              type="submit"
+            >
+              {labels.saveCredential}
+            </button>
+          </div>
+        </form>
         {(catalog?.requiredEnvKeys.length ?? 0) === 0 ? null : (
           <div className="credential-field">
             <span className="metric-label">{labels.requiredEnv}</span>
@@ -299,6 +341,41 @@ export function CredentialControls({
       </div>
     </div>
   );
+
+  async function saveCredential(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setError(null);
+
+    await withAppLoading(labels.toolLoadingPreparingView, async () => {
+      setSavingCredential(true);
+
+      try {
+        const session = await createSessionOrThrow(labels.credentialSaveError);
+        const response = await fetch("/api/local-tools/provider-env", {
+          body: JSON.stringify({
+            entries: providerEnvEntries(providerKey, credentialSecret, accountIds),
+          }),
+          credentials: "same-origin",
+          headers: {
+            "content-type": "application/json",
+            "x-moneysiren-csrf": session.csrfToken,
+          },
+          method: "POST",
+        });
+
+        if (!response.ok) {
+          setError(await responseError(response, labels.credentialSaveError));
+          return;
+        }
+
+        window.location.reload();
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : labels.credentialSaveError);
+      } finally {
+        setSavingCredential(false);
+      }
+    });
+  }
 }
 
 function LocalCliSetupPanel({
@@ -518,6 +595,49 @@ function isLocalAiCliProvider(providerKey: ProviderKey): providerKey is LocalAiP
     providerKey === "claude-cli" ||
     providerKey === "claude-app" ||
     providerKey === "antigravity";
+}
+
+function credentialPlaceholder(providerKey: ProviderKey, labels: CredentialControlLabels): string {
+  if (providerKey === "openai") {
+    return "OPENAI_ADMIN_KEY";
+  }
+
+  if (providerKey === "supabase") {
+    return "SUPABASE_ACCESS_TOKEN";
+  }
+
+  if (providerKey === "cloudflare") {
+    return "CLOUDFLARE_API_TOKEN";
+  }
+
+  return labels.credentialSecret;
+}
+
+function providerEnvEntries(
+  providerKey: ProviderKey,
+  credentialSecret: string,
+  accountIds: string,
+): Record<string, string> {
+  if (providerKey === "openai") {
+    return {
+      OPENAI_ADMIN_KEY: credentialSecret,
+    };
+  }
+
+  if (providerKey === "supabase") {
+    return {
+      SUPABASE_ACCESS_TOKEN: credentialSecret,
+    };
+  }
+
+  if (providerKey === "cloudflare") {
+    return {
+      CLOUDFLARE_API_TOKEN: credentialSecret,
+      CLOUDFLARE_ACCOUNT_IDS: accountIds,
+    };
+  }
+
+  return {};
 }
 
 function localCliUsageRows(

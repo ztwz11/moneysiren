@@ -9,6 +9,7 @@ import {
   readLocalAiCliStatus,
   reconcileCodexResetCreditObservations,
   setAwsProfileGlobally,
+  setProviderEnvGlobally,
   type LocalCommandRunner,
 } from "./local-tools";
 
@@ -165,6 +166,77 @@ describe("local tool status", () => {
         return {};
       },
     })).rejects.toThrow("AWS profile name");
+
+    expect(commandRan).toBe(false);
+  });
+
+  it("persists provider env values without returning the secret values", async () => {
+    const env: Record<string, string | undefined> = {
+      SystemRoot: "C:\\Windows",
+    };
+    const calls: Array<{ file: string; args: readonly string[]; direct: boolean | undefined; timeout: number }> = [];
+    const result = await setProviderEnvGlobally({
+      OPENAI_ADMIN_KEY: "sk-admin-secret-value",
+      CLOUDFLARE_ACCOUNT_IDS: "account-123",
+    }, {
+      env,
+      platform: "win32",
+      now: () => new Date("2026-06-19T00:00:00.000Z"),
+      runCommand: async (file, args, options) => {
+        calls.push({
+          file,
+          args,
+          direct: options.direct,
+          timeout: options.timeout,
+        });
+
+        return {
+          stdout: "SUCCESS: Specified value was saved.",
+        };
+      },
+    });
+
+    expect(result).toMatchObject({
+      generatedAt: "2026-06-19T00:00:00.000Z",
+      localOnly: true,
+      secretsReturned: false,
+      keys: ["CLOUDFLARE_ACCOUNT_IDS", "OPENAI_ADMIN_KEY"],
+      target: "windows_user_environment",
+      activeForCurrentProcess: true,
+    });
+    expect(calls).toEqual([
+      {
+        file: "C:\\Windows\\System32\\setx.exe",
+        args: ["CLOUDFLARE_ACCOUNT_IDS", "account-123"],
+        direct: true,
+        timeout: 10_000,
+      },
+      {
+        file: "C:\\Windows\\System32\\setx.exe",
+        args: ["OPENAI_ADMIN_KEY", "sk-admin-secret-value"],
+        direct: true,
+        timeout: 10_000,
+      },
+    ]);
+    expect(env.OPENAI_ADMIN_KEY).toBe("sk-admin-secret-value");
+    expect(env.CLOUDFLARE_ACCOUNT_IDS).toBe("account-123");
+    expect(JSON.stringify(result)).not.toContain("sk-admin-secret-value");
+    expect(JSON.stringify(result)).not.toContain("account-123");
+  });
+
+  it("rejects unsupported provider env keys before running setx", async () => {
+    let commandRan = false;
+
+    await expect(setProviderEnvGlobally({
+      AWS_SECRET_ACCESS_KEY: "do-not-save-through-this-route",
+    }, {
+      platform: "win32",
+      runCommand: async () => {
+        commandRan = true;
+
+        return {};
+      },
+    })).rejects.toThrow("Unsupported provider environment key");
 
     expect(commandRan).toBe(false);
   });

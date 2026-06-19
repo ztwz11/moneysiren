@@ -16,6 +16,13 @@ const CODEX_RESET_CREDIT_OBSERVATION_FILE = "codex-reset-credit-observations.jso
 const MAX_LOCAL_USAGE_FILES = 400;
 const LOCAL_AI_CLI_STATUS_CACHE_MS = 5_000;
 const AWS_PROFILE_NAME_PATTERN = /^[A-Za-z0-9_.:@+=,-]{1,80}$/;
+const PROVIDER_ENV_VALUE_MAX_LENGTH = 8_000;
+const PROVIDER_ENV_KEYS = new Set([
+  "OPENAI_ADMIN_KEY",
+  "SUPABASE_ACCESS_TOKEN",
+  "CLOUDFLARE_API_TOKEN",
+  "CLOUDFLARE_ACCOUNT_IDS",
+]);
 const WINDOWS_PATH_DELIMITER = ";";
 const DEFAULT_LOCAL_AI_PROVIDER_KEYS = ["codex-cli", "codex-app", "claude-cli", "claude-app", "antigravity"] as const;
 
@@ -74,6 +81,23 @@ export interface SetAwsProfileGloballyResult {
   secretsReturned: false;
   profileName: string;
   target: "windows_user_environment";
+  activeForCurrentProcess: true;
+  restartHint: string;
+}
+
+export interface SetProviderEnvGloballyOptions {
+  env?: Record<string, string | undefined>;
+  platform?: NodeJS.Platform;
+  now?: () => Date;
+  runCommand?: LocalCommandRunner;
+}
+
+export interface SetProviderEnvGloballyResult {
+  generatedAt: string;
+  localOnly: true;
+  secretsReturned: false;
+  keys: readonly string[];
+  target: "windows_user_environment" | "process_environment";
   activeForCurrentProcess: true;
   restartHint: string;
 }
@@ -347,6 +371,48 @@ export async function setAwsProfileGlobally(
     target: "windows_user_environment",
     activeForCurrentProcess: true,
     restartHint: "New terminals inherit the saved AWS_PROFILE. The current MoneySiren server process was updated immediately.",
+  };
+}
+
+export async function setProviderEnvGlobally(
+  entries: Readonly<Record<string, string>>,
+  options: SetProviderEnvGloballyOptions = {},
+): Promise<SetProviderEnvGloballyResult> {
+  const normalizedEntries = normalizeProviderEnvEntries(entries);
+  const env = options.env ?? process.env;
+  const platform = options.platform ?? process.platform;
+  const now = options.now ?? (() => new Date());
+  const runCommand = options.runCommand ?? defaultRunCommand;
+  const keys = Object.keys(normalizedEntries).sort();
+
+  if (platform === "win32") {
+    try {
+      for (const key of keys) {
+        await runCommand(windowsSystemExecutable("setx.exe", env), [key, normalizedEntries[key] ?? ""], {
+          direct: true,
+          timeout: AWS_PROFILE_PERSIST_TIMEOUT_MS,
+          windowsHide: true,
+        });
+      }
+    } catch {
+      throw new Error("Provider environment variables were not saved to the Windows user environment.");
+    }
+  }
+
+  for (const key of keys) {
+    env[key] = normalizedEntries[key];
+  }
+
+  return {
+    generatedAt: now().toISOString(),
+    localOnly: true,
+    secretsReturned: false,
+    keys,
+    target: platform === "win32" ? "windows_user_environment" : "process_environment",
+    activeForCurrentProcess: true,
+    restartHint: platform === "win32"
+      ? "New terminals inherit the saved provider environment variables. The current MoneySiren server process was updated immediately."
+      : "The current MoneySiren server process was updated immediately. Persist these variables in your shell profile before restarting.",
   };
 }
 
@@ -2924,6 +2990,34 @@ function normalizeAwsProfileName(value: string): string {
   }
 
   return profileName;
+}
+
+function normalizeProviderEnvEntries(entries: Readonly<Record<string, string>>): Record<string, string> {
+  const normalizedEntries: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(entries)) {
+    if (!PROVIDER_ENV_KEYS.has(key)) {
+      throw new Error(`Unsupported provider environment key: ${key}`);
+    }
+
+    const normalizedValue = value.trim();
+
+    if (normalizedValue.length === 0) {
+      throw new Error(`Provider environment value is required for ${key}.`);
+    }
+
+    if (normalizedValue.length > PROVIDER_ENV_VALUE_MAX_LENGTH) {
+      throw new Error(`Provider environment value is too long for ${key}.`);
+    }
+
+    normalizedEntries[key] = normalizedValue;
+  }
+
+  if (Object.keys(normalizedEntries).length === 0) {
+    throw new Error("At least one provider environment variable is required.");
+  }
+
+  return normalizedEntries;
 }
 
 async function defaultRunCommand(

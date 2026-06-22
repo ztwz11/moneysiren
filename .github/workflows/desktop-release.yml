@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -97,7 +97,7 @@ jobs:
             bundles: app
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name
         with:
           fetch-depth: 0
@@ -340,7 +340,7 @@ jobs:
     if: github.event_name == 'push' || inputs.create_release
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/download-artifact@v4
         with:

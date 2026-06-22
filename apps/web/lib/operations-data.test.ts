@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "../../../packages/view-model/src/index";
 import type { DashboardSnapshot } from "./dashboard-data";
 import { buildOperationsDashboard, resolveDashboardTimezone } from "./operations-data";
+import { buildServiceRemediation } from "./service-remediation";
 
 const BASE_DASHBOARD: DashboardSnapshot = {
   generatedAt: "2026-06-05T03:00:00.000Z",
@@ -420,6 +421,92 @@ describe("operations dashboard data", () => {
     ]);
     expect(awsProvider?.serviceCostBreakdown[0]?.sharePercent).toBeCloseTo(68.0688, 4);
     expect(awsProvider?.serviceCostBreakdown[1]?.sharePercent).toBeCloseTo(31.9312, 4);
+  });
+
+  it("treats local AI live usage as collected service data without requiring a persisted sync row", () => {
+    const checkedAt = "2026-06-05T03:00:00.000Z";
+    const dashboard = buildOperationsDashboard(BASE_DASHBOARD, {
+      env: {},
+      now: new Date(checkedAt),
+      timezone: "Asia/Seoul",
+      connections: {
+        generatedAt: checkedAt,
+        localOnly: true,
+        secretsReturned: false,
+        providerWriteActionsEnabled: false,
+        providers: [
+          {
+            providerKey: "codex-app",
+            displayName: "Codex App",
+            authMethod: "Local app",
+            connectionState: "env_configured",
+            credentialSource: "env",
+            readOnlyTestState: "read_only_ready",
+            emergencyAccessState: "emergency_planned",
+            connections: [],
+            requiredEnvKeys: [],
+            configuredEnvKeys: ["codex_app_sessions"],
+            missingEnvKeys: [],
+            credentialRequirements: [],
+            credentialStore: {
+              backend: "memory",
+              storeState: "ready",
+              readOnlyState: "not_configured",
+              emergencyState: "not_configured",
+            },
+          },
+        ],
+      },
+      liveToday: {
+        generatedAt: checkedAt,
+        ttlSeconds: 60,
+        cacheState: "fresh",
+        providers: [
+          {
+            providerKey: "codex-app",
+            connectionId: "env",
+            connectionLabel: "Environment",
+            checkedAt,
+            expiresAt: "2026-06-05T03:01:00.000Z",
+            ttlSeconds: 5,
+            freshness: "live",
+            liveGranularity: "usage_only",
+            confidence: "low",
+            provisional: true,
+            todayLiveAmountMinor: null,
+            currency: "USD",
+            included: false,
+            status: "ok",
+            usageSummary: {
+              kind: "llm_subscription",
+              period: "current_month",
+              metrics: [
+                { key: "five_hour_limit_percent", value: 22, unit: "percent" },
+                { key: "weekly_limit_percent", value: 33, unit: "percent" },
+                { key: "total_tokens", value: 913830, unit: "tokens" },
+              ],
+              topServices: ["codex-app:gpt-5"],
+            },
+          },
+        ],
+      },
+    });
+    const codexApp = dashboard.providers.find((provider) => provider.providerKey === "codex-app");
+
+    expect(codexApp).toMatchObject({
+      providerKey: "codex-app",
+      canonicalFreshness: "fresh",
+      latestCanonicalSync: checkedAt,
+      latestLiveCheck: checkedAt,
+      liveFreshness: "live",
+      healthStatus: "ok",
+      riskLevel: "low",
+      currentUsageSummary: {
+        kind: "llm_subscription",
+      },
+    });
+    expect(dashboard.visibleProviders.map((provider) => provider.providerKey)).toContain("codex-app");
+    expect(buildServiceRemediation(codexApp!, "ko").items).toHaveLength(0);
   });
 
   it("falls back when an invalid dashboard timezone is configured", () => {

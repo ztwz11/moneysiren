@@ -29,6 +29,7 @@ import type {
 import { readDashboardSnapshot, type ReadDashboardSnapshotOptions } from "./dashboard-data";
 import {
   CONNECTABLE_PROVIDER_KEYS,
+  LOCAL_PROVIDER_KEYS,
   findAvailableProvider,
   type LiveGranularity,
   type ProviderSetupLink,
@@ -243,7 +244,10 @@ export function buildOperationsDashboard(
       row?.currency ?? snapshot.summary.currency,
     );
     const connectionState = connection?.connectionState ?? (providerConfig.configured ? "env_configured" : "not_configured");
-    const canonicalFreshness = summarizeCanonicalFreshness(row, options.now, options.timezone);
+    const localUsageCollectedAt = localUsageCollectionTime(providerKey, liveSummary);
+    const canonicalFreshness = localUsageCollectedAt === null
+      ? summarizeCanonicalFreshness(row, options.now, options.timezone)
+      : summarizeCanonicalFreshnessFromTimestamp(localUsageCollectedAt, options.now, options.timezone);
     const risks = snapshot.alerts.filter((alert) => alert.providerKey === providerKey);
     const usageTrend = buildUsageTrend(snapshot.usage.dailyMetrics, providerKey, conversion);
     const monthForecast = convertAmountMinorForDisplay(
@@ -280,7 +284,7 @@ export function buildOperationsDashboard(
       liveGranularity: catalog?.liveGranularity ?? "unavailable",
       liveConfidence: liveSummary.confidence,
       currentUsageSummary: liveSummary.usageSummary,
-      latestCanonicalSync: row?.latestCollectedAt ?? null,
+      latestCanonicalSync: row?.latestCollectedAt ?? localUsageCollectedAt,
       latestLiveCheck: liveSummary.checkedAt,
       monthForecastAmountMinor: monthForecast.amountMinor,
       confirmedAmountMinor: confirmed.amountMinor,
@@ -290,8 +294,8 @@ export function buildOperationsDashboard(
       usageSnapshotCount: row?.usageSnapshotCount ?? 0,
       serviceCostBreakdown: buildServiceCostBreakdown(snapshot.usage.latestServiceMetrics, providerKey, conversion),
       usageTrend,
-      healthStatus: row?.healthStatus ?? "unknown",
-      riskLevel: row?.riskLevel ?? "warning",
+      healthStatus: row?.healthStatus ?? (localUsageCollectedAt === null ? "unknown" : "ok"),
+      riskLevel: row?.riskLevel ?? (localUsageCollectedAt === null ? "warning" : "low"),
       alertCount: row?.alertCount ?? 0,
       risks,
     } satisfies OperationsProvider;
@@ -388,10 +392,33 @@ function summarizeCanonicalFreshness(
     return "missing";
   }
 
-  const latest = dateKeyInTimezone(new Date(row.latestCollectedAt), timezone);
+  return summarizeCanonicalFreshnessFromTimestamp(row.latestCollectedAt, now, timezone);
+}
+
+function summarizeCanonicalFreshnessFromTimestamp(
+  collectedAt: string,
+  now: Date,
+  timezone: string,
+): CanonicalFreshness {
+  const latest = dateKeyInTimezone(new Date(collectedAt), timezone);
   const yesterday = dateKeyInTimezone(new Date(now.getTime() - 24 * 60 * 60 * 1000), timezone);
 
   return latest >= yesterday ? "fresh" : "stale";
+}
+
+function localUsageCollectionTime(
+  providerKey: ProviderKey,
+  liveSummary: Pick<ReturnType<typeof summarizeProviderLive>, "checkedAt" | "usageSummary">,
+): string | null {
+  if (!isLocalProviderKey(providerKey) || liveSummary.usageSummary === null) {
+    return null;
+  }
+
+  return liveSummary.checkedAt;
+}
+
+function isLocalProviderKey(providerKey: ProviderKey): boolean {
+  return (LOCAL_PROVIDER_KEYS as readonly string[]).includes(providerKey);
 }
 
 function buildServiceCostBreakdown(

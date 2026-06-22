@@ -441,6 +441,96 @@ describe("live today cache", () => {
     ]));
   });
 
+  it("uses exact Codex reset credit expiry metrics for Codex CLI when available", () => {
+    const summary = summarizeLocalAiCliUsage({
+      providerKey: "codex-cli",
+      displayName: "Codex CLI",
+      command: "codex",
+      cli: {
+        state: "installed",
+        version: "1.2.3",
+        detail: "codex-cli 1.2.3",
+      },
+      usage: {
+        source: "codex_sessions",
+        period: "current_month",
+        providerKind: "codex",
+        sessionCount: 0,
+        turnCount: 0,
+        toolCallCount: 0,
+        inputTokens: null,
+        outputTokens: null,
+        cacheTokens: null,
+        totalTokens: null,
+        reasoningOutputTokens: null,
+        logFileCount: 0,
+        parsedUsageRecordCount: 0,
+        searchedPathHint: "~\\.codex\\sessions",
+        latestActivityAt: null,
+        topModels: [],
+        statusLine: {
+          ...emptyStatusLineUsage(),
+          usageResetCredits: [
+            { label: null, expiresAt: null },
+            { label: null, expiresAt: null },
+          ],
+        },
+        message: "fake",
+      },
+    }, [
+      {
+        key: "usage_reset_credits",
+        value: 2,
+        unit: "count",
+        accuracy: "exact",
+        source: "codex_reset_credit_api",
+      },
+      {
+        key: "usage_reset_credit_total_earned",
+        value: 0,
+        unit: "count",
+        accuracy: "exact",
+        source: "codex_reset_credit_api",
+      },
+      {
+        key: "usage_reset_credit",
+        value: 1,
+        unit: "count",
+        resetAt: "2026-07-12T02:24:13.435Z",
+        itemKey: "codex-reset-credit-1",
+        accuracy: "exact",
+        source: "codex_reset_credit_api",
+      },
+      {
+        key: "usage_reset_credit",
+        value: 1,
+        unit: "count",
+        resetAt: "2026-07-18T00:39:33.013Z",
+        itemKey: "codex-reset-credit-2",
+        accuracy: "exact",
+        source: "codex_reset_credit_api",
+      },
+    ]);
+    const resetCreditMetrics = summary?.metrics.filter((metric) => metric.key === "usage_reset_credit") ?? [];
+
+    expect(resetCreditMetrics).toHaveLength(2);
+    expect(resetCreditMetrics).toEqual([
+      expect.objectContaining({
+        resetAt: "2026-07-12T02:24:13.435Z",
+        accuracy: "exact",
+        source: "codex_reset_credit_api",
+      }),
+      expect.objectContaining({
+        resetAt: "2026-07-18T00:39:33.013Z",
+        accuracy: "exact",
+        source: "codex_reset_credit_api",
+      }),
+    ]);
+    expect(summary?.metrics).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "usage_reset_credit_estimate" }),
+    ]));
+  });
+
   it("keeps separate live cache entries for multiple provider connections", async () => {
     const store = createMemoryCredentialStore({
       now: () => NOW,

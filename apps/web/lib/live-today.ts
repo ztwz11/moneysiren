@@ -766,7 +766,7 @@ async function collectLocalAiCliLiveToday(context: LiveTodayCollectionContext): 
 
   const usageSummary = summarizeLocalAiCliUsage(
     provider,
-    providerKey === "codex-app" ? await readCodexAppResetCreditMetrics(context) : [],
+    isCodexLocalAiProviderKey(providerKey) ? await readCodexResetCreditMetrics(context) : [],
   );
   const hasUsage = usageSummary !== null;
 
@@ -807,8 +807,12 @@ export function summarizeLocalAiCliUsage(
   };
 }
 
-async function readCodexAppResetCreditMetrics(
-  context: LiveTodayCollectionContext,
+function isCodexLocalAiProviderKey(providerKey: LocalAiCliProviderKey): boolean {
+  return providerKey === "codex-cli" || providerKey === "codex-app";
+}
+
+export async function readCodexResetCreditMetrics(
+  context: Pick<LiveTodayCollectionContext, "env" | "now">,
 ): Promise<LiveTodayUsageMetric[]> {
   try {
     const { fetchCodexResetCreditStatus } = await import("./codex-reset-credits");
@@ -850,7 +854,7 @@ function resetCreditStatusMetrics(status: ResetCreditStatus): LiveTodayUsageMetr
     key: "usage_reset_credit" as const,
     value: 1,
     unit: "count" as const,
-    itemKey: `codex-app-reset-credit-${credit.index}`,
+    itemKey: `codex-reset-credit-${credit.index}`,
     accuracy: "exact" as const,
     source: "codex_reset_credit_api",
     ...(credit.expiresAtUtc === null ? {} : { resetAt: credit.expiresAtUtc }),

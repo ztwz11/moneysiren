@@ -43,6 +43,8 @@ interface ViewProps {
   groupingBasePath?: string | undefined;
 }
 
+type UsageMetric = NonNullable<OperationsProvider["currentUsageSummary"]>["metrics"][number];
+
 export function PageHeader({
   title,
   subtitle,
@@ -2223,15 +2225,15 @@ function localCliRemainingRowsFromSummary(
   if (resetCreditEstimateMetrics.length > 0) {
     rows.push(...resetCreditEstimateMetrics.map((metric, index) => ({
       label: `${messages.services.usageResetCreditEstimate} ${index + 1}`,
-      percent: formatUsageMetric(metric.value, metric.unit, locale),
-      resetAt: formatUsageResetAt(metric.resetAt, locale, timezone),
+      percent: formatUsageResetRemaining(metric, locale),
+      resetAt: formatUsageResetWindow(metric, locale, timezone),
     })));
   }
 
   if (resetCreditMetrics.length > 0) {
     rows.push(...resetCreditMetrics.map((metric, index) => ({
       label: `${messages.settings.localCliUsageResetCredit} ${index + 1}`,
-      percent: formatUsageMetric(metric.value, metric.unit, locale),
+      percent: formatUsageResetRemaining(metric, locale),
       resetAt: formatUsageResetAt(metric.resetAt, locale, timezone),
     })));
     return rows;
@@ -2290,14 +2292,14 @@ function formatRemainingUsagePercent(
 function usageMetric(
   summary: OperationsProvider["currentUsageSummary"],
   key: string,
-): NonNullable<OperationsProvider["currentUsageSummary"]>["metrics"][number] | undefined {
+): UsageMetric | undefined {
   return summary?.metrics.find((item) => item.key === key);
 }
 
 function usageMetrics(
   summary: OperationsProvider["currentUsageSummary"],
   key: string,
-): Array<NonNullable<OperationsProvider["currentUsageSummary"]>["metrics"][number]> {
+): UsageMetric[] {
   return summary?.metrics.filter((item) => item.key === key) ?? [];
 }
 
@@ -2363,7 +2365,7 @@ function UsageSummaryBlock({
           {summary.metrics.map((metric, index) => (
             <div className="usage-metric" key={`${metric.key}:${index}`}>
               <span>{usageMetricLabel(metric.key, messages)}</span>
-              <strong>{formatUsageMetric(metric.value, metric.unit, locale)}</strong>
+              <strong>{formatUsageMetricDisplayValue(metric, locale)}</strong>
             </div>
           ))}
           {summary.topServices.length === 0 ? null : (
@@ -2405,7 +2407,7 @@ function renderUsageSummary(
     ? summary.metrics
     : visibleMetricKeys
         .map((key) => usageMetric(summary, key))
-        .filter((metric): metric is NonNullable<OperationsProvider["currentUsageSummary"]>["metrics"][number] =>
+        .filter((metric): metric is UsageMetric =>
           metric !== undefined
         );
 
@@ -2418,7 +2420,7 @@ function renderUsageSummary(
       {visibleMetrics.map((metric, index) => (
         <div className="usage-metric" key={`${metric.key}:${index}`}>
           <span>{usageMetricLabel(metric.key, messages)}</span>
-          <strong>{formatUsageMetric(metric.value, metric.unit, locale)}</strong>
+          <strong>{formatUsageMetricDisplayValue(metric, locale)}</strong>
         </div>
       ))}
     </div>
@@ -2664,6 +2666,150 @@ function formatUsageMetric(
   const formatted = new Intl.NumberFormat(locale).format(value);
 
   return unit === "tokens" ? `${formatted} tok` : formatted;
+}
+
+function formatUsageMetricDisplayValue(metric: UsageMetric, locale: Locale): string {
+  return isResetCreditExpiryMetric(metric)
+    ? formatUsageResetRemaining(metric, locale)
+    : formatUsageMetric(metric.value, metric.unit, locale);
+}
+
+function isResetCreditExpiryMetric(metric: Pick<UsageMetric, "key">): boolean {
+  return metric.key === "usage_reset_credit" || metric.key === "usage_reset_credit_estimate";
+}
+
+function formatUsageResetRemaining(metric: Pick<UsageMetric, "resetAt" | "resetAtLatest">, locale: Locale): string {
+  const expiresAt = parseUsageResetDate(metric.resetAt);
+
+  if (expiresAt === null) {
+    return "-";
+  }
+
+  const remainingMs = expiresAt.getTime() - Date.now();
+
+  if (remainingMs <= 0) {
+    return resetCreditExpiredLabel(locale);
+  }
+
+  return formatResetCreditDuration(remainingMs, locale);
+}
+
+function formatUsageResetWindow(
+  metric: Pick<UsageMetric, "resetAt" | "resetAtLatest">,
+  locale: Locale,
+  timezone: string,
+): string {
+  const earliest = formatUsageResetAt(metric.resetAt, locale, timezone);
+  const latest = formatUsageResetAt(metric.resetAtLatest, locale, timezone);
+
+  if (latest === "-" || latest === earliest) {
+    return earliest;
+  }
+
+  if (earliest === "-") {
+    return latest;
+  }
+
+  return `${earliest} - ${latest}`;
+}
+
+function parseUsageResetDate(value: string | undefined): Date | null {
+  if (value === undefined || value.trim().length === 0) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatResetCreditDuration(remainingMs: number, locale: Locale): string {
+  const totalMinutes = Math.max(1, Math.ceil(remainingMs / 60_000));
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days >= 7) {
+    return formatDurationDaysOnly(days, locale);
+  }
+
+  if (days >= 1) {
+    return formatDurationDayHour(days, hours, locale);
+  }
+
+  if (hours >= 1) {
+    return formatDurationHourMinute(hours, minutes, locale);
+  }
+
+  return formatDurationMinute(minutes, locale);
+}
+
+function formatDurationDaysOnly(days: number, locale: Locale): string {
+  if (locale === "ko") {
+    return `${days}일 남음`;
+  }
+
+  if (locale === "ja") {
+    return `あと${days}日`;
+  }
+
+  return `${days} ${pluralize("day", days)} left`;
+}
+
+function formatDurationDayHour(days: number, hours: number, locale: Locale): string {
+  if (locale === "ko") {
+    return hours > 0 ? `${days}일 ${hours}시간 남음` : `${days}일 남음`;
+  }
+
+  if (locale === "ja") {
+    return hours > 0 ? `あと${days}日${hours}時間` : `あと${days}日`;
+  }
+
+  return hours > 0
+    ? `${days} ${pluralize("day", days)} ${hours} ${pluralize("hour", hours)} left`
+    : `${days} ${pluralize("day", days)} left`;
+}
+
+function formatDurationHourMinute(hours: number, minutes: number, locale: Locale): string {
+  if (locale === "ko") {
+    return minutes > 0 ? `${hours}시간 ${minutes}분 남음` : `${hours}시간 남음`;
+  }
+
+  if (locale === "ja") {
+    return minutes > 0 ? `あと${hours}時間${minutes}分` : `あと${hours}時間`;
+  }
+
+  return minutes > 0
+    ? `${hours} ${pluralize("hour", hours)} ${minutes} ${pluralize("minute", minutes)} left`
+    : `${hours} ${pluralize("hour", hours)} left`;
+}
+
+function formatDurationMinute(minutes: number, locale: Locale): string {
+  if (locale === "ko") {
+    return `${minutes}분 남음`;
+  }
+
+  if (locale === "ja") {
+    return `あと${minutes}分`;
+  }
+
+  return `${minutes} ${pluralize("minute", minutes)} left`;
+}
+
+function resetCreditExpiredLabel(locale: Locale): string {
+  if (locale === "ko") {
+    return "만료됨";
+  }
+
+  if (locale === "ja") {
+    return "期限切れ";
+  }
+
+  return "Expired";
+}
+
+function pluralize(label: string, value: number): string {
+  return value === 1 ? label : `${label}s`;
 }
 
 function formatMonthLabel(value: string, locale: Locale): string {

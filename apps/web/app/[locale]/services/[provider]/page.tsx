@@ -6,7 +6,7 @@ import {
 } from "../../../../components/OperationsViews";
 import { LiveRefreshButton } from "../../../../components/LiveRefreshButton";
 import { getMessages, isLocale, type Locale } from "../../../../lib/i18n";
-import { summarizeLocalAiCliUsage } from "../../../../lib/live-today";
+import { readCodexResetCreditMetrics, summarizeLocalAiCliUsage } from "../../../../lib/live-today";
 import { readLocalAiCliStatus } from "../../../../lib/local-tools";
 import { readOperationsDashboard, type OperationsProvider } from "../../../../lib/operations-data";
 import { isProviderKey, type ProviderKey } from "../../../../lib/provider-catalog";
@@ -80,7 +80,15 @@ async function withFreshLocalAiCliUsage(provider: OperationsProvider): Promise<O
     return provider;
   }
 
-  const usageSummary = summarizeLocalAiCliUsage(localProvider);
+  const usageSummary = summarizeLocalAiCliUsage(
+    localProvider,
+    isCodexLocalAiProvider(provider.providerKey)
+      ? await readCodexResetCreditMetrics({
+          env: process.env,
+          now: new Date(),
+        })
+      : [],
+  );
   const localConfigured = localProvider.cli.state === "installed" || localProvider.usage.logFileCount > 0;
   const configuredEnvKeys = localConfigured
     ? [...new Set([
@@ -114,4 +122,8 @@ function isLocalAiCliProvider(
     providerKey === "claude-cli" ||
     providerKey === "claude-app" ||
     providerKey === "antigravity";
+}
+
+function isCodexLocalAiProvider(providerKey: ProviderKey): providerKey is "codex-cli" | "codex-app" {
+  return providerKey === "codex-cli" || providerKey === "codex-app";
 }

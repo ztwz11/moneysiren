@@ -28,7 +28,8 @@ The desktop shell opens the local dashboard and HUD at `http://127.0.0.1:3000`. 
 ## Security Notes
 
 - Desktop artifacts are code signed when the release workflow has the required signing secrets.
-- If signing secrets are not configured, prerelease desktop artifacts are unsigned alpha builds. Treat them as local review builds until signed assets are published.
+- If Windows signing secrets are not configured, the Windows prerelease artifact is an unsigned alpha build. Treat it as a local review build until signed assets are published.
+- macOS desktop artifacts require Apple signing secrets in CI and may be absent from unsigned alpha releases.
 - Do not create `.env` files with live credentials.
 - Use process-local environment variables for live provider sync.
 - Provider connectors remain read-only.

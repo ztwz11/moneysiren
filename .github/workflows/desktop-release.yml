@@ -9,7 +9,7 @@ on:
       tag:
         description: "Release tag to create or update"
         required: true
-        default: "v0.1.0-alpha.3"
+        default: "v0.1.0-alpha.4"
       create_release:
         description: "Create/update the GitHub Release and upload assets"
         required: true
@@ -219,7 +219,7 @@ jobs:
         run: node tools/scripts/prepare-tauri-signing-config.mjs --platform ${{ matrix.name }} --out apps/tray/.tmp/tauri-signing-${{ matrix.name }}.json
 
       - name: Build desktop bundle
-        if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name
+        if: (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name) && (runner.os != 'macOS' || env.APPLE_SIGNING_READY == 'true')
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -292,7 +292,7 @@ jobs:
             Set-Content -LiteralPath dist\desktop-release\moneysiren-tray-windows-SIGNATURE.json
 
       - name: Collect macOS app archive
-        if: runner.os == 'macOS' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_READY == 'true' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
         shell: bash
         run: |
           set -euo pipefail
@@ -324,7 +324,7 @@ jobs:
           spctl -a -vv -t exec "$app_path"
 
       - uses: actions/upload-artifact@v4
-        if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name
+        if: (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name) && (runner.os != 'macOS' || env.APPLE_SIGNING_READY == 'true')
         with:
           name: moneysiren-desktop-${{ matrix.name }}
           path: dist/desktop-release/*

@@ -66,3 +66,10 @@ jobs:
         working-directory: apps/app
         shell: bash
         run: npm publish --tag "${NPM_DIST_TAG}" --access public
+
+      - name: Keep app prereleases off latest dist-tag
+        if: env.NPM_DIST_TAG != 'latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm dist-tag rm @moneysiren/app latest || true

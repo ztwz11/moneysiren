@@ -272,7 +272,7 @@ describe("MoneySiren CLI", () => {
 
     const report = await runCli(["/report", "ko"], testContext(cwd));
     expect(report.exitCode).toBe(0);
-    expect(report.stdout.join("\n")).toContain("MoneySiren 일일 리포트");
+    expect(report.stdout.join("\n")).toContain("MoneySiren \uC77C\uC77C \uB9AC\uD3EC\uD2B8");
 
     const dashboard = await runCli(["/dashboard"], {
       ...testContext(cwd),
@@ -421,15 +421,15 @@ describe("MoneySiren CLI", () => {
     const stdout = result.stdout.join("\n");
 
     expect(result.exitCode).toBe(0);
-    expect(CLI_VERSION).toBe("0.1.0-alpha.9");
-    expect(stdout).toContain("Release default: ztwz11/moneysiren@v0.1.0-alpha.9.");
+    expect(CLI_VERSION).toBe("0.1.0-alpha.10");
+    expect(stdout).toContain("Release default: ztwz11/moneysiren@v0.1.0-alpha.10.");
   });
 
   it("installs selected release assets from GitHub Releases without storing secrets", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const installDir = join(cwd, "release-install");
     const profilePath = join(cwd, "install-profile.json");
-    const webAsset = "moneysiren-web-runtime-v0.1.0-alpha.9.tar.gz";
+    const webAsset = "moneysiren-web-runtime-v0.1.0-alpha.10.tar.gz";
     const hudAsset = "MoneySiren.Tray-macos-ARM64.tar.gz";
     const webBytes = Buffer.from("fake web runtime");
     const hudBytes = Buffer.from("fake hud binary");
@@ -439,7 +439,7 @@ describe("MoneySiren CLI", () => {
       "",
     ].join("\n");
     const result = await runCli(
-      ["install", "--all", "--dir", installDir, "--tag", "v0.1.0-alpha.9"],
+      ["install", "--all", "--dir", installDir, "--tag", "v0.1.0-alpha.10"],
       {
         ...testContext(cwd, {
           MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
@@ -448,21 +448,21 @@ describe("MoneySiren CLI", () => {
         fetch: async (input) => {
           const url = String(input);
 
-          if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0-alpha.9")) {
+          if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0-alpha.10")) {
             return Response.json({
-              html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0-alpha.9",
+              html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0-alpha.10",
               assets: [
                 {
                   name: webAsset,
-                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.0-alpha.9/${webAsset}`,
+                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.0-alpha.10/${webAsset}`,
                 },
                 {
                   name: hudAsset,
-                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.0-alpha.9/${hudAsset}`,
+                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.0-alpha.10/${hudAsset}`,
                 },
                 {
                   name: "moneysiren-web-runtime-SHA256SUMS.txt",
-                  browser_download_url: "https://github.com/ztwz11/moneysiren/releases/download/v0.1.0-alpha.9/moneysiren-web-runtime-SHA256SUMS.txt",
+                  browser_download_url: "https://github.com/ztwz11/moneysiren/releases/download/v0.1.0-alpha.10/moneysiren-web-runtime-SHA256SUMS.txt",
                 },
               ],
             });
@@ -490,7 +490,7 @@ describe("MoneySiren CLI", () => {
     const allOutput = [...result.stdout, ...result.stderr].join("\n");
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("Release: ztwz11/moneysiren@v0.1.0-alpha.9");
+    expect(result.stdout.join("\n")).toContain("Release: ztwz11/moneysiren@v0.1.0-alpha.10");
     expect(result.stdout.join("\n")).toContain(`Install directory: ${installDir}`);
     expect(result.stdout.join("\n")).toContain(`Downloaded web: ${webAsset}`);
     expect(result.stdout.join("\n")).toContain(`Downloaded hud: ${hudAsset}`);
@@ -504,11 +504,11 @@ describe("MoneySiren CLI", () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const installDir = join(cwd, "release-install");
     const profilePath = join(cwd, "install-profile.json");
-    const hudAsset = "MoneySiren.Tray_0.1.0-alpha.9_x64-setup.exe";
+    const hudAsset = "MoneySiren.Tray_0.1.0-alpha.10_x64-setup.exe";
     const hudBytes = Buffer.from("fake hud binary");
 
     const result = await runCli(
-      ["install", "--hud", "--dir", installDir, "--tag", "v0.1.0-alpha.9"],
+      ["install", "--hud", "--dir", installDir, "--tag", "v0.1.0-alpha.10"],
       {
         ...testContext(cwd, {
           MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
@@ -517,17 +517,17 @@ describe("MoneySiren CLI", () => {
         fetch: async (input) => {
           const url = String(input);
 
-          if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0-alpha.9")) {
+          if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0-alpha.10")) {
             return Response.json({
-              html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0-alpha.9",
+              html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0-alpha.10",
               assets: [
                 {
                   name: hudAsset,
-                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.0-alpha.9/${hudAsset}`,
+                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.0-alpha.10/${hudAsset}`,
                 },
                 {
                   name: "moneysiren-tray-windows-SHA256SUMS.txt",
-                  browser_download_url: "https://github.com/ztwz11/moneysiren/releases/download/v0.1.0-alpha.9/moneysiren-tray-windows-SHA256SUMS.txt",
+                  browser_download_url: "https://github.com/ztwz11/moneysiren/releases/download/v0.1.0-alpha.10/moneysiren-tray-windows-SHA256SUMS.txt",
                 },
               ],
             });
@@ -1139,10 +1139,10 @@ describe("MoneySiren CLI", () => {
     const reportText = reportResult.stdout.join("\n");
 
     expect(reportResult.exitCode).toBe(0);
-    expect(reportText).toContain("MoneySiren 일일 리포트");
+    expect(reportText).toContain("MoneySiren \uC77C\uC77C \uB9AC\uD3EC\uD2B8");
     expect(reportText).toContain("Mock Provider");
-    expect(reportText).toContain("- 예상 비용 USD 15.00");
-    expect(reportText).not.toContain("예상 비용: USD 15.00");
+    expect(reportText).toContain("- \uC608\uC0C1 \uBE44\uC6A9 USD 15.00");
+    expect(reportText).not.toContain("\uC608\uC0C1 \uBE44\uC6A9: USD 15.00");
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
@@ -1235,10 +1235,10 @@ describe("MoneySiren CLI", () => {
     expect(stdout).toContain("Slack report sent");
     expect(stdout).not.toContain(TEST_SLACK_WEBHOOK_URL);
     expect(slackRequests).toHaveLength(1);
-    expect(slackRequests[0]?.payload.text).toContain("*MoneySiren 일일 리포트*");
+    expect(slackRequests[0]?.payload.text).toContain("*MoneySiren \uC77C\uC77C \uB9AC\uD3EC\uD2B8*");
     expect(slackRequests[0]?.payload.text).toContain("---");
-    expect(slackRequests[0]?.payload.text).toContain("- 예상 비용 USD 15.00");
-    expect(slackRequests[0]?.payload.text).not.toContain("동기화 상태:");
+    expect(slackRequests[0]?.payload.text).toContain("- \uC608\uC0C1 \uBE44\uC6A9 USD 15.00");
+    expect(slackRequests[0]?.payload.text).not.toContain("\uB3D9\uAE30\uD654 \uC0C1\uD0DC:");
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const reportRuns = querySqlite<{ delivery_target: string; status: string }>(

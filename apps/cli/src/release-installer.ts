@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 
 export const DEFAULT_RELEASE_REPOSITORY = "ztwz11/moneysiren";
 // Keep the source-free installer pinned to the latest published desktop/web release tag.
-export const DEFAULT_RELEASE_TAG = "v0.1.0-alpha.2";
+export const DEFAULT_RELEASE_TAG = "v0.1.0-alpha.3";
 
 export interface ReleaseInstallOptions {
   env?: Record<string, string | undefined>;
@@ -41,6 +41,7 @@ export interface InstalledReleaseAsset {
   sha256: string;
   checksumVerified: boolean;
   signatureVerified: boolean;
+  signatureStatus: string;
 }
 
 export interface ReleaseAssetSignatureVerifier {
@@ -49,10 +50,12 @@ export interface ReleaseAssetSignatureVerifier {
 
 export interface ReleaseAssetSignatureVerificationInput {
   assetName: string;
+  env: Record<string, string | undefined>;
   expectedSignerThumbprints?: readonly string[];
   path: string;
   platform: NodeJS.Platform;
   surface: Exclude<InstallSurface, "cli">;
+  tag: string;
 }
 
 export interface ReleaseAssetSignatureVerificationResult {
@@ -78,6 +81,7 @@ const RELEASE_TAG_ENV_KEY = "MONEYSIREN_RELEASE_TAG";
 const RELEASE_INSTALL_DIR_ENV_KEY = "MONEYSIREN_RELEASE_INSTALL_DIR";
 const RELEASE_PLATFORM_ENV_KEY = "MONEYSIREN_RELEASE_PLATFORM";
 const WINDOWS_SIGNER_THUMBPRINTS_ENV_KEY = "MONEYSIREN_WINDOWS_SIGNER_THUMBPRINTS";
+const ALLOW_UNSIGNED_HUD_ENV_KEY = "MONEYSIREN_ALLOW_UNSIGNED_HUD";
 
 export async function installReleaseAssets(options: ReleaseInstallOptions): Promise<ReleaseInstallResult> {
   const env = options.env ?? process.env;
@@ -143,6 +147,7 @@ export async function installReleaseAssets(options: ReleaseInstallOptions): Prom
         platform,
         releaseAssets,
         surface,
+        tag,
         ...(options.signatureVerifier === undefined ? {} : { signatureVerifier: options.signatureVerifier }),
         ...(options.trustedWindowsSignerThumbprints === undefined
           ? {}
@@ -165,7 +170,8 @@ export async function installReleaseAssets(options: ReleaseInstallOptions): Prom
       size: downloaded.byteLength,
       sha256,
       checksumVerified: checksum !== null,
-      signatureVerified: signature.status !== "not-required",
+      signatureVerified: isVerifiedSignatureStatus(signature.status),
+      signatureStatus: signature.status,
     });
   }
 
@@ -184,6 +190,7 @@ export async function installReleaseAssets(options: ReleaseInstallOptions): Prom
       sha256: asset.sha256,
       checksumVerified: asset.checksumVerified,
       signatureVerified: asset.signatureVerified,
+      signatureStatus: asset.signatureStatus,
     })),
   }, null, 2)}\n`, "utf8");
 
@@ -387,6 +394,7 @@ async function verifyReleaseAssetSignature(input: {
   releaseAssets: readonly GitHubReleaseAsset[];
   signatureVerifier?: ReleaseAssetSignatureVerifier;
   surface: Exclude<InstallSurface, "cli">;
+  tag: string;
   trustedWindowsSignerThumbprints?: readonly string[];
 }): Promise<ReleaseAssetSignatureVerificationResult> {
   const verifier = input.signatureVerifier ?? defaultReleaseAssetSignatureVerifier;
@@ -404,10 +412,12 @@ async function verifyReleaseAssetSignature(input: {
 
   return verifier.verify({
     assetName: input.assetName,
+    env: input.env,
     ...(expectedSignerThumbprints === null ? {} : { expectedSignerThumbprints }),
     path: input.path,
     platform: input.platform,
     surface: input.surface,
+    tag: input.tag,
   });
 }
 
@@ -430,6 +440,14 @@ const defaultReleaseAssetSignatureVerifier: ReleaseAssetSignatureVerifier = {
     }
 
     if (input.expectedSignerThumbprints === undefined || input.expectedSignerThumbprints.length === 0) {
+      if (isUnsignedPrereleaseHudAllowed(input.env, input.tag)) {
+        return {
+          verified: true,
+          status: "unsigned-prerelease-accepted",
+          message: "Unsigned Windows HUD artifact accepted for alpha prerelease.",
+        };
+      }
+
       return {
         verified: false,
         status: "missing-signature-metadata",
@@ -483,6 +501,20 @@ async function findExpectedSignerThumbprints(input: {
   }
 
   return null;
+}
+
+function isVerifiedSignatureStatus(status: string): boolean {
+  return status !== "not-required" && status !== "unsigned-prerelease-accepted";
+}
+
+function isUnsignedPrereleaseHudAllowed(env: Record<string, string | undefined>, tag: string): boolean {
+  const configured = env[ALLOW_UNSIGNED_HUD_ENV_KEY]?.trim().toLowerCase();
+
+  if (configured !== undefined && configured.length > 0) {
+    return ["1", "true", "yes", "on"].includes(configured);
+  }
+
+  return /-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(tag);
 }
 
 async function verifyWindowsAuthenticodeSignature(

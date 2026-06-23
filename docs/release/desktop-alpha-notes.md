@@ -3,8 +3,8 @@
 This prerelease publishes source-free alpha artifacts for local review:
 
 - `moneysiren-web-runtime-*.tar.gz`: built Next.js dashboard runtime.
-- Windows desktop installer: signed Tauri NSIS `.exe`.
-- macOS desktop app archive: signed and notarized Tauri `.app` in `.tar.gz`.
+- Windows desktop installer: Tauri NSIS `.exe`.
+- macOS desktop app archive: Tauri `.app` in `.tar.gz`.
 - SHA256 checksum files for the release assets.
 
 ## Install Order
@@ -28,6 +28,7 @@ The desktop shell opens the local dashboard and HUD at `http://127.0.0.1:3000`. 
 ## Security Notes
 
 - Desktop artifacts are code signed when the release workflow has the required signing secrets.
+- If signing secrets are not configured, prerelease desktop artifacts are unsigned alpha builds. Treat them as local review builds until signed assets are published.
 - Do not create `.env` files with live credentials.
 - Use process-local environment variables for live provider sync.
 - Provider connectors remain read-only.

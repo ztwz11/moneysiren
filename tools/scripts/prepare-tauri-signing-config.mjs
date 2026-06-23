@@ -10,6 +10,11 @@ const config = {
 };
 
 if (platform === "windows") {
+  if (envValue("WINDOWS_CERTIFICATE_THUMBPRINT").length === 0) {
+    await writeUnsignedConfig("windows");
+    process.exit(0);
+  }
+
   requireEnv(["WINDOWS_CERTIFICATE_THUMBPRINT"]);
 
   const windowsConfig = {
@@ -29,6 +34,17 @@ if (platform === "windows") {
 
   config.bundle.windows = windowsConfig;
 } else if (platform === "macos") {
+  if ([
+    "APPLE_CERTIFICATE",
+    "APPLE_CERTIFICATE_PASSWORD",
+    "APPLE_ID",
+    "APPLE_PASSWORD",
+    "APPLE_TEAM_ID",
+  ].some((name) => envValue(name).length === 0)) {
+    await writeUnsignedConfig("macos");
+    process.exit(0);
+  }
+
   requireEnv([
     "APPLE_CERTIFICATE",
     "APPLE_CERTIFICATE_PASSWORD",
@@ -60,6 +76,12 @@ if (platform === "windows") {
 await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${JSON.stringify(config, null, 2)}\n`);
 console.log(`Prepared Tauri ${platform} signing config at ${outputPath}`);
+
+async function writeUnsignedConfig(targetPlatform) {
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, `${JSON.stringify(config, null, 2)}\n`);
+  console.log(`Prepared unsigned Tauri ${targetPlatform} alpha config at ${outputPath}`);
+}
 
 function parseArgs(values) {
   const parsed = {};

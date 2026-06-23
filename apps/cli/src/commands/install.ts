@@ -315,6 +315,18 @@ function writeReleaseInstallSummary(context: CliExecutionContext, result: Releas
   for (const asset of result.assets) {
     context.stdout(`Downloaded ${asset.surface}: ${asset.name}`);
     context.stdout(`  SHA256 verified: ${asset.checksumVerified ? "yes" : "checksum unavailable"}`);
-    context.stdout(`  Signature verified: ${asset.signatureVerified ? "yes" : "not required"}`);
+    context.stdout(`  Signature status: ${formatSignatureStatus(asset)}`);
   }
+}
+
+function formatSignatureStatus(asset: ReleaseInstallResult["assets"][number]): string {
+  if (asset.signatureVerified) {
+    return "verified";
+  }
+
+  if (asset.signatureStatus === "unsigned-prerelease-accepted") {
+    return "unsigned alpha accepted";
+  }
+
+  return "not required";
 }

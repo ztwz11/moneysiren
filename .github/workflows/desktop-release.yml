@@ -9,7 +9,7 @@ on:
       tag:
         description: "Release tag to create or update"
         required: true
-        default: "v0.1.0-alpha.2"
+        default: "v0.1.0-alpha.3"
       create_release:
         description: "Create/update the GitHub Release and upload assets"
         required: true
@@ -141,10 +141,14 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE)) {
-            throw 'Missing WINDOWS_CERTIFICATE repository secret.'
+            'WINDOWS_SIGNING_READY=false' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            Write-Warning 'Missing WINDOWS_CERTIFICATE repository secret. Building unsigned alpha Windows artifact.'
+            exit 0
           }
           if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)) {
-            throw 'Missing WINDOWS_CERTIFICATE_PASSWORD repository secret.'
+            'WINDOWS_SIGNING_READY=false' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            Write-Warning 'Missing WINDOWS_CERTIFICATE_PASSWORD repository secret. Building unsigned alpha Windows artifact.'
+            exit 0
           }
 
           New-Item -ItemType Directory -Force .tmp\codesign | Out-Null
@@ -163,6 +167,7 @@ jobs:
           if ($null -eq $certificate -or [string]::IsNullOrWhiteSpace($certificate.Thumbprint)) {
             throw 'Windows signing certificate was imported, but no certificate thumbprint was available.'
           }
+          'WINDOWS_SIGNING_READY=true' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "WINDOWS_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Remove-Item -LiteralPath $encodedCertificatePath,$certificatePath -Force
 
@@ -175,17 +180,10 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
-          if [ -z "${APPLE_CERTIFICATE:-}" ]; then
-            echo "Missing APPLE_CERTIFICATE repository secret." >&2
-            exit 1
-          fi
-          if [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ]; then
-            echo "Missing APPLE_CERTIFICATE_PASSWORD repository secret." >&2
-            exit 1
-          fi
-          if [ -z "${KEYCHAIN_PASSWORD:-}" ]; then
-            echo "Missing KEYCHAIN_PASSWORD repository secret." >&2
-            exit 1
+          if [ -z "${APPLE_CERTIFICATE:-}" ] || [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ] || [ -z "${KEYCHAIN_PASSWORD:-}" ]; then
+            echo "APPLE_SIGNING_READY=false" >> "$GITHUB_ENV"
+            echo "Missing Apple signing secret(s). Building unsigned alpha macOS artifact." >&2
+            exit 0
           fi
 
           mkdir -p .tmp/codesign
@@ -201,6 +199,7 @@ jobs:
             echo "No valid Apple code-signing identity was found in the imported keychain." >&2
             exit 1
           fi
+          echo "APPLE_SIGNING_READY=true" >> "$GITHUB_ENV"
           echo "APPLE_SIGNING_IDENTITY=$cert_id" >> "$GITHUB_ENV"
           rm -f .tmp/codesign/apple-certificate.p12
 
@@ -219,7 +218,7 @@ jobs:
           WINDOWS_TSP: ${{ vars.WINDOWS_TSP }}
         run: node tools/scripts/prepare-tauri-signing-config.mjs --platform ${{ matrix.name }} --out apps/tray/.tmp/tauri-signing-${{ matrix.name }}.json
 
-      - name: Build signed desktop bundle
+      - name: Build desktop bundle
         if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -256,7 +255,7 @@ jobs:
             Set-Content dist\desktop-release\moneysiren-tray-windows-SHA256SUMS.txt
 
       - name: Verify Windows installer signature
-        if: runner.os == 'Windows' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
+        if: runner.os == 'Windows' && env.WINDOWS_SIGNING_READY == 'true' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -310,7 +309,7 @@ jobs:
           shasum -a 256 *.tar.gz > moneysiren-tray-macos-SHA256SUMS.txt
 
       - name: Verify macOS app signature and notarization
-        if: runner.os == 'macOS' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_READY == 'true' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
         shell: bash
         run: |
           set -euo pipefail

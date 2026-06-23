@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, posix, resolve, win32 } from "node:path";
+import { basename, dirname, join, posix, resolve, win32 } from "node:path";
 import { promisify } from "node:util";
 import type { InstallSurface } from "./install-profile.js";
 
@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 
 export const DEFAULT_RELEASE_REPOSITORY = "ztwz11/moneysiren";
 // Keep the source-free installer pinned to the latest published desktop/web release tag.
-export const DEFAULT_RELEASE_TAG = "v0.1.0-alpha.5";
+export const DEFAULT_RELEASE_TAG = "v0.1.0-alpha.6";
 
 export interface ReleaseInstallOptions {
   env?: Record<string, string | undefined>;
@@ -212,10 +212,10 @@ export function resolveReleaseInstallDir(input: {
   const env = input.env ?? process.env;
   const platform = input.platform ?? process.platform;
   const tag = input.tag ?? DEFAULT_RELEASE_TAG;
-  const configured = trimToNull(input.installDir);
+  const configured = trimToNull(input.installDir ?? env[RELEASE_INSTALL_DIR_ENV_KEY]);
 
   if (configured !== null) {
-    return isAbsolute(configured) ? configured : resolve(process.cwd(), configured);
+    return isAbsoluteForPlatform(platform, configured) ? configured : resolve(process.cwd(), configured);
   }
 
   const root = platform === "win32"
@@ -632,6 +632,10 @@ function trimToNull(value: string | undefined): string | null {
 
 function joinForPlatform(platform: NodeJS.Platform, ...segments: string[]): string {
   return platform === "win32" ? win32.join(...segments) : posix.join(...segments);
+}
+
+function isAbsoluteForPlatform(platform: NodeJS.Platform, value: string): boolean {
+  return platform === "win32" ? win32.isAbsolute(value) : posix.isAbsolute(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

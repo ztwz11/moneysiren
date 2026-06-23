@@ -88,7 +88,7 @@ msiren hud
 To pin a release tag or choose a directory:
 
 ```bash
-msiren install --all --tag v0.1.0-alpha.5 --dir ./moneysiren-release
+msiren install --all --tag v0.1.0-alpha.6 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -299,8 +299,8 @@ WINDOWS_CERTIFICATE_PASSWORD="<pfx-or-p12-password>" npm run release:signing:che
 Create or update a prerelease from a tag:
 
 ```bash
-git tag v0.1.0-alpha.5
-git push origin v0.1.0-alpha.5
+git tag v0.1.0-alpha.6
+git push origin v0.1.0-alpha.6
 ```
 
 Or run the workflow manually from GitHub Actions with a release tag. If only one signing identity is ready, set `desktop_targets` to `windows` or `macos`; skipped desktop assets are removed from the updated GitHub Release so stale unsigned desktop artifacts do not remain published. The workflow uploads SHA256 checksum files and Windows signature metadata next to the release artifacts when signing is configured.
@@ -308,7 +308,7 @@ Or run the workflow manually from GitHub Actions with a release tag. If only one
 Alpha releases can publish unsigned HUD artifacts when signing secrets are not ready. Keep unsigned validation explicit:
 
 ```bash
-npm run release:check -- v0.1.0-alpha.5 --allow-unsigned-prerelease-windows
+npm run release:check -- v0.1.0-alpha.6 --allow-unsigned-prerelease-windows
 ```
 
 The CLI accepts unsigned HUD artifacts only for prerelease tags such as `alpha`; set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for alpha builds.

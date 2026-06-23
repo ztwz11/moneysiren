@@ -17,7 +17,7 @@ const RUNTIME: LocalRuntime = {
   port: 47831,
   baseUrl: "http://127.0.0.1:47831",
   startedAt: "2026-06-09T00:00:00.000Z",
-  version: "0.1.0-alpha.7",
+  version: "0.1.0-alpha.8",
 };
 
 describe("runtime helpers", () => {

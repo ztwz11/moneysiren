@@ -105,7 +105,7 @@ export async function openUrlInBrowser(url: string): Promise<void> {
   }
 
   const child = process.platform === "win32"
-    ? spawn("cmd", ["/c", "start", "", parsedUrl.toString()], {
+    ? spawn("rundll32.exe", ["url.dll,FileProtocolHandler", parsedUrl.toString()], {
         detached: true,
         stdio: "ignore",
         windowsHide: true,

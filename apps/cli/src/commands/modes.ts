@@ -40,6 +40,7 @@ export async function runModesCommand(args: readonly string[], context: CliExecu
   context.stdout(`   Status: ${surfaceStatus("web", selectedSurfaces)} GitHub Release web runtime archive is installed by the CLI`);
   context.stdout("   Install: msiren install --web");
   context.stdout("   Try: msiren start");
+  context.stdout("   Stop: msiren stop --web");
   context.stdout("   Try: msiren dashboard check");
   context.stdout("   Note: msiren start runs the installed GitHub Release web runtime.");
   context.stdout("");
@@ -47,10 +48,12 @@ export async function runModesCommand(args: readonly string[], context: CliExecu
   context.stdout(`   Status: ${surfaceStatus("hud", selectedSurfaces)} Windows/macOS target is the thin Tauri tray shell from GitHub Releases`);
   context.stdout("   Install: msiren install --hud");
   context.stdout("   Try: msiren hud");
-  context.stdout("   Try: msiren desktop status");
+  context.stdout("   Try: msiren status");
+  context.stdout("   Stop: msiren stop --hud");
   context.stdout("   Try: msiren notify once --dry-run");
   context.stdout("");
   context.stdout("Install recommended set: msiren install --all");
+  context.stdout("Stop managed runtimes: msiren stop");
   context.stdout("Change selection only: msiren install --profile-only");
   return 0;
 }

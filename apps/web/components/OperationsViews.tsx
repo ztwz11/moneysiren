@@ -13,6 +13,7 @@ import { DashboardDisplaySettings } from "./DashboardDisplaySettings";
 import { LiveRefreshButton } from "./LiveRefreshButton";
 import { ProviderIcon } from "./ProviderIcon";
 import { RefreshPageButton } from "./RefreshPageButton";
+import { RuntimeShutdownButton } from "./RuntimeShutdownButton";
 import { UsageProgress } from "./UsageProgress";
 import {
   ServiceRemediationHeader,
@@ -719,6 +720,9 @@ export function PreferencesView({ dashboard, locale, messages }: ViewProps) {
         </InfoPanel>
         <InfoPanel title={messages.settings.telemetry}>
           <KeyValue label={messages.settings.telemetry} value={messages.settings.off} />
+        </InfoPanel>
+        <InfoPanel title={locale === "ko" ? "로컬 런타임" : locale === "ja" ? "ローカルランタイム" : "Local runtime"}>
+          <RuntimeShutdownButton locale={locale} />
         </InfoPanel>
       </div>
       <BudgetSettings currentCurrency={dashboard.summary.currency} messages={messages} />

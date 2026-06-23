@@ -1,7 +1,8 @@
 import { execFile, spawn } from "node:child_process";
 import { constants } from "node:fs";
-import { access, mkdir, readFile, readdir, stat } from "node:fs/promises";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { access, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { basename, dirname, extname, join, posix, resolve, win32 } from "node:path";
 import { promisify } from "node:util";
 import type { CliExecutionContext } from "./cli.js";
 import { resolveReleaseInstallDir } from "./release-installer.js";
@@ -17,6 +18,31 @@ export interface StartWebRuntimeOptions {
 
 export interface StartHudOptions {
   port?: number;
+}
+
+export interface DesktopRuntimeStatus {
+  statePath: string;
+  web: DesktopProcessStatus;
+  hud: DesktopProcessStatus;
+}
+
+export interface DesktopProcessStatus {
+  target: "web" | "hud";
+  status: "running" | "not-running" | "not-managed" | "stale";
+  pid?: number;
+  detail: string;
+}
+
+export interface StopDesktopRuntimeOptions {
+  hud: boolean;
+  web: boolean;
+}
+
+export interface StopDesktopRuntimeResult {
+  target: "web" | "hud";
+  status: "stopped" | "not-running" | "not-managed" | "stale" | "failed";
+  pid?: number;
+  detail: string;
 }
 
 export type DesktopRuntimeResult =
@@ -46,6 +72,8 @@ export interface DesktopRuntimeUnavailableResult {
 export interface CliDesktopRuntimeAdapter {
   startWebRuntime(options: StartWebRuntimeOptions): Promise<DesktopRuntimeResult>;
   startHud(options: StartHudOptions): Promise<DesktopShellResult>;
+  status(): Promise<DesktopRuntimeStatus>;
+  stop(options: StopDesktopRuntimeOptions): Promise<readonly StopDesktopRuntimeResult[]>;
 }
 
 interface InstallManifest {
@@ -65,6 +93,24 @@ interface ResolvedExecutable {
   cwd?: string;
 }
 
+interface DesktopRuntimeState {
+  version: 1;
+  updatedAt: string;
+  web?: ManagedDesktopProcess;
+  hud?: ManagedDesktopProcess;
+}
+
+interface ManagedDesktopProcess {
+  pid: number;
+  startedAt: string;
+  port?: number;
+  dashboardUrl?: string;
+  executablePath?: string;
+}
+
+const DESKTOP_STATE_ENV_KEY = "MONEYSIREN_DESKTOP_RUNTIME_STATE_PATH";
+const STOP_TIMEOUT_MS = 3_000;
+
 export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext): CliDesktopRuntimeAdapter {
   return {
     async startWebRuntime(options) {
@@ -73,9 +119,12 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
       const healthUrl = `http://127.0.0.1:${port}/api/local/health`;
 
       if (await isWebRuntimeHealthy(healthUrl, context.fetch)) {
+        const status = await readDesktopRuntimeStatus(context);
+
         return {
           status: "running",
           dashboardUrl,
+          ...(status.web.status === "running" && status.web.pid !== undefined ? { pid: status.web.pid } : {}),
           notes: ["Existing local dashboard runtime is healthy."],
         };
       }
@@ -112,6 +161,18 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
         };
       }
 
+      if (child.pid !== undefined) {
+        await updateDesktopRuntimeState(context, (state) => ({
+          ...state,
+          web: {
+            pid: child.pid as number,
+            port,
+            dashboardUrl,
+            startedAt: new Date().toISOString(),
+          },
+        }));
+      }
+
       return {
         status: "started",
         dashboardUrl,
@@ -121,6 +182,17 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
     },
 
     async startHud(options) {
+      const status = await readDesktopRuntimeStatus(context);
+
+      if (status.hud.status === "running" && status.hud.pid !== undefined) {
+        return {
+          status: "opened",
+          executablePath: status.hud.detail,
+          pid: status.hud.pid,
+          notes: ["Existing desktop HUD shell is already running."],
+        };
+      }
+
       const executable = await resolveDesktopExecutable(context);
 
       if (isUnavailable(executable)) {
@@ -142,6 +214,17 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
 
       child.unref();
 
+      if (child.pid !== undefined) {
+        await updateDesktopRuntimeState(context, (state) => ({
+          ...state,
+          hud: {
+            executablePath: executable.executablePath,
+            pid: child.pid as number,
+            startedAt: new Date().toISOString(),
+          },
+        }));
+      }
+
       return {
         status: "started",
         executablePath: executable.executablePath,
@@ -149,7 +232,190 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
         notes: ["Desktop HUD shell launched with MONEYSIREN_DESKTOP_MODE=hud."],
       };
     },
+
+    async status() {
+      return readDesktopRuntimeStatus(context);
+    },
+
+    async stop(options) {
+      return stopDesktopRuntime(context, options);
+    },
   };
+}
+
+async function readDesktopRuntimeStatus(context: CliExecutionContext): Promise<DesktopRuntimeStatus> {
+  const statePath = resolveDesktopRuntimeStatePath(context);
+  const state = await readDesktopRuntimeState(context);
+  const port = configuredPort(context.env);
+  const webHealthUrl = `http://127.0.0.1:${port}/api/local/health`;
+  const web = await processStatus({
+    context,
+    detail: state?.web?.dashboardUrl ?? `http://127.0.0.1:${port}`,
+    healthUrl: webHealthUrl,
+    process: state?.web,
+    target: "web",
+  });
+  const hud = await processStatus({
+    context,
+    detail: state?.hud?.executablePath ?? "No managed HUD process recorded.",
+    process: state?.hud,
+    target: "hud",
+  });
+
+  return {
+    statePath,
+    web,
+    hud,
+  };
+}
+
+async function stopDesktopRuntime(
+  context: CliExecutionContext,
+  options: StopDesktopRuntimeOptions,
+): Promise<readonly StopDesktopRuntimeResult[]> {
+  const state = await readDesktopRuntimeState(context);
+  const results: StopDesktopRuntimeResult[] = [];
+  let nextState = state ?? emptyDesktopRuntimeState();
+
+  if (options.web) {
+    const result = state?.web === undefined && await isWebRuntimeHealthy(
+      `http://127.0.0.1:${configuredPort(context.env)}/api/local/health`,
+      context.fetch,
+    )
+      ? {
+          target: "web" as const,
+          status: "not-managed" as const,
+          detail: "A local dashboard runtime is reachable, but no MoneySiren CLI PID is recorded. It was not stopped.",
+        }
+      : await stopManagedProcess("web", state?.web);
+    results.push(result);
+
+    if (result.status !== "failed") {
+      const { web: _web, ...rest } = nextState;
+      nextState = rest;
+    }
+  }
+
+  if (options.hud) {
+    const result = await stopManagedProcess("hud", state?.hud);
+    results.push(result);
+
+    if (result.status !== "failed") {
+      const { hud: _hud, ...rest } = nextState;
+      nextState = rest;
+    }
+  }
+
+  await writeOrRemoveDesktopRuntimeState(context, nextState);
+  return results;
+}
+
+async function processStatus(input: {
+  context: CliExecutionContext;
+  detail: string;
+  healthUrl?: string;
+  process: ManagedDesktopProcess | undefined;
+  target: "web" | "hud";
+}): Promise<DesktopProcessStatus> {
+  if (input.process === undefined) {
+    if (input.target === "web" && input.healthUrl !== undefined && await isWebRuntimeHealthy(input.healthUrl, input.context.fetch)) {
+      return {
+        target: input.target,
+        status: "not-managed",
+        detail: `${input.detail} is reachable, but no MoneySiren CLI PID is recorded.`,
+      };
+    }
+
+    return {
+      target: input.target,
+      status: "not-running",
+      detail: input.detail,
+    };
+  }
+
+  if (!isProcessAlive(input.process.pid)) {
+    return {
+      target: input.target,
+      status: "stale",
+      pid: input.process.pid,
+      detail: input.detail,
+    };
+  }
+
+  return {
+    target: input.target,
+    status: "running",
+    pid: input.process.pid,
+    detail: input.detail,
+  };
+}
+
+async function stopManagedProcess(
+  target: "web" | "hud",
+  processRecord: ManagedDesktopProcess | undefined,
+): Promise<StopDesktopRuntimeResult> {
+  if (processRecord === undefined) {
+    return {
+      target,
+      status: "not-running",
+      detail: `No managed ${target} process is recorded.`,
+    };
+  }
+
+  if (!isProcessAlive(processRecord.pid)) {
+    return {
+      target,
+      status: "stale",
+      pid: processRecord.pid,
+      detail: `Removed stale ${target} process record.`,
+    };
+  }
+
+  if (processRecord.pid === process.pid) {
+    return {
+      target,
+      status: "failed",
+      pid: processRecord.pid,
+      detail: "Refusing to stop the current CLI process.",
+    };
+  }
+
+  try {
+    process.kill(processRecord.pid, "SIGTERM");
+    await waitForProcessExit(processRecord.pid, STOP_TIMEOUT_MS);
+
+    if (isProcessAlive(processRecord.pid)) {
+      return {
+        target,
+        status: "failed",
+        pid: processRecord.pid,
+        detail: `${target} process did not exit after SIGTERM.`,
+      };
+    }
+
+    return {
+      target,
+      status: "stopped",
+      pid: processRecord.pid,
+      detail: `${target} process stopped.`,
+    };
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ESRCH") {
+      return {
+        target,
+        status: "stale",
+        pid: processRecord.pid,
+        detail: `Removed stale ${target} process record.`,
+      };
+    }
+
+    return {
+      target,
+      status: "failed",
+      pid: processRecord.pid,
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 async function resolveWebRuntimeStartScript(context: CliExecutionContext): Promise<
@@ -571,6 +837,130 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+async function readDesktopRuntimeState(context: CliExecutionContext): Promise<DesktopRuntimeState | null> {
+  try {
+    const parsed = JSON.parse(await readFile(resolveDesktopRuntimeStatePath(context), "utf8")) as unknown;
+
+    return parseDesktopRuntimeState(parsed);
+  } catch {
+    return null;
+  }
+}
+
+async function updateDesktopRuntimeState(
+  context: CliExecutionContext,
+  update: (state: DesktopRuntimeState) => DesktopRuntimeState,
+): Promise<void> {
+  await writeOrRemoveDesktopRuntimeState(context, update(await readDesktopRuntimeState(context) ?? emptyDesktopRuntimeState()));
+}
+
+async function writeOrRemoveDesktopRuntimeState(
+  context: CliExecutionContext,
+  state: DesktopRuntimeState,
+): Promise<void> {
+  const statePath = resolveDesktopRuntimeStatePath(context);
+
+  if (state.web === undefined && state.hud === undefined) {
+    await rm(statePath, { force: true });
+    return;
+  }
+
+  const nextState: DesktopRuntimeState = {
+    ...state,
+    updatedAt: new Date().toISOString(),
+  };
+  await mkdir(dirname(statePath), { recursive: true });
+  await writeFile(statePath, `${JSON.stringify(nextState, null, 2)}\n`, "utf8");
+}
+
+function resolveDesktopRuntimeStatePath(context: CliExecutionContext): string {
+  const configured = trimToNull(context.env[DESKTOP_STATE_ENV_KEY]);
+
+  if (configured !== null) {
+    return resolve(context.cwd, configured);
+  }
+
+  if (process.platform === "win32") {
+    return win32.join(trimToNull(context.env.APPDATA) ?? win32.join(resolveHomeDirectory(context.env), "AppData", "Roaming"), "MoneySiren", "desktop-runtime.json");
+  }
+
+  if (process.platform === "darwin") {
+    return posix.join(resolveHomeDirectory(context.env), "Library", "Application Support", "MoneySiren", "desktop-runtime.json");
+  }
+
+  return posix.join(
+    trimToNull(context.env.XDG_STATE_HOME) ?? posix.join(resolveHomeDirectory(context.env), ".local", "state"),
+    "moneysiren",
+    "desktop-runtime.json",
+  );
+}
+
+function parseDesktopRuntimeState(value: unknown): DesktopRuntimeState | null {
+  if (!isRecord(value) || value.version !== 1 || typeof value.updatedAt !== "string") {
+    return null;
+  }
+
+  const web = parseManagedDesktopProcess(value.web);
+  const hud = parseManagedDesktopProcess(value.hud);
+
+  return {
+    version: 1,
+    updatedAt: value.updatedAt,
+    ...(web === undefined ? {} : { web }),
+    ...(hud === undefined ? {} : { hud }),
+  };
+}
+
+function parseManagedDesktopProcess(value: unknown): ManagedDesktopProcess | undefined {
+  if (!isRecord(value) || typeof value.pid !== "number" || typeof value.startedAt !== "string" || !Number.isSafeInteger(value.pid)) {
+    return undefined;
+  }
+
+  return {
+    pid: value.pid,
+    startedAt: value.startedAt,
+    ...(typeof value.port === "number" && Number.isSafeInteger(value.port) ? { port: value.port } : {}),
+    ...(typeof value.dashboardUrl === "string" ? { dashboardUrl: value.dashboardUrl } : {}),
+    ...(typeof value.executablePath === "string" ? { executablePath: value.executablePath } : {}),
+  };
+}
+
+function emptyDesktopRuntimeState(): DesktopRuntimeState {
+  return {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function isProcessAlive(pid: number): boolean {
+  if (pid <= 0) {
+    return false;
+  }
+
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return isNodeError(error) && error.code === "EPERM";
+  }
+}
+
+async function waitForProcessExit(pid: number, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (!isProcessAlive(pid)) {
+      return;
+    }
+
+    await new Promise((resolveTimeout) => setTimeout(resolveTimeout, 100));
+  }
+}
+
+function resolveHomeDirectory(env: Record<string, string | undefined>): string {
+  return trimToNull(env.HOME) ?? trimToNull(env.USERPROFILE) ?? homedir();
+}
+
 function configuredPort(env: Record<string, string | undefined>): number {
   const parsed = Number.parseInt(env.PORT ?? "", 10);
 
@@ -589,4 +979,8 @@ function errorMessage(error: unknown): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNodeError(value: unknown): value is NodeJS.ErrnoException {
+  return value instanceof Error && "code" in value;
 }

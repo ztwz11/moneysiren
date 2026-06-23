@@ -6,7 +6,7 @@ MoneySiren reads provider usage into local SQLite, shows expected billing and us
 
 ## Current Status
 
-MoneySiren is preparing `v0.1.0-alpha.6` for local review.
+MoneySiren is preparing `v0.1.0-alpha.7` for local review.
 
 The current alpha supports:
 
@@ -233,14 +233,16 @@ msiren install --all
 msiren sync --provider mock
 msiren start
 msiren hud
+msiren status
+msiren stop
 ```
 
-`msiren install --all` stores the selected release assets under the MoneySiren local application data directory by default. `msiren start` extracts and starts the installed web runtime, then opens the local dashboard. `msiren hud` ensures the web runtime is running and opens the desktop HUD shell when a runnable desktop app is installed or configured.
+`msiren install --all` stores the selected release assets under the MoneySiren local application data directory by default. `msiren start` extracts and starts the installed web runtime, then opens the local dashboard. `msiren hud` ensures the web runtime is running and opens the desktop HUD shell when a runnable desktop app is installed or configured. `msiren status` shows the managed web, HUD, and local API runtime state. `msiren stop` stops managed runtimes; use `msiren stop --web`, `msiren stop --hud`, or `msiren stop --api` when you only want to stop one surface. `msiren restart` stops the managed web/HUD pair and starts the dashboard again.
 
 To install from a specific release tag or into a custom directory:
 
 ```bash
-msiren install --all --tag v0.1.0-alpha.6 --dir ./moneysiren-release
+msiren install --all --tag v0.1.0-alpha.7 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -256,7 +258,7 @@ Release maintainers should verify published assets before announcing a desktop b
 ```bash
 npm run release:signing:encode-windows -- "<path-to-windows-code-signing.pfx>"
 npm run release:signing:check -- windows
-npm run release:check -- v0.1.0-alpha.6
+npm run release:check -- v0.1.0-alpha.7
 ```
 
 The encode helper writes the base64 certificate payload to `.tmp/codesign/windows-certificate.base64.txt` so maintainers can set the `WINDOWS_CERTIFICATE` repository secret without printing the private certificate to the terminal. Set `WINDOWS_CERTIFICATE_PASSWORD` to the PFX/P12 password in GitHub Secrets and in the local shell before running the signing readiness check. The signing check verifies local/CI signing inputs before a release run. The release check downloads the published assets, verifies SHA256 entries, requires Windows signature metadata, and validates Windows Authenticode signatures when run on Windows. If only one desktop signing identity is ready, run the `desktop-release` workflow with `desktop_targets=windows` or `desktop_targets=macos`; the publish step removes stale desktop assets for the skipped OS. Self-signed certificates are acceptable only for local smoke tests and do not fix public Windows publisher trust warnings.
@@ -264,7 +266,7 @@ The encode helper writes the base64 certificate payload to `.tmp/codesign/window
 Alpha releases can publish unsigned HUD artifacts when signing secrets are not ready. Keep that path explicit in validation:
 
 ```bash
-npm run release:check -- v0.1.0-alpha.6 --allow-unsigned-prerelease-windows
+npm run release:check -- v0.1.0-alpha.7 --allow-unsigned-prerelease-windows
 ```
 
 The CLI accepts unsigned HUD artifacts only for prerelease tags such as `alpha`; set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for alpha builds.

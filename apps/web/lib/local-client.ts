@@ -40,3 +40,21 @@ export async function refreshLocalLive(scope: LocalRefreshScope): Promise<unknow
 
   return await response.json();
 }
+
+export async function stopLocalWebRuntime(): Promise<unknown> {
+  const session = await createLocalDashboardSession();
+  const response = await fetch("/api/local/runtime/stop", {
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: {
+      "X-MoneySiren-CSRF": session.csrfToken,
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Local runtime stop failed with status ${response.status}.`);
+  }
+
+  return await response.json();
+}

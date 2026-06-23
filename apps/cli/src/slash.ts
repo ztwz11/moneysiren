@@ -76,6 +76,24 @@ export function resolveSlashCommand(args: readonly string[]): SlashDispatch {
     };
   }
 
+  if (command === "/status") {
+    return noExtraArgs(command, rest, ["status"]);
+  }
+
+  if (command === "/stop") {
+    return {
+      kind: "dispatch",
+      args: ["stop", ...rest],
+    };
+  }
+
+  if (command === "/restart") {
+    return {
+      kind: "dispatch",
+      args: ["restart", ...rest],
+    };
+  }
+
   if (command === "/init") {
     return noExtraArgs(command, rest, ["init"]);
   }

@@ -2,8 +2,10 @@ import type { CliExecutionContext } from "../cli.js";
 import {
   createFallbackDesktopRuntimeAdapter,
   type CliDesktopRuntimeAdapter,
+  type DesktopProcessStatus,
   type DesktopRuntimeResult,
   type DesktopShellResult,
+  type StopDesktopRuntimeResult,
 } from "../desktop-runtime.js";
 import {
   createFallbackLocalRuntimeAdapter,
@@ -11,10 +13,14 @@ import {
   type LocalRuntime,
   type StartRuntimeResult,
 } from "../runtime-adapter.js";
+import { removeRuntimeLock } from "../../../../packages/runtime/src/index.js";
 
 const SERVE_USAGE = "Usage: moneysiren serve [--port <port>]";
 const START_USAGE = "Usage: msiren start [--port <port>] [--open|--no-open] [--hud]";
 const HUD_USAGE = "Usage: msiren hud [--port <port>]";
+const STATUS_USAGE = "Usage: msiren status";
+const STOP_USAGE = "Usage: msiren stop [--web|--hud|--api|--all]";
+const RESTART_USAGE = "Usage: msiren restart [--port <port>] [--open|--no-open] [--hud]";
 const OPEN_USAGE = "Usage: moneysiren open";
 const DESKTOP_USAGE = "Usage: moneysiren desktop status";
 
@@ -30,6 +36,12 @@ interface ParsedStartArgs {
 
 interface ParsedHudArgs {
   port?: number;
+}
+
+interface StopSelection {
+  api: boolean;
+  hud: boolean;
+  web: boolean;
 }
 
 export async function runServeCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
@@ -51,6 +63,37 @@ export async function runServeCommand(args: readonly string[], context: CliExecu
   });
 
   return writeStartRuntimeResult(context, result, "MoneySiren local runtime");
+}
+
+export async function runStatusCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
+  if (args.includes("--help") || args.includes("-h")) {
+    context.stdout(STATUS_USAGE);
+    return 0;
+  }
+
+  if (args.length > 0) {
+    context.stderr(STATUS_USAGE);
+    return 1;
+  }
+
+  const desktop = await desktopRuntimeAdapter(context).status();
+  const api = await runtimeAdapter(context).findRuntime();
+
+  context.stdout("MoneySiren status");
+  writeDesktopProcessStatus(context, "Web runtime", desktop.web);
+  writeDesktopProcessStatus(context, "HUD", desktop.hud);
+  context.stdout(`Desktop state: ${desktop.statePath}`);
+
+  if (api === null) {
+    context.stdout("Local API runtime: not running");
+    return 0;
+  }
+
+  const healthy = await runtimeAdapter(context).assertRuntimeHealthy(api);
+  context.stdout(`Local API runtime: ${healthy ? "healthy" : "unhealthy"}`);
+  context.stdout(`  PID: ${api.pid}`);
+  context.stdout(`  URL: ${api.baseUrl}`);
+  return healthy ? 0 : 1;
 }
 
 export async function runStartCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
@@ -94,6 +137,71 @@ export async function runStartCommand(args: readonly string[], context: CliExecu
   return writeDesktopShellResult(context, hud, "MoneySiren HUD");
 }
 
+export async function runStopCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
+  if (args.includes("--help") || args.includes("-h")) {
+    context.stdout(STOP_USAGE);
+    return 0;
+  }
+
+  const selection = parseStopArgs(args);
+
+  if (selection === undefined) {
+    context.stderr(STOP_USAGE);
+    return 1;
+  }
+
+  context.stdout("MoneySiren stop");
+
+  const desktopResults = await desktopRuntimeAdapter(context).stop({
+    hud: selection.hud,
+    web: selection.web,
+  });
+
+  for (const result of desktopResults) {
+    writeStopDesktopRuntimeResult(context, result);
+  }
+
+  let exitCode = desktopResults.some((result) => result.status === "failed") ? 1 : 0;
+
+  if (selection.api) {
+    const apiResult = await stopLocalApiRuntime(context);
+    context.stdout(`Local API runtime: ${apiResult.status}`);
+    context.stdout(`  ${apiResult.detail}`);
+
+    if (apiResult.pid !== undefined) {
+      context.stdout(`  PID: ${apiResult.pid}`);
+    }
+
+    if (apiResult.status === "failed") {
+      exitCode = 1;
+    }
+  }
+
+  return exitCode;
+}
+
+export async function runRestartCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
+  if (args.includes("--help") || args.includes("-h")) {
+    context.stdout(RESTART_USAGE);
+    return 0;
+  }
+
+  const parsed = parseStartArgs(args);
+
+  if (parsed === undefined) {
+    context.stderr(RESTART_USAGE);
+    return 1;
+  }
+
+  const stopExitCode = await runStopCommand(["--web", "--hud"], context);
+
+  if (stopExitCode !== 0) {
+    return stopExitCode;
+  }
+
+  return runStartCommand(args, context);
+}
+
 export async function runHudCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
   if (args.includes("--help") || args.includes("-h")) {
     context.stdout(HUD_USAGE);
@@ -123,6 +231,65 @@ export async function runHudCommand(args: readonly string[], context: CliExecuti
   });
 
   return writeDesktopShellResult(context, hud, "MoneySiren HUD");
+}
+
+async function stopLocalApiRuntime(context: CliExecutionContext): Promise<{
+  status: "stopped" | "not-running" | "stale" | "failed";
+  detail: string;
+  pid?: number;
+}> {
+  const adapter = runtimeAdapter(context);
+  const runtime = await adapter.findRuntime();
+
+  if (runtime === null) {
+    return {
+      status: "not-running",
+      detail: "No managed local API runtime lock was found.",
+    };
+  }
+
+  try {
+    process.kill(runtime.pid, "SIGTERM");
+    await waitForProcessExit(runtime.pid, 3_000);
+
+    if (isProcessAlive(runtime.pid)) {
+      return {
+        status: "failed",
+        detail: "Local API runtime did not exit after SIGTERM.",
+        pid: runtime.pid,
+      };
+    }
+
+    await removeRuntimeLock({
+      cwd: context.cwd,
+      env: context.env,
+    });
+
+    return {
+      status: "stopped",
+      detail: "Managed local API runtime stopped.",
+      pid: runtime.pid,
+    };
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ESRCH") {
+      await removeRuntimeLock({
+        cwd: context.cwd,
+        env: context.env,
+      });
+
+      return {
+        status: "stale",
+        detail: "Removed stale local API runtime lock.",
+        pid: runtime.pid,
+      };
+    }
+
+    return {
+      status: "failed",
+      detail: error instanceof Error ? error.message : String(error),
+      pid: runtime.pid,
+    };
+  }
 }
 
 export async function runOpenCommand(args: readonly string[], context: CliExecutionContext): Promise<number> {
@@ -300,6 +467,27 @@ function writeDesktopShellResult(
   return 1;
 }
 
+function writeDesktopProcessStatus(context: CliExecutionContext, label: string, status: DesktopProcessStatus): void {
+  context.stdout(`${label}: ${status.status}`);
+
+  if (status.pid !== undefined) {
+    context.stdout(`  PID: ${status.pid}`);
+  }
+
+  context.stdout(`  ${status.detail}`);
+}
+
+function writeStopDesktopRuntimeResult(context: CliExecutionContext, result: StopDesktopRuntimeResult): void {
+  const label = result.target === "web" ? "Web runtime" : "HUD";
+
+  context.stdout(`${label}: ${result.status}`);
+  context.stdout(`  ${result.detail}`);
+
+  if (result.pid !== undefined) {
+    context.stdout(`  PID: ${result.pid}`);
+  }
+}
+
 function parseServeArgs(args: readonly string[]): ParsedServeArgs | undefined {
   let port: number | undefined;
 
@@ -331,6 +519,41 @@ function parseServeArgs(args: readonly string[]): ParsedServeArgs | undefined {
   }
 
   return Number.isSafeInteger(port) && port > 0 && port <= 65_535 ? { port } : undefined;
+}
+
+function parseStopArgs(args: readonly string[]): StopSelection | undefined {
+  let web = false;
+  let hud = false;
+  let api = false;
+  let all = false;
+
+  for (const arg of args) {
+    if (arg === "--web") {
+      web = true;
+    } else if (arg === "--hud") {
+      hud = true;
+    } else if (arg === "--api") {
+      api = true;
+    } else if (arg === "--all") {
+      all = true;
+    } else {
+      return undefined;
+    }
+  }
+
+  if (all || (!web && !hud && !api)) {
+    return {
+      api: true,
+      hud: true,
+      web: true,
+    };
+  }
+
+  return {
+    api,
+    hud,
+    web,
+  };
 }
 
 function parseStartArgs(args: readonly string[]): ParsedStartArgs | undefined {
@@ -422,4 +645,33 @@ function parseHudArgs(args: readonly string[]): ParsedHudArgs | undefined {
 
 function parsePort(value: string): number {
   return Number.parseInt(value, 10);
+}
+
+function isProcessAlive(pid: number): boolean {
+  if (pid <= 0) {
+    return false;
+  }
+
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return isNodeError(error) && error.code === "EPERM";
+  }
+}
+
+async function waitForProcessExit(pid: number, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (!isProcessAlive(pid)) {
+      return;
+    }
+
+    await new Promise((resolveTimeout) => setTimeout(resolveTimeout, 100));
+  }
+}
+
+function isNodeError(value: unknown): value is NodeJS.ErrnoException {
+  return value instanceof Error && "code" in value;
 }

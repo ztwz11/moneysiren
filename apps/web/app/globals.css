@@ -93,6 +93,22 @@ select {
   font-weight: 650;
 }
 
+.runtime-stop-button {
+  border-color: #f5b5b0;
+  color: var(--red);
+  width: fit-content;
+}
+
+.runtime-stop-button:hover {
+  background: var(--red-soft);
+}
+
+.form-error-text {
+  color: var(--red);
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
 .layout-grid {
   display: grid;
   grid-template-columns: 172px minmax(0, 1fr);

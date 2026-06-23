@@ -5,7 +5,16 @@ import { runInstallCommand } from "./commands/install.js";
 import { runModesCommand } from "./commands/modes.js";
 import { runNotifyCommand } from "./commands/notify.js";
 import { runReportCommand } from "./commands/report.js";
-import { runDesktopCommand, runHudCommand, runOpenCommand, runServeCommand, runStartCommand } from "./commands/runtime.js";
+import {
+  runDesktopCommand,
+  runHudCommand,
+  runOpenCommand,
+  runRestartCommand,
+  runServeCommand,
+  runStartCommand,
+  runStatusCommand,
+  runStopCommand,
+} from "./commands/runtime.js";
 import { runSummaryCommand } from "./commands/summary.js";
 import { runSyncCommand } from "./commands/sync.js";
 import { runThemeCommand } from "./commands/theme.js";
@@ -217,6 +226,18 @@ async function dispatchCommand(args: readonly string[], context: CliExecutionCon
 
   if (command === "start") {
     return runStartCommand(rest, context);
+  }
+
+  if (command === "status") {
+    return runStatusCommand(rest, context);
+  }
+
+  if (command === "stop") {
+    return runStopCommand(rest, context);
+  }
+
+  if (command === "restart") {
+    return runRestartCommand(rest, context);
   }
 
   if (command === "hud") {

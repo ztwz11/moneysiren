@@ -15,6 +15,8 @@ export function renderHomeScreen(input: { version: string; theme: Theme }): stri
     `  ${theme.command("/modes")}                Show the CLI, web, and desktop modes`,
     `  ${theme.command("/start")}                Start the installed dashboard runtime`,
     `  ${theme.command("/hud")}                  Start the installed runtime and open HUD`,
+    `  ${theme.command("/status")}               Show managed web, HUD, and local API runtime status`,
+    `  ${theme.command("/stop")}                 Stop managed web, HUD, and local API runtimes`,
     `  ${theme.command("/init")}                 Create local SQLite storage`,
     `  ${theme.command("/dashboard")}            Check the local dashboard API`,
     `  ${theme.command("/dashboard check")}      Same as /dashboard`,
@@ -34,6 +36,8 @@ export function renderHomeScreen(input: { version: string; theme: Theme }): stri
     theme.heading("Classic CLI"),
     "  msiren start",
     "  msiren hud",
+    "  msiren status",
+    "  msiren stop",
     "  msiren install --all",
     "",
     theme.heading("Full command"),
@@ -43,6 +47,8 @@ export function renderHomeScreen(input: { version: string; theme: Theme }): stri
     "  moneysiren modes",
     "  moneysiren init",
     "  moneysiren serve [--port <port>]",
+    "  moneysiren stop [--web|--hud|--api|--all]",
+    "  moneysiren restart [--port <port>] [--open|--no-open] [--hud]",
     "  moneysiren open",
     "  moneysiren sync --provider mock",
     "  moneysiren summary --json",
@@ -80,6 +86,9 @@ Usage:
   moneysiren modes
   moneysiren start [--port <port>] [--open|--no-open] [--hud]
   moneysiren hud [--port <port>]
+  moneysiren status
+  moneysiren stop [--web|--hud|--api|--all]
+  moneysiren restart [--port <port>] [--open|--no-open] [--hud]
   moneysiren dashboard check [--url <local-dashboard-url>]
   moneysiren serve [--port <port>]
   moneysiren open
@@ -101,6 +110,8 @@ Slash commands:
   moneysiren /modes
   moneysiren /start
   moneysiren /hud
+  moneysiren /status
+  moneysiren /stop [--web|--hud|--api|--all]
   moneysiren /init
   moneysiren /dashboard
   moneysiren /dashboard check

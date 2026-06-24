@@ -32,6 +32,9 @@
     "release:check": "node tools/scripts/check-release-readiness.mjs",
     "release:signing:encode-windows": "node tools/scripts/encode-windows-certificate.mjs",
     "release:signing:check": "node tools/scripts/check-signing-readiness.mjs",
+    "release:alpha": "node tools/scripts/release-alpha.mjs",
+    "release:alpha:dry-run": "node tools/scripts/release-alpha.mjs --dry-run",
+    "release:alpha:include-working-tree": "node tools/scripts/release-alpha.mjs --include-working-tree",
     "release:web-runtime": "node tools/scripts/package-web-runtime.mjs",
     "release:desktop:signing-config": "node tools/scripts/prepare-tauri-signing-config.mjs",
     "tray:native:check": "node tools/scripts/check-tray-native.mjs"

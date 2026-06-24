@@ -227,6 +227,15 @@ npm run publish:app:alpha
 
 The dry runs check the full secret scan, npm package metadata, registry version availability, and tarball contents. The publish commands require a local npm login and publish `apps/cli` plus the one-command `apps/app` installer with the `alpha` tag and public access.
 
+For the full guarded alpha release flow, use:
+
+```bash
+npm run release:alpha:dry-run
+npm run release:alpha
+```
+
+`release:alpha` bumps the next alpha version, runs secret scan/typecheck/tests/build plus npm publish dry-runs, commits the release, pushes `main`, pushes the `v*` tag, waits for GitHub Actions, and verifies npm plus GitHub Release assets. The working tree must be clean by default; use `npm run release:alpha:include-working-tree` only when you intentionally want current local changes included in the release commit. To force a specific version, run `node tools/scripts/release-alpha.mjs --target-version 0.1.0-alpha.14`.
+
 During an interactive PowerShell, cmd, or shell install, the package asks which local surfaces to enable:
 
 - CLI

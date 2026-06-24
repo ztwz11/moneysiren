@@ -271,22 +271,51 @@ describe("shared view model", () => {
       },
     }).hud).toEqual({
       alwaysOnTop: DEFAULT_NOTIFICATION_PREFERENCES.hud.alwaysOnTop,
+      backgroundColor: DEFAULT_NOTIFICATION_PREFERENCES.hud.backgroundColor,
+      fontColor: DEFAULT_NOTIFICATION_PREFERENCES.hud.fontColor,
       fontScale: 1.3,
       opacity: 0,
+      padding: DEFAULT_NOTIFICATION_PREFERENCES.hud.padding,
+      rowHeight: DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight,
       selectedWidgets: DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets,
     });
     expect(parseNotificationPreferences({
       hud: {
         alwaysOnTop: false,
+        backgroundColor: "#101820",
+        fontColor: "#f5f7fb",
         fontScale: 0.87,
         opacity: 0,
+        padding: 14,
+        rowHeight: 60,
         selectedWidgets: ["openai_today_tokens"],
       },
     }).hud).toEqual({
       alwaysOnTop: false,
+      backgroundColor: "#101820",
+      fontColor: "#f5f7fb",
       fontScale: 0.87,
       opacity: 0,
+      padding: 14,
+      rowHeight: 60,
       selectedWidgets: ["openai_today_tokens"],
+    });
+    expect(parseNotificationPreferences({
+      hud: {
+        backgroundColor: "url(javascript:alert(1))",
+        fontColor: "#fff",
+        padding: 200,
+        rowHeight: 2,
+      },
+    }).hud).toEqual({
+      alwaysOnTop: DEFAULT_NOTIFICATION_PREFERENCES.hud.alwaysOnTop,
+      backgroundColor: DEFAULT_NOTIFICATION_PREFERENCES.hud.backgroundColor,
+      fontColor: DEFAULT_NOTIFICATION_PREFERENCES.hud.fontColor,
+      fontScale: DEFAULT_NOTIFICATION_PREFERENCES.hud.fontScale,
+      opacity: DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity,
+      padding: 18,
+      rowHeight: 28,
+      selectedWidgets: DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets,
     });
     expect(parseNotificationPreferences({
       selectedWidgets: ["risk_high_count"],
@@ -295,8 +324,12 @@ describe("shared view model", () => {
       },
     }).hud).toEqual({
       alwaysOnTop: DEFAULT_NOTIFICATION_PREFERENCES.hud.alwaysOnTop,
+      backgroundColor: DEFAULT_NOTIFICATION_PREFERENCES.hud.backgroundColor,
+      fontColor: DEFAULT_NOTIFICATION_PREFERENCES.hud.fontColor,
       fontScale: 0.95,
       opacity: DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity,
+      padding: DEFAULT_NOTIFICATION_PREFERENCES.hud.padding,
+      rowHeight: DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight,
       selectedWidgets: ["risk_high_count"],
     });
   });

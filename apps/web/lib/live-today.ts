@@ -29,7 +29,12 @@ import {
   type LiveGranularity,
   type ProviderKey,
 } from "./provider-catalog";
-import { readLocalAiCliStatus, type LocalAiCliProviderKey, type LocalAiCliProviderStatus } from "./local-tools";
+import {
+  readLocalAiCliStatus,
+  type LocalAiCliProviderKey,
+  type LocalAiCliProviderStatus,
+  type LocalAiCliStatusPayload,
+} from "./local-tools";
 import type { ResetCreditStatus } from "./codex-reset-credits/types";
 
 export type LiveTodayFreshness = "live" | "stale" | "error" | "unavailable" | "not_configured" | "locked";
@@ -110,6 +115,7 @@ export interface LiveTodayCollectionContext {
   connection: ProviderConnectionStatus;
   credentialConnection?: ProviderCredentialConnectionStatus;
   env: Record<string, string | undefined>;
+  localAiCliStatus?: LocalAiCliStatusPayload;
   credentialStore: CredentialStore;
   now: Date;
   timezone: string;
@@ -123,6 +129,7 @@ export interface LiveTodayOptions {
   connections?: ConnectionsStatusPayload;
   credentialStore?: CredentialStore;
   collectors?: Partial<Record<ProviderKey, LiveTodayProviderCollector>>;
+  localAiCliStatus?: LocalAiCliStatusPayload;
   scope?: RefreshScope;
 }
 
@@ -255,6 +262,7 @@ async function collectAndCacheLiveTodayTargetUncached(
       connection: target.connection,
       ...(target.credentialConnection === undefined ? {} : { credentialConnection: target.credentialConnection }),
       env: context.env,
+      ...(context.localAiCliStatus === undefined ? {} : { localAiCliStatus: context.localAiCliStatus }),
       credentialStore: context.credentialStore,
       now: context.now,
       timezone: context.timezone,
@@ -361,11 +369,13 @@ async function createLiveTodayContext(options: LiveTodayOptions): Promise<Requir
     connections,
     credentialStore,
     collectors: options.collectors ?? {},
+    ...(options.localAiCliStatus === undefined ? {} : { localAiCliStatus: options.localAiCliStatus }),
   };
 }
 
 interface RequiredLiveTodayContext {
   env: Record<string, string | undefined>;
+  localAiCliStatus?: LocalAiCliStatusPayload;
   now: Date;
   ttlSeconds: number;
   scope: RefreshScope;
@@ -754,7 +764,7 @@ async function collectCloudflareLiveToday(context: LiveTodayCollectionContext): 
 
 async function collectLocalAiCliLiveToday(context: LiveTodayCollectionContext): Promise<LiveTodayProviderCollection> {
   const providerKey = context.providerKey as LocalAiCliProviderKey;
-  const status = await readLocalAiCliStatus({
+  const status = context.localAiCliStatus ?? await readLocalAiCliStatus({
     env: context.env,
     now: () => context.now,
   });

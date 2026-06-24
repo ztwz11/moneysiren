@@ -111,6 +111,20 @@ interface ManagedDesktopProcess {
 const DESKTOP_STATE_ENV_KEY = "MONEYSIREN_DESKTOP_RUNTIME_STATE_PATH";
 const STOP_TIMEOUT_MS = 3_000;
 
+export function desktopBackgroundSpawnOptions(platform: NodeJS.Platform = process.platform): {
+  detached: boolean;
+  stdio: "ignore";
+  windowsHide: true;
+} {
+  return {
+    // A detached Windows node process can allocate a visible console window.
+    // Ignored stdio plus unref lets the CLI return without opening that window.
+    detached: platform !== "win32",
+    stdio: "ignore",
+    windowsHide: true,
+  };
+}
+
 export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext): CliDesktopRuntimeAdapter {
   return {
     async startWebRuntime(options) {
@@ -137,15 +151,13 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
 
       const child = spawn(process.execPath, [startScript.path], {
         cwd: dirname(startScript.path),
-        detached: true,
+        ...desktopBackgroundSpawnOptions(),
         env: {
           ...process.env,
           ...context.env,
           HOSTNAME: "127.0.0.1",
           PORT: String(port),
         },
-        stdio: "ignore",
-        windowsHide: true,
       });
 
       child.unref();
@@ -201,15 +213,13 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
 
       const child = spawn(executable.command, executable.args, {
         ...(executable.cwd === undefined ? {} : { cwd: executable.cwd }),
-        detached: true,
+        ...desktopBackgroundSpawnOptions(),
         env: {
           ...process.env,
           ...context.env,
           MONEYSIREN_DESKTOP_MODE: "hud",
           MONEYSIREN_WEB_URL: `http://127.0.0.1:${options.port ?? configuredPort(context.env)}`,
         },
-        stdio: "ignore",
-        windowsHide: true,
       });
 
       child.unref();

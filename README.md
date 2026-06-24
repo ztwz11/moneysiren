@@ -6,7 +6,7 @@ MoneySiren reads provider usage into local SQLite, shows expected billing and us
 
 ## Current Status
 
-MoneySiren `v0.1.0-alpha.13` is published for local alpha review.
+MoneySiren `v0.1.0-alpha.14` is published for local alpha review.
 
 The current alpha supports:
 
@@ -265,7 +265,7 @@ msiren stop
 To install from a specific release tag or into a custom directory:
 
 ```bash
-msiren install --all --tag v0.1.0-alpha.13 --dir ./moneysiren-release
+msiren install --all --tag v0.1.0-alpha.14 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -281,7 +281,7 @@ Release maintainers should verify published assets before announcing a desktop b
 ```bash
 npm run release:signing:encode-windows -- "<path-to-windows-code-signing.pfx>"
 npm run release:signing:check -- windows
-npm run release:check -- v0.1.0-alpha.13
+npm run release:check -- v0.1.0-alpha.14
 ```
 
 The encode helper writes the base64 certificate payload to `.tmp/codesign/windows-certificate.base64.txt` so maintainers can set the `WINDOWS_CERTIFICATE` repository secret without printing the private certificate to the terminal. Set `WINDOWS_CERTIFICATE_PASSWORD` to the PFX/P12 password in GitHub Secrets and in the local shell before running the signing readiness check. The signing check verifies local/CI signing inputs before a release run. The release check downloads the published assets, verifies SHA256 entries, requires Windows signature metadata, and validates Windows Authenticode signatures when run on Windows. If only one desktop signing identity is ready, run the `desktop-release` workflow with `desktop_targets=windows` or `desktop_targets=macos`; the publish step removes stale desktop assets for the skipped OS. Self-signed certificates are acceptable only for local smoke tests and do not fix public Windows publisher trust warnings.
@@ -289,7 +289,7 @@ The encode helper writes the base64 certificate payload to `.tmp/codesign/window
 Alpha releases can publish unsigned HUD artifacts when signing secrets are not ready. Keep that path explicit in validation:
 
 ```bash
-npm run release:check -- v0.1.0-alpha.13 --allow-unsigned-prerelease-windows
+npm run release:check -- v0.1.0-alpha.14 --allow-unsigned-prerelease-windows
 ```
 
 The CLI accepts unsigned HUD artifacts only for prerelease tags such as `alpha`; set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for alpha builds.

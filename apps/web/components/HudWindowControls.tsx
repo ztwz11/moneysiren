@@ -14,12 +14,16 @@ interface HudWindowControlsProps {
   initialPreferences: NotificationPreferences;
   labels: {
     alwaysOnTop: string;
+    backgroundColor: string;
     close: string;
     error: string;
+    fontColor: string;
     fontSize: string;
     minimize: string;
     opacity: string;
+    padding: string;
     refresh: string;
+    rowHeight: string;
     save: string;
     saved: string;
     settings: string;
@@ -41,8 +45,12 @@ export function HudWindowControls({ initialPreferences, labels, locale, onRefres
   const router = useRouter();
   const [controlsOpen, setControlsOpen] = useState(false);
   const [draftAlwaysOnTop, setDraftAlwaysOnTop] = useState(initialPreferences.hud.alwaysOnTop);
+  const [draftBackgroundColor, setDraftBackgroundColor] = useState(initialPreferences.hud.backgroundColor);
+  const [draftFontColor, setDraftFontColor] = useState(initialPreferences.hud.fontColor);
   const [draftFontScale, setDraftFontScale] = useState(initialPreferences.hud.fontScale);
   const [draftOpacity, setDraftOpacity] = useState(initialPreferences.hud.opacity);
+  const [draftPadding, setDraftPadding] = useState(initialPreferences.hud.padding);
+  const [draftRowHeight, setDraftRowHeight] = useState(initialPreferences.hud.rowHeight);
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
   useEffect(() => {
@@ -81,21 +89,33 @@ export function HudWindowControls({ initialPreferences, labels, locale, onRefres
 
   useEffect(() => {
     setDraftAlwaysOnTop(initialPreferences.hud.alwaysOnTop);
+    setDraftBackgroundColor(initialPreferences.hud.backgroundColor);
+    setDraftFontColor(initialPreferences.hud.fontColor);
     setDraftFontScale(initialPreferences.hud.fontScale);
     setDraftOpacity(initialPreferences.hud.opacity);
+    setDraftPadding(initialPreferences.hud.padding);
+    setDraftRowHeight(initialPreferences.hud.rowHeight);
     setSaveState("idle");
   }, [
     initialPreferences.hud.alwaysOnTop,
+    initialPreferences.hud.backgroundColor,
+    initialPreferences.hud.fontColor,
     initialPreferences.hud.fontScale,
     initialPreferences.hud.opacity,
+    initialPreferences.hud.padding,
+    initialPreferences.hud.rowHeight,
   ]);
 
   useEffect(() => {
     const hudPage = document.querySelector<HTMLElement>(".hud-page");
 
+    hudPage?.style.setProperty("--hud-background-color", draftBackgroundColor);
+    hudPage?.style.setProperty("--hud-font-color", draftFontColor);
     hudPage?.style.setProperty("--hud-font-scale", String(draftFontScale));
     hudPage?.style.setProperty("--hud-opacity", String(draftOpacity));
-  }, [draftFontScale, draftOpacity]);
+    hudPage?.style.setProperty("--hud-padding", `${draftPadding}px`);
+    hudPage?.style.setProperty("--hud-row-height", `${draftRowHeight}px`);
+  }, [draftBackgroundColor, draftFontColor, draftFontScale, draftOpacity, draftPadding, draftRowHeight]);
 
   return (
     <>
@@ -186,6 +206,30 @@ export function HudWindowControls({ initialPreferences, labels, locale, onRefres
             />
             <strong>{Math.round(draftFontScale * 100)}%</strong>
           </label>
+          <label className="hud-color-row">
+            <span>{labels.fontColor}</span>
+            <input
+              onChange={(event) => {
+                setDraftFontColor(event.currentTarget.value);
+                setSaveState("idle");
+              }}
+              type="color"
+              value={draftFontColor}
+            />
+            <strong>{draftFontColor}</strong>
+          </label>
+          <label className="hud-color-row">
+            <span>{labels.backgroundColor}</span>
+            <input
+              onChange={(event) => {
+                setDraftBackgroundColor(event.currentTarget.value);
+                setSaveState("idle");
+              }}
+              type="color"
+              value={draftBackgroundColor}
+            />
+            <strong>{draftBackgroundColor}</strong>
+          </label>
           <label className="hud-range-row">
             <span>{labels.opacity}</span>
             <input
@@ -200,6 +244,36 @@ export function HudWindowControls({ initialPreferences, labels, locale, onRefres
               value={Math.round(draftOpacity * 100)}
             />
             <strong>{Math.round(draftOpacity * 100)}%</strong>
+          </label>
+          <label className="hud-range-row">
+            <span>{labels.rowHeight}</span>
+            <input
+              max="76"
+              min="28"
+              onChange={(event) => {
+                setDraftRowHeight(Number(event.currentTarget.value));
+                setSaveState("idle");
+              }}
+              step="2"
+              type="range"
+              value={draftRowHeight}
+            />
+            <strong>{draftRowHeight}px</strong>
+          </label>
+          <label className="hud-range-row">
+            <span>{labels.padding}</span>
+            <input
+              max="18"
+              min="0"
+              onChange={(event) => {
+                setDraftPadding(Number(event.currentTarget.value));
+                setSaveState("idle");
+              }}
+              step="1"
+              type="range"
+              value={draftPadding}
+            />
+            <strong>{draftPadding}px</strong>
           </label>
           <button
             className="hud-save-button"
@@ -235,8 +309,12 @@ export function HudWindowControls({ initialPreferences, labels, locale, onRefres
       try {
         const savedPreferences = await saveHudPreferences(initialPreferences, {
           alwaysOnTop: draftAlwaysOnTop,
+          backgroundColor: draftBackgroundColor,
+          fontColor: draftFontColor,
           fontScale: draftFontScale,
           opacity: draftOpacity,
+          padding: draftPadding,
+          rowHeight: draftRowHeight,
         });
         void applyAlwaysOnTop(savedPreferences.hud.alwaysOnTop);
         router.refresh();
@@ -301,7 +379,10 @@ async function getCurrentHudWindow(): Promise<TauriWindow | null> {
 
 async function saveHudPreferences(
   initialPreferences: NotificationPreferences,
-  hudPreferences: Pick<NotificationPreferences["hud"], "alwaysOnTop" | "fontScale" | "opacity">,
+  hudPreferences: Pick<
+    NotificationPreferences["hud"],
+    "alwaysOnTop" | "backgroundColor" | "fontColor" | "fontScale" | "opacity" | "padding" | "rowHeight"
+  >,
 ): Promise<NotificationPreferences> {
   const preferences = await loadNotificationPreferences(initialPreferences);
   const session = await createLocalSession();

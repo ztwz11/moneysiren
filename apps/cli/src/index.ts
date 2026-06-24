@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 
 import { runCli } from "./cli.js";
+import { maybeRenderStartupIntro } from "./startup-intro.js";
+
+await maybeRenderStartupIntro({
+  args: process.argv.slice(2),
+  env: process.env,
+  stdoutIsTTY: Boolean(process.stdout.isTTY),
+  output: process.stdout,
+});
 
 const result = await runCli(process.argv.slice(2), {
   cwd: process.cwd(),

@@ -37,8 +37,12 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
   const [quietStart, setQuietStart] = useState(DEFAULT_NOTIFICATION_PREFERENCES.quietHours.start);
   const [quietEnd, setQuietEnd] = useState(DEFAULT_NOTIFICATION_PREFERENCES.quietHours.end);
   const [hudAlwaysOnTop, setHudAlwaysOnTop] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.alwaysOnTop);
+  const [hudBackgroundColor, setHudBackgroundColor] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.backgroundColor);
+  const [hudFontColor, setHudFontColor] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.fontColor);
   const [hudFontScale, setHudFontScale] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.fontScale);
   const [hudOpacity, setHudOpacity] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity);
+  const [hudPadding, setHudPadding] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.padding);
+  const [hudRowHeight, setHudRowHeight] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight);
   const [hudSelectedWidgets, setHudSelectedWidgets] = useState<NotificationWidgetKey[]>(
     [...DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets],
   );
@@ -352,6 +356,24 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                 />
                 <span className="metric-meta">{Math.round(hudFontScale * 100)}%</span>
               </label>
+              <label className="notification-field notification-color-field">
+                <span className="metric-label">{messages.settings.hudFontColor}</span>
+                <input
+                  onChange={(event) => setHudFontColor(event.currentTarget.value)}
+                  type="color"
+                  value={hudFontColor}
+                />
+                <span className="metric-meta">{hudFontColor}</span>
+              </label>
+              <label className="notification-field notification-color-field">
+                <span className="metric-label">{messages.settings.hudBackgroundColor}</span>
+                <input
+                  onChange={(event) => setHudBackgroundColor(event.currentTarget.value)}
+                  type="color"
+                  value={hudBackgroundColor}
+                />
+                <span className="metric-meta">{hudBackgroundColor}</span>
+              </label>
               <label className="notification-field">
                 <span className="metric-label">{messages.settings.hudOpacity}</span>
                 <input
@@ -364,6 +386,32 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                   value={Math.round(hudOpacity * 100)}
                 />
                 <span className="metric-meta">{Math.round(hudOpacity * 100)}%</span>
+              </label>
+              <label className="notification-field">
+                <span className="metric-label">{messages.settings.hudRowHeight}</span>
+                <input
+                  className="notification-range"
+                  max="76"
+                  min="28"
+                  onChange={(event) => setHudRowHeight(Number(event.currentTarget.value))}
+                  step="2"
+                  type="range"
+                  value={hudRowHeight}
+                />
+                <span className="metric-meta">{hudRowHeight}px</span>
+              </label>
+              <label className="notification-field">
+                <span className="metric-label">{messages.settings.hudPadding}</span>
+                <input
+                  className="notification-range"
+                  max="18"
+                  min="0"
+                  onChange={(event) => setHudPadding(Number(event.currentTarget.value))}
+                  step="1"
+                  type="range"
+                  value={hudPadding}
+                />
+                <span className="metric-meta">{hudPadding}px</span>
               </label>
               <div className="notification-hud-widget-header">
                 <div>
@@ -440,8 +488,12 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
     setThresholdRules(preferences.thresholdRules.map((rule) => ({ ...rule })));
     setDesktopEnabled(preferences.desktopEnabled);
     setHudAlwaysOnTop(preferences.hud.alwaysOnTop);
+    setHudBackgroundColor(preferences.hud.backgroundColor);
+    setHudFontColor(preferences.hud.fontColor);
     setHudFontScale(preferences.hud.fontScale);
     setHudOpacity(preferences.hud.opacity);
+    setHudPadding(preferences.hud.padding);
+    setHudRowHeight(preferences.hud.rowHeight);
     setHudSelectedWidgets([...preferences.hud.selectedWidgets]);
     setLocalCliDashboardMetricKeys([...preferences.dashboard.localCliMetricKeys]);
     setDashboardBudget({ ...preferences.dashboard.budget });
@@ -467,8 +519,12 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
       },
       hud: {
         alwaysOnTop: hudAlwaysOnTop,
+        backgroundColor: hudBackgroundColor,
+        fontColor: hudFontColor,
         fontScale: hudFontScale,
         opacity: hudOpacity,
+        padding: hudPadding,
+        rowHeight: hudRowHeight,
         selectedWidgets: hudSelectedWidgets,
       },
     };

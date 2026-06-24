@@ -43,6 +43,7 @@ import {
   type LiveTodayUsageSummary,
 } from "./live-today";
 import { readExchangeRate, type ExchangeRateResult } from "./exchange-rates";
+import { readLocalAiCliStatus, type LocalAiCliStatusPayload } from "./local-tools";
 
 export type CanonicalFreshness = "fresh" | "stale" | "missing";
 export type LiveFreshness = "live" | "stale" | "error" | "unavailable" | "not_configured" | "locked";
@@ -170,6 +171,7 @@ export interface ReadOperationsDashboardOptions extends ReadDashboardSnapshotOpt
   connections?: ConnectionsStatusPayload;
   exchangeRate?: ExchangeRateResult;
   liveToday?: LiveTodaySnapshot;
+  localAiCliStatus?: LocalAiCliStatusPayload;
   notificationPreferences?: NotificationPreferences;
 }
 
@@ -180,8 +182,13 @@ export async function readOperationsDashboard(
   const env = options.env ?? process.env;
   const timezone = resolveDashboardTimezone(env);
   const now = options.now?.() ?? new Date();
+  const localAiCliStatus = options.localAiCliStatus ?? await readLocalAiCliStatus({
+    env,
+    now: () => now,
+  });
   const connections = options.connections ?? await readConnectionsStatus({
     env,
+    localAiCliStatus,
     now: () => now,
   });
   const notificationPreferences = options.notificationPreferences ?? await readNotificationPreferencesFile({
@@ -197,6 +204,7 @@ export async function readOperationsDashboard(
   const liveToday = options.liveToday ?? await readLiveTodaySnapshot({
     env,
     connections,
+    localAiCliStatus,
     now: () => now,
     timezone,
   });

@@ -118,8 +118,12 @@ export interface DashboardWidgetLayoutItem {
 
 export interface HudPreferences {
   alwaysOnTop: boolean;
+  backgroundColor: string;
+  fontColor: string;
   fontScale: number;
   opacity: number;
+  padding: number;
+  rowHeight: number;
   selectedWidgets: readonly NotificationWidgetKey[];
 }
 
@@ -218,8 +222,12 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   },
   hud: {
     alwaysOnTop: true,
+    backgroundColor: "#ffffff",
+    fontColor: "#1f2937",
     fontScale: 0.95,
     opacity: 0.94,
+    padding: 6,
+    rowHeight: 40,
     selectedWidgets: DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
   },
 };
@@ -388,10 +396,24 @@ function parseHudPreferences(
     alwaysOnTop: typeof record.alwaysOnTop === "boolean"
       ? record.alwaysOnTop
       : DEFAULT_NOTIFICATION_PREFERENCES.hud.alwaysOnTop,
+    backgroundColor: parseHexColor(record.backgroundColor, DEFAULT_NOTIFICATION_PREFERENCES.hud.backgroundColor),
+    fontColor: parseHexColor(record.fontColor, DEFAULT_NOTIFICATION_PREFERENCES.hud.fontColor),
     fontScale: clampNumber(record.fontScale, 0.8, 1.3, DEFAULT_NOTIFICATION_PREFERENCES.hud.fontScale),
     opacity: clampNumber(record.opacity, 0, 1, DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity),
+    padding: clampNumber(record.padding, 0, 18, DEFAULT_NOTIFICATION_PREFERENCES.hud.padding),
+    rowHeight: clampNumber(record.rowHeight, 28, 76, DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight),
     selectedWidgets: parseSelectedWidgets(record.selectedWidgets, fallbackSelectedWidgets),
   };
+}
+
+function parseHexColor(value: unknown, fallback: string): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim();
+
+  return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized.toLowerCase() : fallback;
 }
 
 function parseLocalCliDashboardMetricKeys(

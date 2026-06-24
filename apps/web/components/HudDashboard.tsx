@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Clock, RotateCw } from "lucide-react";
+import { AlertTriangle, Clock, ExternalLink, RotateCw } from "lucide-react";
 import type { CreditAccuracy, HudItemView, HudViewModel, QuotaItemView } from "../../../packages/view-model/src/hud-model";
 import type { Locale } from "../lib/i18n";
 import type { NotificationPreferences } from "./NotificationSettingsModel";
@@ -48,6 +48,10 @@ export interface HudDashboardLabels {
   openTarget: string;
 }
 
+type HudDragWindow = {
+  startDragging: () => Promise<void>;
+};
+
 interface HudDashboardProps {
   initialModel: HudViewModel;
   initialPreferences: NotificationPreferences;
@@ -68,6 +72,7 @@ export function HudDashboard({
   const [manualRefreshBusy, setManualRefreshBusy] = useState(false);
   const [transportError, setTransportError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const wasRecentDrag = useHudWindowDrag();
 
   const loadHud = useCallback(async () => {
     abortRef.current?.abort();
@@ -159,7 +164,7 @@ export function HudDashboard({
         refreshBusy={manualRefreshBusy || polling}
       />
       <div className="hud-content">
-        <div className="hud-drag-strip" data-tauri-drag-region aria-hidden="true" />
+        <div className="hud-drag-strip" aria-hidden="true" />
         {transportError === null ? null : (
           <div className="hud-inline-error" role="status">
             <AlertTriangle aria-hidden="true" size={13} />
@@ -172,7 +177,14 @@ export function HudDashboard({
               <strong>{labels.empty}</strong>
             </div>
           ) : model.items.map((item) => (
-            <HudItemCard item={item} key={item.id} labels={labels} locale={locale} modelGeneratedAt={model.generatedAt} />
+            <HudItemCard
+              item={item}
+              key={item.id}
+              labels={labels}
+              locale={locale}
+              modelGeneratedAt={model.generatedAt}
+              wasRecentDrag={wasRecentDrag}
+            />
           ))}
         </section>
       </div>
@@ -203,14 +215,17 @@ function HudItemCard({
   labels,
   locale,
   modelGeneratedAt,
+  wasRecentDrag,
 }: {
   item: HudItemView;
   labels: HudDashboardLabels;
   locale: Locale;
   modelGeneratedAt: string;
+  wasRecentDrag: () => boolean;
 }) {
   const href = targetHref(item, locale);
   const syncError = item.sync.error?.message ?? null;
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   if (item.kind === "quota") {
     const windowLabel = quotaWindowLabel(item.window, labels);
@@ -218,15 +233,36 @@ function HudItemCard({
     const remaining = item.progress.remainingPercent === null ? labels.unknown : formatPercent(item.progress.remainingPercent, locale);
 
     return (
-      <a className="hud-item hud-item-rich" href={href} title={labels.openTarget}>
-        <span className="hud-item-copy">
-          <strong>{providerLabel(item.providerKey)} · {windowLabel}</strong>
-          <span className="hud-item-detail">
-            {labels.used} {used} · {labels.remaining} {remaining}
+      <div className={popoverOpen ? "hud-item-shell hud-item-shell-open" : "hud-item-shell"}>
+        <button
+          aria-expanded={popoverOpen}
+          className="hud-item hud-item-rich"
+          onClick={() => {
+            if (!wasRecentDrag()) {
+              setPopoverOpen((current) => !current);
+            }
+          }}
+          type="button"
+        >
+          <span className="hud-item-copy">
+            <strong>{providerLabel(item.providerKey)} · {windowLabel}</strong>
+            <span className="hud-item-detail">
+              {labels.used} {used} · {labels.remaining} {remaining}
+            </span>
           </span>
-        </span>
-        <span className={`hud-value hud-value-${item.riskSeverity}`}>{used}</span>
-      </a>
+          <span className={`hud-value hud-value-${item.riskSeverity}`}>{used}</span>
+        </button>
+        <HudItemOpenLink href={href} label={labels.openTarget} />
+        {popoverOpen ? (
+          <div className="hud-item-popover" data-hud-no-drag role="status">
+            <span><strong>{providerLabel(item.providerKey)} · {windowLabel}</strong></span>
+            <span>{labels.used}: {used}</span>
+            <span>{labels.remaining}: {remaining}</span>
+            {item.resetAt === null ? null : <span>{labels.resetAt}: {formatDateTime(item.resetAt, locale)}</span>}
+            <HudSyncDetail error={syncError} item={item} labels={labels} locale={locale} />
+          </div>
+        ) : null}
+      </div>
     );
   }
 
@@ -244,24 +280,61 @@ function HudItemCard({
   const value = item.variant === "count" ? count : expiryValue;
 
   return (
-    <a className="hud-item hud-item-rich" href={href} title={labels.openTarget}>
-      <span className="hud-item-copy">
-        <strong>{providerLabel(item.providerKey)} · {title}</strong>
-        <span className="hud-item-detail">{detail}</span>
-        <span className="hud-credit-meta">
-          {accuracyLabel(item.accuracy, labels)}
-          {item.unresolvedCount > 0 ? ` · ${labels.unresolvedCredits}: ${item.unresolvedCount}` : ""}
+    <div className={popoverOpen ? "hud-item-shell hud-item-shell-open" : "hud-item-shell"}>
+      <button
+        aria-expanded={popoverOpen}
+        className="hud-item hud-item-rich"
+        onClick={() => {
+          if (!wasRecentDrag()) {
+            setPopoverOpen((current) => !current);
+          }
+        }}
+        type="button"
+      >
+        <span className="hud-item-copy">
+          <strong>{providerLabel(item.providerKey)} · {title}</strong>
+          <span className="hud-item-detail">{detail}</span>
         </span>
-        {item.credits.slice(0, 2).map((credit) => (
-          <span className="hud-credit-row" key={credit.itemKey}>
-            <Clock aria-hidden="true" size={11} />
-            <span>{creditLabel(credit.status, labels)}</span>
-            <span>{creditTimeLabel(credit, labels, locale)}</span>
+        <span className={`hud-value hud-value-${item.riskSeverity}`}>{value}</span>
+      </button>
+      <HudItemOpenLink href={href} label={labels.openTarget} />
+      {popoverOpen ? (
+        <div className="hud-item-popover" data-hud-no-drag role="status">
+          <span><strong>{providerLabel(item.providerKey)} · {title}</strong></span>
+          <span>{labels.resetCredits}: {count}</span>
+          <span>
+            {accuracyLabel(item.accuracy, labels)}
+            {item.unresolvedCount > 0 ? ` · ${labels.unresolvedCredits}: ${item.unresolvedCount}` : ""}
           </span>
-        ))}
-        <HudSyncDetail error={syncError} item={item} labels={labels} locale={locale} />
-      </span>
-      <span className={`hud-value hud-value-${item.riskSeverity}`}>{value}</span>
+          {item.credits.length === 0 ? (
+            <span>{labels.noExpiry}</span>
+          ) : item.credits.map((credit) => (
+            <span className="hud-credit-row" key={credit.itemKey}>
+              <Clock aria-hidden="true" size={11} />
+              <span>{creditLabel(credit.status, labels)}</span>
+              <span>{creditTimeLabel(credit, labels, locale)}</span>
+            </span>
+          ))}
+          <HudSyncDetail error={syncError} item={item} labels={labels} locale={locale} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function HudItemOpenLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      aria-label={label}
+      className="hud-item-open-link"
+      data-hud-no-drag
+      href={href}
+      onClick={(event) => event.stopPropagation()}
+      rel="noreferrer"
+      target="_blank"
+      title={label}
+    >
+      <ExternalLink aria-hidden="true" size={13} strokeWidth={1.9} />
     </a>
   );
 }
@@ -301,6 +374,78 @@ function isHudViewModel(value: unknown): value is HudViewModel {
     Array.isArray(record.items) &&
     typeof record.sync === "object" &&
     record.sync !== null;
+}
+
+function useHudWindowDrag(): () => boolean {
+  const dragStartRef = useRef<{ x: number; y: number; started: boolean } | null>(null);
+  const suppressClickUntilRef = useRef(0);
+
+  useEffect(() => {
+    const root = document.querySelector<HTMLElement>(".hud-page");
+
+    if (root === null) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.button !== 0 || shouldSkipHudDrag(event.target)) {
+        dragStartRef.current = null;
+        return;
+      }
+
+      dragStartRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        started: false,
+      };
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+      const start = dragStartRef.current;
+
+      if (start === null || start.started) {
+        return;
+      }
+
+      if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 4) {
+        return;
+      }
+
+      start.started = true;
+      suppressClickUntilRef.current = Date.now() + 700;
+      void startHudWindowDrag();
+    };
+    const clearDrag = () => {
+      dragStartRef.current = null;
+    };
+
+    root.addEventListener("pointerdown", handlePointerDown, { capture: true });
+    window.addEventListener("pointermove", handlePointerMove, { capture: true });
+    window.addEventListener("pointerup", clearDrag, { capture: true });
+    window.addEventListener("pointercancel", clearDrag, { capture: true });
+
+    return () => {
+      root.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+      window.removeEventListener("pointermove", handlePointerMove, { capture: true });
+      window.removeEventListener("pointerup", clearDrag, { capture: true });
+      window.removeEventListener("pointercancel", clearDrag, { capture: true });
+    };
+  }, []);
+
+  return useCallback(() => Date.now() < suppressClickUntilRef.current, []);
+}
+
+function shouldSkipHudDrag(target: EventTarget | null): boolean {
+  return target instanceof Element &&
+    target.closest("[data-hud-no-drag], .hud-window-controls, .hud-settings-popover, input, select, textarea") !== null;
+}
+
+async function startHudWindowDrag(): Promise<void> {
+  try {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await (getCurrentWindow() as HudDragWindow).startDragging();
+  } catch {
+    // Browser-only HUD previews do not have the Tauri window API.
+  }
 }
 
 function targetHref(item: HudItemView, locale: Locale): string {

@@ -14,7 +14,7 @@ const CODEX_APP_SERVER_CACHE_MS = 30_000;
 const CODEX_RESET_CREDIT_DEFAULT_TTL_DAYS = 30;
 const CODEX_RESET_CREDIT_OBSERVATION_FILE = "codex-reset-credit-observations.json";
 const MAX_LOCAL_USAGE_FILES = 400;
-const LOCAL_AI_CLI_STATUS_CACHE_MS = 5_000;
+const LOCAL_AI_CLI_STATUS_CACHE_MS = 30_000;
 const AWS_PROFILE_NAME_PATTERN = /^[A-Za-z0-9_.:@+=,-]{1,80}$/;
 const PROVIDER_ENV_VALUE_MAX_LENGTH = 8_000;
 const PROVIDER_ENV_KEYS = new Set([
@@ -300,6 +300,10 @@ let localAiCliStatusCache: {
   key: string;
   payload: LocalAiCliStatusPayload;
 } | null = null;
+let localAiCliStatusInFlight: {
+  key: string;
+  promise: Promise<LocalAiCliStatusPayload>;
+} | null = null;
 let codexAppServerRateLimitCache: {
   expiresAt: number;
   key: string;
@@ -484,30 +488,67 @@ export async function readLocalAiCliStatus(
     return localAiCliStatusCache.payload;
   }
 
-  const payload: LocalAiCliStatusPayload = {
-    generatedAt: now().toISOString(),
-    localOnly: true,
-    secretsReturned: false,
-    providers: await Promise.all(providerKeys.map((providerKey) =>
-      readLocalAiCliProviderStatus(providerKey, {
-        env,
-        homeDir,
-        now: now(),
-        runCommand,
-        allowCodexAppServerProbe,
-      })
-    )),
-  };
+  if (options.runCommand === undefined && cacheTtlMs > 0 && localAiCliStatusInFlight?.key === cacheKey) {
+    return localAiCliStatusInFlight.promise;
+  }
+
+  const promise = collectLocalAiCliStatusPayload({
+    allowCodexAppServerProbe,
+    env,
+    homeDir,
+    now,
+    providerKeys,
+    runCommand,
+  });
 
   if (options.runCommand === undefined && cacheTtlMs > 0) {
-    localAiCliStatusCache = {
-      expiresAt: cacheNow + cacheTtlMs,
+    localAiCliStatusInFlight = {
       key: cacheKey,
-      payload,
+      promise,
     };
   }
 
-  return payload;
+  try {
+    const payload = await promise;
+
+    if (options.runCommand === undefined && cacheTtlMs > 0) {
+      localAiCliStatusCache = {
+        expiresAt: now().getTime() + cacheTtlMs,
+        key: cacheKey,
+        payload,
+      };
+    }
+
+    return payload;
+  } finally {
+    if (localAiCliStatusInFlight?.promise === promise) {
+      localAiCliStatusInFlight = null;
+    }
+  }
+}
+
+async function collectLocalAiCliStatusPayload(options: {
+  allowCodexAppServerProbe: boolean;
+  env: Record<string, string | undefined>;
+  homeDir: string;
+  now: () => Date;
+  providerKeys: readonly LocalAiCliProviderKey[];
+  runCommand: LocalCommandRunner;
+}): Promise<LocalAiCliStatusPayload> {
+  return {
+    generatedAt: options.now().toISOString(),
+    localOnly: true,
+    secretsReturned: false,
+    providers: await Promise.all(options.providerKeys.map((providerKey) =>
+      readLocalAiCliProviderStatus(providerKey, {
+        env: options.env,
+        homeDir: options.homeDir,
+        now: options.now(),
+        runCommand: options.runCommand,
+        allowCodexAppServerProbe: options.allowCodexAppServerProbe,
+      })
+    )),
+  };
 }
 
 async function readLocalAiCliProviderStatus(
@@ -974,7 +1015,7 @@ function readCodexAppServerRateLimitStatusUncached(context: {
         clientInfo: {
           name: "moneysiren",
           title: "MoneySiren",
-          version: "0.1.0-alpha.13",
+          version: "0.1.0-alpha.14",
         },
       },
     };

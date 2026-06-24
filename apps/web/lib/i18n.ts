@@ -166,8 +166,12 @@ export interface Messages {
     hudSettingsTitle: string;
     hudSettingsSubtitle: string;
     hudAlwaysOnTop: string;
+    hudBackgroundColor: string;
+    hudFontColor: string;
     hudFontSize: string;
     hudOpacity: string;
+    hudPadding: string;
+    hudRowHeight: string;
     hudMinimize: string;
     hudClose: string;
     hudSaveSettings: string;
@@ -504,8 +508,12 @@ export const messages = {
       hudSettingsTitle: "HUD display",
       hudSettingsSubtitle: "Tune the always-on-top HUD for compact, long-running desktop use.",
       hudAlwaysOnTop: "Always on top",
+      hudBackgroundColor: "Background color",
+      hudFontColor: "Font color",
       hudFontSize: "Font size",
       hudOpacity: "Opacity",
+      hudPadding: "Padding",
+      hudRowHeight: "Row height",
       hudMinimize: "Minimize HUD",
       hudClose: "Close HUD",
       hudSaveSettings: "Save HUD",
@@ -872,8 +880,12 @@ export const messages = {
       hudSettingsTitle: "HUD 표시",
       hudSettingsSubtitle: "항상 위에 띄워둘 수 있도록 작고 오래 보기 편하게 조절합니다.",
       hudAlwaysOnTop: "항상 위에 표시",
+      hudBackgroundColor: "배경색",
+      hudFontColor: "폰트색",
       hudFontSize: "폰트 크기",
       hudOpacity: "투명도",
+      hudPadding: "여백",
+      hudRowHeight: "각 행 높이",
       hudMinimize: "HUD 최소화",
       hudClose: "HUD 닫기",
       hudSaveSettings: "HUD 저장",
@@ -1240,8 +1252,12 @@ export const messages = {
       hudSettingsTitle: "HUD 表示",
       hudSettingsSubtitle: "常時表示しやすい小さな HUD に調整します。",
       hudAlwaysOnTop: "常に手前に表示",
+      hudBackgroundColor: "背景色",
+      hudFontColor: "フォント色",
       hudFontSize: "フォントサイズ",
       hudOpacity: "透明度",
+      hudPadding: "余白",
+      hudRowHeight: "行の高さ",
       hudMinimize: "HUD を最小化",
       hudClose: "HUD を閉じる",
       hudSaveSettings: "HUD を保存",

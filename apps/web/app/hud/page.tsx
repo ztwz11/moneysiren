@@ -23,9 +23,21 @@ export default async function HudPage({ searchParams }: HudPageProps) {
     selectedWidgets: preferences.hud.selectedWidgets,
   });
   const hudStyle = {
+    "--hud-background-color": preferences.hud.backgroundColor,
+    "--hud-font-color": preferences.hud.fontColor,
     "--hud-font-scale": String(preferences.hud.fontScale),
     "--hud-opacity": String(preferences.hud.opacity),
-  } as CSSProperties & Record<"--hud-font-scale" | "--hud-opacity", string>;
+    "--hud-padding": `${preferences.hud.padding}px`,
+    "--hud-row-height": `${preferences.hud.rowHeight}px`,
+  } as CSSProperties & Record<
+    | "--hud-background-color"
+    | "--hud-font-color"
+    | "--hud-font-scale"
+    | "--hud-opacity"
+    | "--hud-padding"
+    | "--hud-row-height",
+    string
+  >;
 
   return (
     <main className="hud-page" style={hudStyle}>
@@ -38,10 +50,14 @@ export default async function HudPage({ searchParams }: HudPageProps) {
           alwaysOnTop: messages.settings.hudAlwaysOnTop,
           close: messages.settings.hudClose,
           error: messages.settings.notificationPrefsSaveError,
+          backgroundColor: messages.settings.hudBackgroundColor,
+          fontColor: messages.settings.hudFontColor,
           fontSize: messages.settings.hudFontSize,
           minimize: messages.settings.hudMinimize,
           opacity: messages.settings.hudOpacity,
+          padding: messages.settings.hudPadding,
           refresh: messages.dashboard.refresh,
+          rowHeight: messages.settings.hudRowHeight,
           save: messages.settings.hudSaveSettings,
           saved: messages.settings.notificationPrefsSaved,
           settings: messages.nav.settings,

@@ -10,6 +10,7 @@ import { HudWindowControls } from "./HudWindowControls";
 
 const HUD_POLL_INTERVAL_MS = 5 * 60_000;
 const HUD_TIME_ZONE = "Asia/Seoul";
+const HUD_DETAIL_SEPARATOR = " · ";
 
 export interface HudDashboardLabels {
   title: string;
@@ -179,6 +180,7 @@ export function HudDashboard({
             </div>
           ) : model.items.map((item) => (
             <HudItemCard
+              hudPreferences={initialPreferences.hud}
               item={item}
               key={item.id}
               labels={labels}
@@ -212,12 +214,14 @@ export function HudDashboard({
 }
 
 function HudItemCard({
+  hudPreferences,
   item,
   labels,
   locale,
   modelGeneratedAt,
   wasRecentDrag,
 }: {
+  hudPreferences: NotificationPreferences["hud"];
   item: HudItemView;
   labels: HudDashboardLabels;
   locale: Locale;
@@ -232,6 +236,15 @@ function HudItemCard({
     const windowLabel = quotaWindowLabel(item.window, labels);
     const used = item.progress.usedPercent === null ? labels.unknown : formatPercent(item.progress.usedPercent, locale);
     const remaining = item.progress.remainingPercent === null ? labels.unknown : formatPercent(item.progress.remainingPercent, locale);
+    const summaryParts = [
+      hudPreferences.showUsagePercent ? `${labels.used} ${used}` : null,
+      hudPreferences.showRemainingPercent ? `${labels.remaining} ${remaining}` : null,
+    ].filter((part): part is string => part !== null);
+    const visibleValue = hudPreferences.showUsagePercent
+      ? used
+      : hudPreferences.showRemainingPercent
+        ? remaining
+        : null;
 
     return (
       <div className={popoverOpen ? "hud-item-shell hud-item-shell-open" : "hud-item-shell"}>
@@ -246,19 +259,21 @@ function HudItemCard({
           type="button"
         >
           <span className="hud-item-copy">
-            <strong>{providerLabel(item.providerKey)} · {windowLabel}</strong>
-            <span className="hud-item-detail">
-              {labels.used} {used} · {labels.remaining} {remaining}
-            </span>
+            <strong>{providerLabel(item.providerKey)}{HUD_DETAIL_SEPARATOR}{windowLabel}</strong>
+            {summaryParts.length === 0 ? null : (
+              <span className="hud-item-detail">{summaryParts.join(HUD_DETAIL_SEPARATOR)}</span>
+            )}
           </span>
-          <span className={`hud-value hud-value-${item.riskSeverity}`}>{used}</span>
+          {visibleValue === null ? null : (
+            <span className={`hud-value hud-value-${item.riskSeverity}`}>{visibleValue}</span>
+          )}
         </button>
         <HudItemOpenLink href={href} label={labels.openTarget} />
         {popoverOpen ? (
           <div className="hud-item-popover" data-hud-no-drag role="status">
-            <span><strong>{providerLabel(item.providerKey)} · {windowLabel}</strong></span>
-            <span>{labels.used}: {used}</span>
-            <span>{labels.remaining}: {remaining}</span>
+            <span><strong>{providerLabel(item.providerKey)}{HUD_DETAIL_SEPARATOR}{windowLabel}</strong></span>
+            {hudPreferences.showUsagePercent ? <span>{labels.used}: {used}</span> : null}
+            {hudPreferences.showRemainingPercent ? <span>{labels.remaining}: {remaining}</span> : null}
             {item.resetAt === null ? null : <span>{labels.resetAt}: {formatDateTime(item.resetAt, locale)}</span>}
             <HudSyncDetail error={syncError} item={item} labels={labels} locale={locale} />
           </div>
@@ -325,19 +340,59 @@ function HudItemCard({
 
 function HudItemOpenLink({ href, label }: { href: string; label: string }) {
   return (
-    <a
+    <button
       aria-label={label}
       className="hud-item-open-link"
       data-hud-no-drag
-      href={href}
-      onClick={(event) => event.stopPropagation()}
-      rel="noreferrer"
-      target="_blank"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void openHudTarget(href);
+      }}
       title={label}
+      type="button"
     >
       <ExternalLink aria-hidden="true" size={13} strokeWidth={1.9} />
-    </a>
+    </button>
   );
+}
+
+async function openHudTarget(href: string): Promise<void> {
+  const routePath = normalizeHudRoutePath(href);
+
+  if (routePath === null) {
+    return;
+  }
+
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("open_dashboard_route", { urlPath: routePath });
+    return;
+  } catch {
+    // Browser-only HUD previews do not have the Tauri command bridge.
+  }
+
+  const targetUrl = new URL(routePath, window.location.origin);
+  const opened = window.open(targetUrl.toString(), "moneysiren-dashboard");
+
+  if (opened === null) {
+    window.location.assign(targetUrl.toString());
+    return;
+  }
+
+  opened.focus();
+}
+
+function normalizeHudRoutePath(href: string): string | null {
+  if (!href.startsWith("/") || href.startsWith("//")) {
+    return null;
+  }
+
+  if (/[\u0000-\u001f\u007f]/.test(href)) {
+    return null;
+  }
+
+  return href;
 }
 
 function HudSyncDetail({

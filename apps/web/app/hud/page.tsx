@@ -57,6 +57,8 @@ export default async function HudPage({ searchParams }: HudPageProps) {
           save: messages.settings.hudSaveSettings,
           saved: messages.settings.notificationPrefsSaved,
           settings: messages.nav.settings,
+          showRemainingPercent: messages.settings.hudShowRemainingPercent,
+          showUsagePercent: messages.settings.hudShowUsagePercent,
           toolLoadingPreparingView: messages.settings.toolLoadingPreparingView,
         }}
         initialPreferences={preferences}

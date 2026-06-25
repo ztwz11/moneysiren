@@ -43,6 +43,8 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
   const [hudOpacity, setHudOpacity] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity);
   const [hudPadding, setHudPadding] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.padding);
   const [hudRowHeight, setHudRowHeight] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight);
+  const [hudShowRemainingPercent, setHudShowRemainingPercent] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.showRemainingPercent);
+  const [hudShowUsagePercent, setHudShowUsagePercent] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.showUsagePercent);
   const [hudSelectedWidgets, setHudSelectedWidgets] = useState<NotificationWidgetKey[]>(
     [...DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets],
   );
@@ -343,6 +345,36 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                   </span>
                 </label>
               </div>
+              <div className="notification-field">
+                <span className="metric-label">{messages.settings.hudShowUsagePercent}</span>
+                <label className="notification-toggle-card notification-hud-toggle-card">
+                  <input
+                    checked={hudShowUsagePercent}
+                    onChange={(event) => setHudShowUsagePercent(event.currentTarget.checked)}
+                    type="checkbox"
+                  />
+                  <span className="toggle-switch" aria-hidden="true" />
+                  <span>
+                    <strong>{hudShowUsagePercent ? messages.settings.notificationEnabled : messages.settings.notificationDisabled}</strong>
+                    <span className="metric-meta">{messages.settings.hudShowUsagePercent}</span>
+                  </span>
+                </label>
+              </div>
+              <div className="notification-field">
+                <span className="metric-label">{messages.settings.hudShowRemainingPercent}</span>
+                <label className="notification-toggle-card notification-hud-toggle-card">
+                  <input
+                    checked={hudShowRemainingPercent}
+                    onChange={(event) => setHudShowRemainingPercent(event.currentTarget.checked)}
+                    type="checkbox"
+                  />
+                  <span className="toggle-switch" aria-hidden="true" />
+                  <span>
+                    <strong>{hudShowRemainingPercent ? messages.settings.notificationEnabled : messages.settings.notificationDisabled}</strong>
+                    <span className="metric-meta">{messages.settings.hudShowRemainingPercent}</span>
+                  </span>
+                </label>
+              </div>
               <label className="notification-field">
                 <span className="metric-label">{messages.settings.hudFontSize}</span>
                 <input
@@ -494,6 +526,8 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
     setHudOpacity(preferences.hud.opacity);
     setHudPadding(preferences.hud.padding);
     setHudRowHeight(preferences.hud.rowHeight);
+    setHudShowRemainingPercent(preferences.hud.showRemainingPercent);
+    setHudShowUsagePercent(preferences.hud.showUsagePercent);
     setHudSelectedWidgets([...preferences.hud.selectedWidgets]);
     setLocalCliDashboardMetricKeys([...preferences.dashboard.localCliMetricKeys]);
     setDashboardBudget({ ...preferences.dashboard.budget });
@@ -525,6 +559,8 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
         opacity: hudOpacity,
         padding: hudPadding,
         rowHeight: hudRowHeight,
+        showRemainingPercent: hudShowRemainingPercent,
+        showUsagePercent: hudShowUsagePercent,
         selectedWidgets: hudSelectedWidgets,
       },
     };

@@ -172,6 +172,8 @@ export interface Messages {
     hudOpacity: string;
     hudPadding: string;
     hudRowHeight: string;
+    hudShowRemainingPercent: string;
+    hudShowUsagePercent: string;
     hudMinimize: string;
     hudClose: string;
     hudSaveSettings: string;
@@ -514,6 +516,8 @@ export const messages = {
       hudOpacity: "Opacity",
       hudPadding: "Padding",
       hudRowHeight: "Row height",
+      hudShowRemainingPercent: "Show remaining",
+      hudShowUsagePercent: "Show usage",
       hudMinimize: "Minimize HUD",
       hudClose: "Close HUD",
       hudSaveSettings: "Save HUD",
@@ -886,6 +890,8 @@ export const messages = {
       hudOpacity: "투명도",
       hudPadding: "여백",
       hudRowHeight: "각 행 높이",
+      hudShowRemainingPercent: "남은량 표시",
+      hudShowUsagePercent: "사용량 표시",
       hudMinimize: "HUD 최소화",
       hudClose: "HUD 닫기",
       hudSaveSettings: "HUD 저장",
@@ -1258,6 +1264,8 @@ export const messages = {
       hudOpacity: "透明度",
       hudPadding: "余白",
       hudRowHeight: "行の高さ",
+      hudShowRemainingPercent: "残量を表示",
+      hudShowUsagePercent: "使用量を表示",
       hudMinimize: "HUD を最小化",
       hudClose: "HUD を閉じる",
       hudSaveSettings: "HUD を保存",

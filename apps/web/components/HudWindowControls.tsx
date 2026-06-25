@@ -27,6 +27,8 @@ interface HudWindowControlsProps {
     save: string;
     saved: string;
     settings: string;
+    showRemainingPercent: string;
+    showUsagePercent: string;
     toolLoadingPreparingView: string;
   };
   locale: Locale;
@@ -51,6 +53,8 @@ export function HudWindowControls({ initialPreferences, labels, locale, onRefres
   const [draftOpacity, setDraftOpacity] = useState(initialPreferences.hud.opacity);
   const [draftPadding, setDraftPadding] = useState(initialPreferences.hud.padding);
   const [draftRowHeight, setDraftRowHeight] = useState(initialPreferences.hud.rowHeight);
+  const [draftShowRemainingPercent, setDraftShowRemainingPercent] = useState(initialPreferences.hud.showRemainingPercent);
+  const [draftShowUsagePercent, setDraftShowUsagePercent] = useState(initialPreferences.hud.showUsagePercent);
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
   useEffect(() => {
@@ -95,6 +99,8 @@ export function HudWindowControls({ initialPreferences, labels, locale, onRefres
     setDraftOpacity(initialPreferences.hud.opacity);
     setDraftPadding(initialPreferences.hud.padding);
     setDraftRowHeight(initialPreferences.hud.rowHeight);
+    setDraftShowRemainingPercent(initialPreferences.hud.showRemainingPercent);
+    setDraftShowUsagePercent(initialPreferences.hud.showUsagePercent);
     setSaveState("idle");
   }, [
     initialPreferences.hud.alwaysOnTop,
@@ -104,6 +110,8 @@ export function HudWindowControls({ initialPreferences, labels, locale, onRefres
     initialPreferences.hud.opacity,
     initialPreferences.hud.padding,
     initialPreferences.hud.rowHeight,
+    initialPreferences.hud.showRemainingPercent,
+    initialPreferences.hud.showUsagePercent,
   ]);
 
   useEffect(() => {
@@ -190,6 +198,30 @@ export function HudWindowControls({ initialPreferences, labels, locale, onRefres
             ) : (
               <PinOff aria-hidden="true" size={13} strokeWidth={1.9} />
             )}
+          </label>
+          <label className="hud-toggle-row">
+            <input
+              checked={draftShowUsagePercent}
+              onChange={() => {
+                setDraftShowUsagePercent((current) => !current);
+                setSaveState("idle");
+              }}
+              type="checkbox"
+            />
+            <span className="toggle-switch" aria-hidden="true" />
+            <span>{labels.showUsagePercent}</span>
+          </label>
+          <label className="hud-toggle-row">
+            <input
+              checked={draftShowRemainingPercent}
+              onChange={() => {
+                setDraftShowRemainingPercent((current) => !current);
+                setSaveState("idle");
+              }}
+              type="checkbox"
+            />
+            <span className="toggle-switch" aria-hidden="true" />
+            <span>{labels.showRemainingPercent}</span>
           </label>
           <label className="hud-range-row">
             <span>{labels.fontSize}</span>
@@ -315,6 +347,8 @@ export function HudWindowControls({ initialPreferences, labels, locale, onRefres
           opacity: draftOpacity,
           padding: draftPadding,
           rowHeight: draftRowHeight,
+          showRemainingPercent: draftShowRemainingPercent,
+          showUsagePercent: draftShowUsagePercent,
         });
         void applyAlwaysOnTop(savedPreferences.hud.alwaysOnTop);
         router.refresh();
@@ -381,7 +415,15 @@ async function saveHudPreferences(
   initialPreferences: NotificationPreferences,
   hudPreferences: Pick<
     NotificationPreferences["hud"],
-    "alwaysOnTop" | "backgroundColor" | "fontColor" | "fontScale" | "opacity" | "padding" | "rowHeight"
+    | "alwaysOnTop"
+    | "backgroundColor"
+    | "fontColor"
+    | "fontScale"
+    | "opacity"
+    | "padding"
+    | "rowHeight"
+    | "showRemainingPercent"
+    | "showUsagePercent"
   >,
 ): Promise<NotificationPreferences> {
   const preferences = await loadNotificationPreferences(initialPreferences);

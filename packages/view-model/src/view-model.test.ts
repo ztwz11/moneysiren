@@ -277,6 +277,8 @@ describe("shared view model", () => {
       opacity: 0,
       padding: DEFAULT_NOTIFICATION_PREFERENCES.hud.padding,
       rowHeight: DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight,
+      showRemainingPercent: DEFAULT_NOTIFICATION_PREFERENCES.hud.showRemainingPercent,
+      showUsagePercent: DEFAULT_NOTIFICATION_PREFERENCES.hud.showUsagePercent,
       selectedWidgets: DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets,
     });
     expect(parseNotificationPreferences({
@@ -288,6 +290,8 @@ describe("shared view model", () => {
         opacity: 0,
         padding: 14,
         rowHeight: 60,
+        showRemainingPercent: false,
+        showUsagePercent: false,
         selectedWidgets: ["openai_today_tokens"],
       },
     }).hud).toEqual({
@@ -298,6 +302,8 @@ describe("shared view model", () => {
       opacity: 0,
       padding: 14,
       rowHeight: 60,
+      showRemainingPercent: false,
+      showUsagePercent: false,
       selectedWidgets: ["openai_today_tokens"],
     });
     expect(parseNotificationPreferences({
@@ -315,6 +321,8 @@ describe("shared view model", () => {
       opacity: DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity,
       padding: 18,
       rowHeight: 28,
+      showRemainingPercent: DEFAULT_NOTIFICATION_PREFERENCES.hud.showRemainingPercent,
+      showUsagePercent: DEFAULT_NOTIFICATION_PREFERENCES.hud.showUsagePercent,
       selectedWidgets: DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets,
     });
     expect(parseNotificationPreferences({
@@ -330,6 +338,8 @@ describe("shared view model", () => {
       opacity: DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity,
       padding: DEFAULT_NOTIFICATION_PREFERENCES.hud.padding,
       rowHeight: DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight,
+      showRemainingPercent: DEFAULT_NOTIFICATION_PREFERENCES.hud.showRemainingPercent,
+      showUsagePercent: DEFAULT_NOTIFICATION_PREFERENCES.hud.showUsagePercent,
       selectedWidgets: ["risk_high_count"],
     });
   });

@@ -124,6 +124,8 @@ export interface HudPreferences {
   opacity: number;
   padding: number;
   rowHeight: number;
+  showRemainingPercent: boolean;
+  showUsagePercent: boolean;
   selectedWidgets: readonly NotificationWidgetKey[];
 }
 
@@ -228,6 +230,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
     opacity: 0.94,
     padding: 6,
     rowHeight: 40,
+    showRemainingPercent: true,
+    showUsagePercent: true,
     selectedWidgets: DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
   },
 };
@@ -402,6 +406,12 @@ function parseHudPreferences(
     opacity: clampNumber(record.opacity, 0, 1, DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity),
     padding: clampNumber(record.padding, 0, 18, DEFAULT_NOTIFICATION_PREFERENCES.hud.padding),
     rowHeight: clampNumber(record.rowHeight, 28, 76, DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight),
+    showRemainingPercent: typeof record.showRemainingPercent === "boolean"
+      ? record.showRemainingPercent
+      : DEFAULT_NOTIFICATION_PREFERENCES.hud.showRemainingPercent,
+    showUsagePercent: typeof record.showUsagePercent === "boolean"
+      ? record.showUsagePercent
+      : DEFAULT_NOTIFICATION_PREFERENCES.hud.showUsagePercent,
     selectedWidgets: parseSelectedWidgets(record.selectedWidgets, fallbackSelectedWidgets),
   };
 }

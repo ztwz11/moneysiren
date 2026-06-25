@@ -98,7 +98,10 @@ fn main() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![tray_native_status])
+        .invoke_handler(tauri::generate_handler![
+            open_dashboard_route,
+            tray_native_status
+        ])
         .run(tauri::generate_context!())
         .expect("failed to run MoneySiren tray");
 }
@@ -145,7 +148,7 @@ fn handle_tray_action(app: &AppHandle, action_id: &str) {
 
     if let Some(action) = TRAY_ACTIONS.iter().find(|action| action.id == action_id) {
         if !action.url_path.is_empty() {
-            open_dashboard_route(app, action.url_path);
+            navigate_dashboard_route(app, action.url_path);
             return;
         }
     }
@@ -153,7 +156,7 @@ fn handle_tray_action(app: &AppHandle, action_id: &str) {
     let _ = app.emit("moneysiren://tray-action", action_id);
 }
 
-fn open_dashboard_route(app: &AppHandle, url_path: &str) {
+fn navigate_dashboard_route(app: &AppHandle, url_path: &str) {
     let Some(window) = app.get_webview_window("main") else {
         return;
     };
@@ -165,6 +168,28 @@ fn open_dashboard_route(app: &AppHandle, url_path: &str) {
     let _ = window.eval(&format!("window.location.href = {};", serialized_url));
     let _ = window.show();
     let _ = window.set_focus();
+}
+
+#[tauri::command]
+fn open_dashboard_route(app: AppHandle, url_path: String) -> Result<(), String> {
+    let Some(route_path) = sanitize_dashboard_route_path(&url_path) else {
+        return Err("Invalid dashboard route path.".to_string());
+    };
+
+    navigate_dashboard_route(&app, route_path);
+    Ok(())
+}
+
+fn sanitize_dashboard_route_path(url_path: &str) -> Option<&str> {
+    if !url_path.starts_with('/') || url_path.starts_with("//") {
+        return None;
+    }
+
+    if url_path.chars().any(|character| character.is_control()) {
+        return None;
+    }
+
+    Some(url_path)
 }
 
 fn open_hud_window(app: &AppHandle) {

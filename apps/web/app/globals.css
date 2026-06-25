@@ -2653,6 +2653,7 @@ body:has(.hud-page)::-webkit-scrollbar {
   height: 22px;
   justify-content: center;
   opacity: 0;
+  padding: 0;
   pointer-events: none;
   position: absolute;
   right: 0;

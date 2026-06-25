@@ -3,6 +3,7 @@ import {
   buildTodayLiveView,
   buildTrayMenuModel,
   readNotificationPreferencesFile,
+  resolveNotificationPreferencesPath,
   type NotificationDigest,
   type NotificationPreferences,
   type OperationsOverview,
@@ -10,6 +11,8 @@ import {
   type TodayLiveView,
   type TrayMenuModel,
 } from "../../../packages/view-model/src/index";
+import { constants } from "node:fs";
+import { access } from "node:fs/promises";
 import {
   readDashboardSnapshot,
   type DashboardSnapshot,
@@ -28,6 +31,11 @@ export interface ReadWebLocalNotificationModelOptions {
   notificationPreferences?: NotificationPreferences;
 }
 
+export interface WebNotificationPreferencesState {
+  preferences: NotificationPreferences;
+  preferencesStored: boolean;
+}
+
 export async function readWebNotificationPreferences(
   options: Pick<ReadWebLocalNotificationModelOptions, "env"> = {},
 ): Promise<NotificationPreferences> {
@@ -35,6 +43,25 @@ export async function readWebNotificationPreferences(
     cwd: process.cwd(),
     env: options.env ?? process.env,
   });
+}
+
+export async function readWebNotificationPreferencesState(
+  options: Pick<ReadWebLocalNotificationModelOptions, "env"> = {},
+): Promise<WebNotificationPreferencesState> {
+  const env = options.env ?? process.env;
+  const fileOptions = {
+    cwd: process.cwd(),
+    env,
+  };
+  const [preferences, preferencesStored] = await Promise.all([
+    readNotificationPreferencesFile(fileOptions),
+    notificationPreferencesFileExists(fileOptions),
+  ]);
+
+  return {
+    preferences,
+    preferencesStored,
+  };
 }
 
 export async function readWebLocalNotificationDigest(
@@ -57,6 +84,17 @@ export async function readWebLocalTrayMenuModel(
   options: ReadWebLocalNotificationModelOptions = {},
 ): Promise<TrayMenuModel> {
   return buildTrayMenuModel(await readWebLocalNotificationDigest(options));
+}
+
+async function notificationPreferencesFileExists(
+  options: Parameters<typeof resolveNotificationPreferencesPath>[0],
+): Promise<boolean> {
+  try {
+    await access(resolveNotificationPreferencesPath(options), constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function operationsOverviewFromDashboard(snapshot: DashboardSnapshot): OperationsOverview {

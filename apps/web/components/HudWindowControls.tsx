@@ -12,6 +12,7 @@ type HudWindowAction = "close" | "minimize";
 
 interface HudWindowControlsProps {
   initialPreferences: NotificationPreferences;
+  initialSetupOpen?: boolean;
   labels: {
     alwaysOnTop: string;
     backgroundColor: string;
@@ -43,9 +44,16 @@ interface TauriWindow {
   setAlwaysOnTop: (alwaysOnTop: boolean) => Promise<void>;
 }
 
-export function HudWindowControls({ initialPreferences, labels, locale, onRefresh, refreshBusy = false }: HudWindowControlsProps) {
+export function HudWindowControls({
+  initialPreferences,
+  initialSetupOpen = false,
+  labels,
+  locale,
+  onRefresh,
+  refreshBusy = false,
+}: HudWindowControlsProps) {
   const router = useRouter();
-  const [controlsOpen, setControlsOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(initialSetupOpen);
   const [draftAlwaysOnTop, setDraftAlwaysOnTop] = useState(initialPreferences.hud.alwaysOnTop);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(initialPreferences.hud.backgroundColor);
   const [draftFontColor, setDraftFontColor] = useState(initialPreferences.hud.fontColor);

@@ -56,6 +56,7 @@ type HudDragWindow = {
 interface HudDashboardProps {
   initialModel?: HudViewModel;
   initialPreferences: NotificationPreferences;
+  initialSetupOpen?: boolean;
   controlLabels: Parameters<typeof HudWindowControls>[0]["labels"];
   labels: HudDashboardLabels;
   locale: Locale;
@@ -64,6 +65,7 @@ interface HudDashboardProps {
 export function HudDashboard({
   initialModel,
   initialPreferences,
+  initialSetupOpen = false,
   controlLabels,
   labels,
   locale,
@@ -157,6 +159,7 @@ export function HudDashboard({
   return (
     <>
       <HudWindowControls
+        initialSetupOpen={initialSetupOpen}
         initialPreferences={initialPreferences}
         labels={controlLabels}
         locale={locale}

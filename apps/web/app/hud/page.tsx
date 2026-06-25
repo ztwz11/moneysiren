@@ -1,6 +1,6 @@
 import { getMessages, isLocale, type Locale } from "../../lib/i18n";
 import {
-  readWebNotificationPreferences,
+  readWebNotificationPreferencesState,
 } from "../../lib/local-notification-model";
 import { AppLoadingOverlay } from "../../components/AppLoadingOverlay";
 import { HudDashboard, type HudDashboardLabels } from "../../components/HudDashboard";
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function HudPage({ searchParams }: HudPageProps) {
   const locale = await readLocale(searchParams);
   const messages = getMessages(locale);
-  const preferences = await readWebNotificationPreferences();
+  const { preferences, preferencesStored } = await readWebNotificationPreferencesState();
   const hudStyle = {
     "--hud-background-color": preferences.hud.backgroundColor,
     "--hud-font-color": preferences.hud.fontColor,
@@ -61,6 +61,7 @@ export default async function HudPage({ searchParams }: HudPageProps) {
           showUsagePercent: messages.settings.hudShowUsagePercent,
           toolLoadingPreparingView: messages.settings.toolLoadingPreparingView,
         }}
+        initialSetupOpen={!preferencesStored}
         initialPreferences={preferences}
         labels={hudLabels(locale, messages)}
         locale={locale}

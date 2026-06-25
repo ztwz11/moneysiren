@@ -1,9 +1,9 @@
 import {
   parseNotificationPreferences,
-  readNotificationPreferencesFile,
   writeNotificationPreferencesFile,
 } from "../../../../../packages/view-model/src/index";
 import { isLocalRequest, requireLocalSession } from "../../../lib/local-security";
+import { readWebNotificationPreferencesState } from "../../../lib/local-notification-model";
 
 export async function GET(request: Request): Promise<Response> {
   if (!isLocalRequest(request)) {
@@ -16,14 +16,14 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
 
+  const preferencesState = await readWebNotificationPreferencesState();
+
   return Response.json({
     generatedAt: new Date().toISOString(),
     localOnly: true,
+    preferencesStored: preferencesState.preferencesStored,
     secretsReturned: false,
-    preferences: await readNotificationPreferencesFile({
-      cwd: process.cwd(),
-      env: process.env,
-    }),
+    preferences: preferencesState.preferences,
   });
 }
 
@@ -35,6 +35,7 @@ export async function PUT(request: Request): Promise<Response> {
     return Response.json({
       generatedAt: new Date().toISOString(),
       localOnly: true,
+      preferencesStored: true,
       secretsReturned: false,
       preferences: await writeNotificationPreferencesFile(preferences, {
         cwd: process.cwd(),

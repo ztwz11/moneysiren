@@ -27,6 +27,7 @@ describe("notification preference route", () => {
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({
       localOnly: true,
+      preferencesStored: false,
       secretsReturned: false,
       preferences: {
         enabled: true,
@@ -113,6 +114,7 @@ describe("notification preference route", () => {
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({
       localOnly: true,
+      preferencesStored: true,
       secretsReturned: false,
       preferences: {
         digestInterval: "six-hours",
@@ -150,6 +152,7 @@ describe("notification preference route", () => {
 
     const reread = await GET(localRequest());
     await expect(reread.json()).resolves.toMatchObject({
+      preferencesStored: true,
       preferences: {
         quietHours: {
           start: "21:00",

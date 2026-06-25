@@ -100,6 +100,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             open_dashboard_route,
+            open_dashboard_route_external,
             tray_native_status
         ])
         .run(tauri::generate_context!())
@@ -180,6 +181,15 @@ fn open_dashboard_route(app: AppHandle, url_path: String) -> Result<(), String> 
     Ok(())
 }
 
+#[tauri::command]
+fn open_dashboard_route_external(url_path: String) -> Result<(), String> {
+    let Some(route_path) = sanitize_dashboard_route_path(&url_path) else {
+        return Err("Invalid dashboard route path.".to_string());
+    };
+
+    open_external_url(&format!("{}{}", DASHBOARD_BASE_URL, route_path))
+}
+
 fn sanitize_dashboard_route_path(url_path: &str) -> Option<&str> {
     if !url_path.starts_with('/') || url_path.starts_with("//") {
         return None;
@@ -190,6 +200,23 @@ fn sanitize_dashboard_route_path(url_path: &str) -> Option<&str> {
     }
 
     Some(url_path)
+}
+
+fn open_external_url(url: &str) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let result = std::process::Command::new("rundll32")
+        .args(["url.dll,FileProtocolHandler", url])
+        .spawn();
+
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").arg(url).spawn();
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let result = std::process::Command::new("xdg-open").arg(url).spawn();
+
+    result
+        .map(|_| ())
+        .map_err(|error| format!("Failed to open dashboard route in browser: {error}"))
 }
 
 fn open_hud_window(app: &AppHandle) {

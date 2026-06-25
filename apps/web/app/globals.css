@@ -2486,8 +2486,14 @@ body:has(.hud-page)::-webkit-scrollbar {
 }
 
 .hud-settings-link {
+  background: transparent;
   border-top: 1px solid var(--border-soft);
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  cursor: pointer;
   grid-template-columns: auto minmax(0, 1fr);
+  text-align: left;
   padding-top: 6px;
 }
 

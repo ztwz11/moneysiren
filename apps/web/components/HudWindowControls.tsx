@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Minus, Pin, PinOff, RefreshCw, Save, Settings, X } from "lucide-react";
 import type { Locale } from "../lib/i18n";
+import { openHudDashboardRoute } from "../lib/hud-navigation";
 import type { NotificationPreferences } from "./NotificationSettingsModel";
 import { withAppLoading } from "./AppLoadingOverlay";
 
@@ -326,10 +327,17 @@ export function HudWindowControls({
             <Save aria-hidden="true" size={13} strokeWidth={1.9} />
             <span>{labels.save}</span>
           </button>
-          <a className="hud-settings-link" href={`/${locale}/settings/notifications`}>
+          <button
+            className="hud-settings-link"
+            data-hud-no-drag
+            onClick={() => {
+              void openHudDashboardRoute(`/${locale}/settings/notifications`);
+            }}
+            type="button"
+          >
             <Settings aria-hidden="true" size={13} strokeWidth={1.9} />
             <span>{labels.settings}</span>
-          </a>
+          </button>
           {saveState === "saved" ? (
             <span className="hud-save-status">
               <Check aria-hidden="true" size={12} strokeWidth={2} />

@@ -6,6 +6,7 @@ import type { CreditAccuracy, HudItemView, HudViewModel, QuotaItemView } from ".
 import type { Locale } from "../lib/i18n";
 import type { NotificationPreferences } from "./NotificationSettingsModel";
 import { refreshLocalLive } from "../lib/local-client";
+import { openHudDashboardRoute } from "../lib/hud-navigation";
 import { HudWindowControls } from "./HudWindowControls";
 
 const HUD_POLL_INTERVAL_MS = 5 * 60_000;
@@ -350,7 +351,7 @@ function HudItemOpenLink({ href, label }: { href: string; label: string }) {
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        void openHudTarget(href);
+        void openHudDashboardRoute(href);
       }}
       title={label}
       type="button"
@@ -358,44 +359,6 @@ function HudItemOpenLink({ href, label }: { href: string; label: string }) {
       <ExternalLink aria-hidden="true" size={13} strokeWidth={1.9} />
     </button>
   );
-}
-
-async function openHudTarget(href: string): Promise<void> {
-  const routePath = normalizeHudRoutePath(href);
-
-  if (routePath === null) {
-    return;
-  }
-
-  try {
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("open_dashboard_route", { urlPath: routePath });
-    return;
-  } catch {
-    // Browser-only HUD previews do not have the Tauri command bridge.
-  }
-
-  const targetUrl = new URL(routePath, window.location.origin);
-  const opened = window.open(targetUrl.toString(), "moneysiren-dashboard");
-
-  if (opened === null) {
-    window.location.assign(targetUrl.toString());
-    return;
-  }
-
-  opened.focus();
-}
-
-function normalizeHudRoutePath(href: string): string | null {
-  if (!href.startsWith("/") || href.startsWith("//")) {
-    return null;
-  }
-
-  if (/[\u0000-\u001f\u007f]/.test(href)) {
-    return null;
-  }
-
-  return href;
 }
 
 function HudSyncDetail({

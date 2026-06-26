@@ -6,7 +6,7 @@ MoneySiren reads provider usage into local SQLite, shows expected billing and us
 
 ## Current Status
 
-MoneySiren `v0.1.0-alpha.27` is published for local alpha review.
+MoneySiren `v0.1.0-alpha.28` is published for local alpha review.
 
 The current alpha supports:
 
@@ -234,7 +234,7 @@ npm run release:alpha:dry-run
 npm run release:alpha
 ```
 
-`release:alpha` bumps the next alpha version, runs secret scan/typecheck/tests/build plus npm publish dry-runs, commits the release, pushes `main`, pushes the `v*` tag, waits for GitHub Actions, and verifies npm plus GitHub Release assets. The working tree must be clean by default; use `npm run release:alpha:include-working-tree` only when you intentionally want current local changes included in the release commit. To force a specific version, run `node tools/scripts/release-alpha.mjs --target-version 0.1.0-alpha.27`.
+`release:alpha` bumps the next alpha version, runs secret scan/typecheck/tests/build plus npm publish dry-runs, commits the release, pushes `main`, pushes the `v*` tag, waits for GitHub Actions, and verifies npm plus GitHub Release assets. The working tree must be clean by default; use `npm run release:alpha:include-working-tree` only when you intentionally want current local changes included in the release commit. To force a specific version, run `node tools/scripts/release-alpha.mjs --target-version 0.1.0-alpha.28`.
 
 During an interactive PowerShell, cmd, or shell install, the package asks which local surfaces to enable:
 
@@ -265,7 +265,7 @@ msiren stop
 To install from a specific release tag or into a custom directory:
 
 ```bash
-msiren install --all --tag v0.1.0-alpha.27 --dir ./moneysiren-release
+msiren install --all --tag v0.1.0-alpha.28 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -281,7 +281,7 @@ Release maintainers should verify published assets before announcing a desktop b
 ```bash
 npm run release:signing:encode-windows -- "<path-to-windows-code-signing.pfx>"
 npm run release:signing:check -- windows
-npm run release:check -- v0.1.0-alpha.27
+npm run release:check -- v0.1.0-alpha.28
 ```
 
 The encode helper writes the base64 certificate payload to `.tmp/codesign/windows-certificate.base64.txt` so maintainers can set the `WINDOWS_CERTIFICATE` repository secret without printing the private certificate to the terminal. Set `WINDOWS_CERTIFICATE_PASSWORD` to the PFX/P12 password in GitHub Secrets and in the local shell before running the signing readiness check. The signing check verifies local/CI signing inputs before a release run. The release check downloads the published assets, verifies SHA256 entries, requires Windows signature metadata, and validates Windows Authenticode signatures when run on Windows. If only one desktop signing identity is ready, run the `desktop-release` workflow with `desktop_targets=windows` or `desktop_targets=macos`; the publish step removes stale desktop assets for the skipped OS. Self-signed certificates are acceptable only for local smoke tests and do not fix public Windows publisher trust warnings.
@@ -289,7 +289,7 @@ The encode helper writes the base64 certificate payload to `.tmp/codesign/window
 Alpha releases can publish unsigned HUD artifacts when signing secrets are not ready. Keep that path explicit in validation:
 
 ```bash
-npm run release:check -- v0.1.0-alpha.27 --allow-unsigned-prerelease-windows
+npm run release:check -- v0.1.0-alpha.28 --allow-unsigned-prerelease-windows
 ```
 
 The CLI accepts unsigned HUD artifacts only for prerelease tags such as `alpha`; set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for alpha builds.

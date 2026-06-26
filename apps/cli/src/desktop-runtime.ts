@@ -217,11 +217,21 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
 
       const portSelection = await selectWebRuntimePort({
         explicitPort: options.port !== undefined || trimToNull(context.env.PORT) !== null,
+        fetchImpl: context.fetch,
         requestedPort,
       });
 
       if (portSelection.status === "unavailable") {
         return portSelection;
+      }
+
+      if (portSelection.status === "running") {
+        return {
+          status: "running",
+          dashboardUrl: portSelection.dashboardUrl,
+          port: portSelection.port,
+          notes: portSelection.notes,
+        };
       }
 
       const { port } = portSelection;
@@ -247,14 +257,24 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
       });
 
       if (!await waitForWebRuntime(healthUrl, context.fetch, DEFAULT_HEALTH_TIMEOUT_MS)) {
-        return {
-          status: "unavailable",
-          reason: "Started the local web runtime, but the health check did not become ready.",
-          guidance: [
-            `Check ${dashboardUrl} in your browser.`,
-            "If the port is already in use, run `msiren start --port <port>`.",
-          ],
-        };
+        const processStillRunning = webProcess.pid !== undefined && isProcessAlive(webProcess.pid);
+        const portIsClaimed = !await isTcpPortAvailable(port);
+
+        if (processStillRunning && portIsClaimed) {
+          portSelection.notes = [
+            ...portSelection.notes,
+            "Web runtime is still warming up; opening the dashboard URL while it finishes starting.",
+          ];
+        } else {
+          return {
+            status: "unavailable",
+            reason: "Started the local web runtime, but the health check did not become ready.",
+            guidance: [
+              `Check ${dashboardUrl} in your browser.`,
+              "If the port is already in use, run `msiren start --port <port>`.",
+            ],
+          };
+        }
       }
 
       let webNotes = [
@@ -481,10 +501,17 @@ async function processStatus(input: {
 
 async function selectWebRuntimePort(input: {
   explicitPort: boolean;
+  fetchImpl: typeof fetch;
   requestedPort: number;
 }): Promise<
   | {
       status: "ready";
+      port: number;
+      notes: readonly string[];
+    }
+  | {
+      status: "running";
+      dashboardUrl: string;
       port: number;
       notes: readonly string[];
     }
@@ -511,23 +538,37 @@ async function selectWebRuntimePort(input: {
     };
   }
 
-  const fallbackPort = await findAvailablePort(input.requestedPort + 1, DEFAULT_PORT_FALLBACK_ATTEMPTS);
+  const maxPort = Math.min(65_535, input.requestedPort + DEFAULT_PORT_FALLBACK_ATTEMPTS);
 
-  if (fallbackPort === null) {
-    return {
-      status: "unavailable",
-      reason: `Port ${input.requestedPort} is already in use, and no fallback port was available.`,
-      guidance: [
-        `Stop the process using port ${input.requestedPort}, or run \`msiren start --port <port>\`.`,
-        "On Windows you can inspect the owner with `netstat -ano | findstr :3000`.",
-      ],
-    };
+  for (let port = input.requestedPort + 1; port <= maxPort; port += 1) {
+    const dashboardUrl = `http://127.0.0.1:${port}/ko/dashboard/overview`;
+    const healthUrl = `http://127.0.0.1:${port}/api/local/health`;
+
+    if (await isWebRuntimeHealthy(healthUrl, input.fetchImpl)) {
+      return {
+        status: "running",
+        dashboardUrl,
+        port,
+        notes: [`Default port ${input.requestedPort} was blocked; reusing healthy dashboard runtime on ${port}.`],
+      };
+    }
+
+    if (await isTcpPortAvailable(port)) {
+      return {
+        status: "ready",
+        port,
+        notes: [`Default port ${input.requestedPort} was in use by an unresponsive process; using ${port}.`],
+      };
+    }
   }
 
   return {
-    status: "ready",
-    port: fallbackPort,
-    notes: [`Default port ${input.requestedPort} was in use by an unresponsive process; using ${fallbackPort}.`],
+    status: "unavailable",
+    reason: `Port ${input.requestedPort} is already in use, and no fallback port was available.`,
+    guidance: [
+      `Stop the process using port ${input.requestedPort}, or run \`msiren start --port <port>\`.`,
+      "On Windows you can inspect the owner with `netstat -ano | findstr :3000`.",
+    ],
   };
 }
 
@@ -985,18 +1026,6 @@ async function isWebRuntimeHealthy(url: string, fetchImpl: typeof fetch): Promis
   } finally {
     clearTimeout(timeout);
   }
-}
-
-async function findAvailablePort(startPort: number, attempts: number): Promise<number | null> {
-  const maxPort = Math.min(65_535, startPort + attempts - 1);
-
-  for (let port = startPort; port <= maxPort; port += 1) {
-    if (await isTcpPortAvailable(port)) {
-      return port;
-    }
-  }
-
-  return null;
 }
 
 async function isTcpPortAvailable(port: number): Promise<boolean> {

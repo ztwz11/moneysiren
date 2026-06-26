@@ -27,7 +27,7 @@ jobs:
       NPM_DIST_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || 'alpha' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

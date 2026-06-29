@@ -6,8 +6,9 @@ use tauri::{
     AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry,
 };
 
-const DASHBOARD_BASE_URL: &str = "http://127.0.0.1:3000";
+const DEFAULT_DASHBOARD_BASE_URL: &str = "http://127.0.0.1:3000";
 const DESKTOP_MODE_ENV_KEY: &str = "MONEYSIREN_DESKTOP_MODE";
+const WEB_URL_ENV_KEY: &str = "MONEYSIREN_WEB_URL";
 const TRAY_ACTIONS: [TrayAction; 12] = [
     TrayAction::new("show-hud", "Show HUD", "/hud?locale=ko"),
     TrayAction::new("open-dashboard", "Open Dashboard", "/ko/dashboard/overview"),
@@ -60,7 +61,7 @@ impl TrayAction {
 struct TrayNativeStatus {
     local_only: bool,
     secrets_returned: bool,
-    dashboard_base_url: &'static str,
+    dashboard_base_url: String,
     hud_available: bool,
     notifications_available: bool,
     actions: &'static [TrayAction],
@@ -94,6 +95,8 @@ fn main() {
                     let _ = window.hide();
                 }
                 open_hud_window(app.handle());
+            } else {
+                navigate_dashboard_route(app.handle(), "/ko/dashboard/overview");
             }
 
             Ok(())
@@ -161,7 +164,7 @@ fn navigate_dashboard_route(app: &AppHandle, url_path: &str) {
     let Some(window) = app.get_webview_window("main") else {
         return;
     };
-    let url = format!("{}{}", DASHBOARD_BASE_URL, url_path);
+    let url = format!("{}{}", dashboard_base_url(), url_path);
     let Ok(serialized_url) = serde_json::to_string(&url) else {
         return;
     };
@@ -187,7 +190,7 @@ fn open_dashboard_route_external(url_path: String) -> Result<(), String> {
         return Err("Invalid dashboard route path.".to_string());
     };
 
-    open_external_url(&format!("{}{}", DASHBOARD_BASE_URL, route_path))
+    open_external_url(&format!("{}{}", dashboard_base_url(), route_path))
 }
 
 fn sanitize_dashboard_route_path(url_path: &str) -> Option<&str> {
@@ -226,7 +229,7 @@ fn open_hud_window(app: &AppHandle) {
         return;
     }
 
-    let url = format!("{}/hud?locale=ko", DASHBOARD_BASE_URL);
+    let url = format!("{}/hud?locale=ko", dashboard_base_url());
     let Ok(parsed_url) = url.parse() else {
         return;
     };
@@ -254,10 +257,39 @@ fn tray_native_status() -> TrayNativeStatus {
     TrayNativeStatus {
         local_only: true,
         secrets_returned: false,
-        dashboard_base_url: DASHBOARD_BASE_URL,
+        dashboard_base_url: dashboard_base_url(),
         hud_available: true,
         notifications_available: true,
         actions: &TRAY_ACTIONS,
         allowed_local_api_endpoints: &LOCAL_API_ENDPOINTS,
     }
+}
+
+fn dashboard_base_url() -> String {
+    std::env::var(WEB_URL_ENV_KEY)
+        .ok()
+        .and_then(|value| normalize_loopback_base_url(&value))
+        .unwrap_or_else(|| DEFAULT_DASHBOARD_BASE_URL.to_string())
+}
+
+fn normalize_loopback_base_url(value: &str) -> Option<String> {
+    let trimmed = value.trim().trim_end_matches('/');
+
+    for prefix in ["http://127.0.0.1:", "http://localhost:"] {
+        let Some(rest) = trimmed.strip_prefix(prefix) else {
+            continue;
+        };
+
+        if rest.is_empty() || !rest.chars().all(|character| character.is_ascii_digit()) {
+            return None;
+        }
+
+        let Ok(port) = rest.parse::<u16>() else {
+            return None;
+        };
+
+        return Some(format!("{prefix}{port}"));
+    }
+
+    None
 }

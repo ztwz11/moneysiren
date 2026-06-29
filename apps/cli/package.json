@@ -1,6 +1,6 @@
 {
   "name": "@moneysiren/cli",
-  "version": "0.1.0-alpha.29",
+  "version": "0.1.0-alpha.30",
   "description": "Local-first cloud/SaaS usage, status, and expected billing CLI for MoneySiren.",
   "private": false,
   "license": "MIT",

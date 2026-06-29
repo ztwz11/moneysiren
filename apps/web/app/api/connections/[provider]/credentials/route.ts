@@ -13,6 +13,7 @@ import {
 } from "../../../../../lib/credential-write-policy";
 import { validateReadOnlyCredential } from "../../../../../lib/credential-validation";
 import { requireLocalSession } from "../../../../../lib/local-security";
+import type { LocalAiCliStatusPayload } from "../../../../../lib/local-tools";
 import {
   findAvailableProvider,
   isConnectableProviderKey,
@@ -222,6 +223,7 @@ async function providerStatusResponse(
 ): Promise<Response> {
   const status = await readConnectionsStatus({
     credentialStore,
+    localAiCliStatus: emptyLocalAiCliStatus(),
   });
   const providerStatus = status.providers.find((item) => item.providerKey === provider);
 
@@ -238,6 +240,15 @@ async function providerStatusResponse(
       },
     },
   );
+}
+
+function emptyLocalAiCliStatus(): LocalAiCliStatusPayload {
+  return {
+    generatedAt: new Date().toISOString(),
+    localOnly: true,
+    secretsReturned: false,
+    providers: [],
+  };
 }
 
 function errorResponse(error: unknown): Response {

@@ -13,6 +13,10 @@ const DEFAULT_WEB_PORT = 3000;
 const DEFAULT_HEALTH_TIMEOUT_MS = 30_000;
 const DEFAULT_PORT_FALLBACK_ATTEMPTS = 20;
 
+function dashboardUrlForPort(port: number): string {
+  return `http://127.0.0.1:${port}/`;
+}
+
 export interface StartWebRuntimeOptions {
   openBrowser: boolean;
   port?: number;
@@ -200,7 +204,7 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
       }
 
       const requestedPort = options.port ?? configuredPort(context.env);
-      const requestedDashboardUrl = `http://127.0.0.1:${requestedPort}/ko/dashboard/overview`;
+      const requestedDashboardUrl = dashboardUrlForPort(requestedPort);
       const requestedHealthUrl = `http://127.0.0.1:${requestedPort}/api/local/health`;
 
       if (await isWebRuntimeHealthy(requestedHealthUrl, context.fetch)) {
@@ -235,7 +239,7 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
       }
 
       const { port } = portSelection;
-      const dashboardUrl = `http://127.0.0.1:${port}/ko/dashboard/overview`;
+      const dashboardUrl = dashboardUrlForPort(port);
       const healthUrl = `http://127.0.0.1:${port}/api/local/health`;
 
       const startScript = await resolveWebRuntimeStartScript(context);
@@ -541,7 +545,7 @@ async function selectWebRuntimePort(input: {
   const maxPort = Math.min(65_535, input.requestedPort + DEFAULT_PORT_FALLBACK_ATTEMPTS);
 
   for (let port = input.requestedPort + 1; port <= maxPort; port += 1) {
-    const dashboardUrl = `http://127.0.0.1:${port}/ko/dashboard/overview`;
+    const dashboardUrl = dashboardUrlForPort(port);
     const healthUrl = `http://127.0.0.1:${port}/api/local/health`;
 
     if (await isWebRuntimeHealthy(healthUrl, input.fetchImpl)) {

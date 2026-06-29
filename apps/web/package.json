@@ -1,13 +1,13 @@
 {
   "name": "@moneysiren/web",
-  "version": "0.1.0-alpha.31",
+  "version": "0.1.0-alpha.33",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "next dev --webpack -H 127.0.0.1",
     "build": "next build --webpack",
     "start": "next start -H 127.0.0.1",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests --pool=threads --maxWorkers=1",
     "typecheck": "node ../../tools/scripts/typecheck-web.mjs",
     "lint": "tsc -p tsconfig.json --noEmit"
   },

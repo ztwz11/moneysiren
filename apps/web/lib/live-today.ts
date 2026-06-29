@@ -344,6 +344,7 @@ function recordFailedLiveTodayTarget(
 
 export function clearLiveTodayCache(): void {
   cache.clear();
+  inFlightByKey.clear();
 }
 
 async function createLiveTodayContext(options: LiveTodayOptions): Promise<RequiredLiveTodayContext> {

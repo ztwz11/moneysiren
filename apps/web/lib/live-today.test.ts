@@ -549,6 +549,7 @@ describe("live today cache", () => {
     });
     const connections = await readConnectionsStatus({
       credentialStore: store,
+      localAiCliStatus: emptyLocalAiCliStatus(),
       now: () => NOW,
     });
     const seenConnectionIds: string[] = [];
@@ -605,6 +606,7 @@ describe("live today cache", () => {
     });
     const connections = await readConnectionsStatus({
       credentialStore: store,
+      localAiCliStatus: emptyLocalAiCliStatus(),
       now: () => NOW,
     });
     const tokenLikeValue = ["sk", "sensitive-token"].join("-");

@@ -1,4 +1,5 @@
-import { getMessages, isLocale, type Locale } from "../../lib/i18n";
+import { headers } from "next/headers";
+import { detectLocale, getMessages, isLocale, type Locale } from "../../lib/i18n";
 import {
   readWebNotificationPreferencesState,
 } from "../../lib/local-notification-model";
@@ -189,5 +190,11 @@ async function readLocale(searchParams: HudPageProps["searchParams"]): Promise<L
   const raw = (await searchParams)?.locale;
   const value = Array.isArray(raw) ? raw[0] : raw;
 
-  return value !== undefined && isLocale(value) ? value : "ko";
+  if (value !== undefined && isLocale(value)) {
+    return value;
+  }
+
+  const headerList = await headers();
+
+  return detectLocale(headerList.get("accept-language"));
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Minus, Pin, PinOff, RefreshCw, Save, Settings, X } from "lucide-react";
 import type { Locale } from "../lib/i18n";
@@ -65,6 +65,7 @@ export function HudWindowControls({
   const [draftShowRemainingPercent, setDraftShowRemainingPercent] = useState(initialPreferences.hud.showRemainingPercent);
   const [draftShowUsagePercent, setDraftShowUsagePercent] = useState(initialPreferences.hud.showUsagePercent);
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const controlsLayerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -134,63 +135,94 @@ export function HudWindowControls({
     hudPage?.style.setProperty("--hud-row-height", `${draftRowHeight}px`);
   }, [draftBackgroundColor, draftFontColor, draftFontScale, draftOpacity, draftPadding, draftRowHeight]);
 
+  useEffect(() => {
+    if (!controlsOpen) {
+      return;
+    }
+
+    const closeWhenOutside = (event: PointerEvent) => {
+      const target = event.target;
+
+      if (target instanceof Node && controlsLayerRef.current?.contains(target)) {
+        return;
+      }
+
+      setControlsOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setControlsOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeWhenOutside, { capture: true });
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeWhenOutside, { capture: true });
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [controlsOpen]);
+
   return (
     <>
-      <div className="hud-window-controls" aria-label={labels.settings}>
-        <button
-          aria-label={labels.refresh}
-          aria-busy={refreshBusy}
-          className="hud-control-button"
-          disabled={refreshBusy}
-          onClick={() => {
-            if (onRefresh === undefined) {
-              router.refresh();
-              return;
-            }
+      <div ref={controlsLayerRef}>
+        <div className="hud-window-controls" aria-label={labels.settings}>
+          <button
+            aria-label={labels.refresh}
+            aria-busy={refreshBusy}
+            className="hud-control-button"
+            disabled={refreshBusy}
+            onClick={() => {
+              if (onRefresh === undefined) {
+                router.refresh();
+                return;
+              }
 
-            onRefresh();
-          }}
-          title={labels.refresh}
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={14} strokeWidth={1.9} />
-        </button>
-        <button
-          aria-expanded={controlsOpen}
-          aria-label={labels.settings}
-          className="hud-control-button"
-          onClick={() => setControlsOpen((current) => !current)}
-          title={labels.settings}
-          type="button"
-        >
-          <Settings aria-hidden="true" size={14} strokeWidth={1.9} />
-        </button>
-        <button
-          aria-label={labels.minimize}
-          className="hud-control-button"
-          onClick={() => {
-            void handleWindowAction("minimize");
-          }}
-          title={labels.minimize}
-          type="button"
-        >
-          <Minus aria-hidden="true" size={15} strokeWidth={2} />
-        </button>
-        <button
-          aria-label={labels.close}
-          className="hud-control-button hud-control-button-danger"
-          onClick={() => {
-            void handleWindowAction("close");
-          }}
-          title={labels.close}
-          type="button"
-        >
-          <X aria-hidden="true" size={15} strokeWidth={2} />
-        </button>
-      </div>
+              onRefresh();
+            }}
+            title={labels.refresh}
+            type="button"
+          >
+            <RefreshCw aria-hidden="true" size={14} strokeWidth={1.9} />
+          </button>
+          <button
+            aria-expanded={controlsOpen}
+            aria-label={labels.settings}
+            aria-pressed={controlsOpen}
+            className="hud-control-button"
+            onClick={() => setControlsOpen((current) => !current)}
+            title={labels.settings}
+            type="button"
+          >
+            <Settings aria-hidden="true" size={14} strokeWidth={1.9} />
+          </button>
+          <button
+            aria-label={labels.minimize}
+            className="hud-control-button"
+            onClick={() => {
+              void handleWindowAction("minimize");
+            }}
+            title={labels.minimize}
+            type="button"
+          >
+            <Minus aria-hidden="true" size={15} strokeWidth={2} />
+          </button>
+          <button
+            aria-label={labels.close}
+            className="hud-control-button hud-control-button-danger"
+            onClick={() => {
+              void handleWindowAction("close");
+            }}
+            title={labels.close}
+            type="button"
+          >
+            <X aria-hidden="true" size={15} strokeWidth={2} />
+          </button>
+        </div>
 
-      {controlsOpen ? (
-        <div className="hud-settings-popover">
+        {controlsOpen ? (
+          <div className="hud-settings-popover">
           <label className="hud-toggle-row">
             <input
               checked={draftAlwaysOnTop}
@@ -347,8 +379,9 @@ export function HudWindowControls({
             </span>
           ) : null}
           {saveState === "error" ? <span className="hud-save-status hud-save-status-error">{labels.error}</span> : null}
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+      </div>
     </>
   );
 

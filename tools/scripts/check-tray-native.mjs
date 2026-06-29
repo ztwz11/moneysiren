@@ -85,7 +85,7 @@ assert(mainRs.includes("TrayIconBuilder"), "Rust entrypoint must build a tray ic
 assert(mainRs.includes("show_menu_on_left_click(true)"), "Tray menu should open from the tray icon.");
 assert(mainRs.includes("get_webview_window(\"main\")"), "Tray menu actions must target the main Tauri GUI window.");
 assert(mainRs.includes("WebviewWindowBuilder"), "Rust entrypoint must build a HUD webview window.");
-assert(mainRs.includes("/hud?locale=ko"), "Rust HUD action must open the local HUD surface.");
+assert(mainRs.includes('TrayAction::new("show-hud", "Show HUD", "/hud")'), "Rust HUD action must open the local HUD surface.");
 assert(mainRs.includes("MONEYSIREN_DESKTOP_MODE"), "Rust entrypoint must support HUD-only desktop mode.");
 assert(mainRs.includes("DesktopMode::Hud"), "Rust entrypoint must branch into HUD-only desktop mode.");
 assert(mainRs.includes(".skip_taskbar(true)"), "HUD window must stay out of the taskbar.");

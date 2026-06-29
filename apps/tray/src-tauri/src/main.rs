@@ -10,8 +10,8 @@ const DEFAULT_DASHBOARD_BASE_URL: &str = "http://127.0.0.1:3000";
 const DESKTOP_MODE_ENV_KEY: &str = "MONEYSIREN_DESKTOP_MODE";
 const WEB_URL_ENV_KEY: &str = "MONEYSIREN_WEB_URL";
 const TRAY_ACTIONS: [TrayAction; 12] = [
-    TrayAction::new("show-hud", "Show HUD", "/hud?locale=ko"),
-    TrayAction::new("open-dashboard", "Open Dashboard", "/ko/dashboard/overview"),
+    TrayAction::new("show-hud", "Show HUD", "/hud"),
+    TrayAction::new("open-dashboard", "Open Dashboard", "/"),
     TrayAction::new("open-today-live", "Open Today Live", "/ko/dashboard/today"),
     TrayAction::new(
         "open-connections",
@@ -96,7 +96,7 @@ fn main() {
                 }
                 open_hud_window(app.handle());
             } else {
-                navigate_dashboard_route(app.handle(), "/ko/dashboard/overview");
+                navigate_dashboard_route(app.handle(), "/");
             }
 
             Ok(())
@@ -229,7 +229,7 @@ fn open_hud_window(app: &AppHandle) {
         return;
     }
 
-    let url = format!("{}/hud?locale=ko", dashboard_base_url());
+    let url = format!("{}/hud", dashboard_base_url());
     let Ok(parsed_url) = url.parse() else {
         return;
     };

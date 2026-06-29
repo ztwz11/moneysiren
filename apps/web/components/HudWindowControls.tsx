@@ -140,7 +140,7 @@ export function HudWindowControls({
       return;
     }
 
-    const closeWhenOutside = (event: PointerEvent) => {
+    const closeWhenOutside = (event: Event) => {
       const target = event.target;
 
       if (target instanceof Node && controlsLayerRef.current?.contains(target)) {
@@ -156,10 +156,12 @@ export function HudWindowControls({
     };
 
     document.addEventListener("pointerdown", closeWhenOutside, { capture: true });
+    document.addEventListener("click", closeWhenOutside, { capture: true });
     document.addEventListener("keydown", closeOnEscape);
 
     return () => {
       document.removeEventListener("pointerdown", closeWhenOutside, { capture: true });
+      document.removeEventListener("click", closeWhenOutside, { capture: true });
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [controlsOpen]);
@@ -190,7 +192,8 @@ export function HudWindowControls({
             aria-expanded={controlsOpen}
             aria-label={labels.settings}
             aria-pressed={controlsOpen}
-            className="hud-control-button"
+            className={controlsOpen ? "hud-control-button hud-control-button-active" : "hud-control-button"}
+            data-state={controlsOpen ? "open" : "closed"}
             onClick={() => setControlsOpen((current) => !current)}
             title={labels.settings}
             type="button"
@@ -222,7 +225,16 @@ export function HudWindowControls({
         </div>
 
         {controlsOpen ? (
-          <div className="hud-settings-popover">
+          <>
+            <button
+              aria-label={labels.close}
+              className="hud-settings-dismiss-layer"
+              data-hud-no-drag
+              onClick={() => setControlsOpen(false)}
+              tabIndex={-1}
+              type="button"
+            />
+            <div className="hud-settings-popover">
           <label className="hud-toggle-row">
             <input
               checked={draftAlwaysOnTop}
@@ -379,7 +391,8 @@ export function HudWindowControls({
             </span>
           ) : null}
           {saveState === "error" ? <span className="hud-save-status hud-save-status-error">{labels.error}</span> : null}
-          </div>
+            </div>
+          </>
         ) : null}
       </div>
     </>

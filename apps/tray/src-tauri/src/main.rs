@@ -1,14 +1,20 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::{fs, path::PathBuf};
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry,
+    AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent, Wry,
 };
 
 const DEFAULT_DASHBOARD_BASE_URL: &str = "http://127.0.0.1:3000";
 const DESKTOP_MODE_ENV_KEY: &str = "MONEYSIREN_DESKTOP_MODE";
 const WEB_URL_ENV_KEY: &str = "MONEYSIREN_WEB_URL";
+const HUD_WINDOW_STATE_FILE: &str = "hud-window-state.json";
+const HUD_DEFAULT_WIDTH: f64 = 340.0;
+const HUD_DEFAULT_HEIGHT: f64 = 360.0;
+const HUD_MIN_WIDTH: u32 = 280;
+const HUD_MIN_HEIGHT: u32 = 240;
 const TRAY_ACTIONS: [TrayAction; 12] = [
     TrayAction::new("show-hud", "Show HUD", "/hud"),
     TrayAction::new("open-dashboard", "Open Dashboard", "/"),
@@ -66,6 +72,15 @@ struct TrayNativeStatus {
     notifications_available: bool,
     actions: &'static [TrayAction],
     allowed_local_api_endpoints: &'static [&'static str],
+}
+
+#[derive(Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HudWindowState {
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
 }
 
 fn main() {
@@ -233,23 +248,103 @@ fn open_hud_window(app: &AppHandle) {
     let Ok(parsed_url) = url.parse() else {
         return;
     };
-    let Ok(window) =
+
+    let saved_state = read_hud_window_state(app);
+    let mut builder =
         WebviewWindowBuilder::new(app, "moneysiren-hud", WebviewUrl::External(parsed_url))
             .title("MoneySiren HUD")
-            .inner_size(340.0, 360.0)
-            .min_inner_size(280.0, 240.0)
+            .inner_size(
+                saved_state.map_or(HUD_DEFAULT_WIDTH, |state| state.width as f64),
+                saved_state.map_or(HUD_DEFAULT_HEIGHT, |state| state.height as f64),
+            )
+            .min_inner_size(HUD_MIN_WIDTH as f64, HUD_MIN_HEIGHT as f64)
             .resizable(true)
             .decorations(false)
             .transparent(true)
             .always_on_top(true)
             .skip_taskbar(true)
-            .visible(true)
-            .build()
-    else {
+            .visible(true);
+
+    if let Some(state) = saved_state {
+        builder = builder.position(state.x as f64, state.y as f64);
+    }
+
+    let Ok(window) = builder.build() else {
         return;
     };
 
+    attach_hud_window_state_listener(app, &window);
     let _ = window.set_focus();
+}
+
+fn attach_hud_window_state_listener(app: &AppHandle, window: &WebviewWindow) {
+    let app = app.clone();
+    let observed_window = window.clone();
+    let state_window = window.clone();
+
+    observed_window.on_window_event(move |event| {
+        if matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_)) {
+            save_hud_window_state(&app, &state_window);
+        }
+    });
+}
+
+fn read_hud_window_state(app: &AppHandle) -> Option<HudWindowState> {
+    let path = hud_window_state_path(app)?;
+    let raw = fs::read_to_string(path).ok()?;
+    let state = serde_json::from_str::<HudWindowState>(&raw).ok()?;
+
+    normalize_hud_window_state(state)
+}
+
+fn save_hud_window_state(app: &AppHandle, window: &WebviewWindow) {
+    let Ok(position) = window.outer_position() else {
+        return;
+    };
+    let Ok(size) = window.outer_size() else {
+        return;
+    };
+    let Some(state) = normalize_hud_window_state(HudWindowState {
+        x: position.x,
+        y: position.y,
+        width: size.width,
+        height: size.height,
+    }) else {
+        return;
+    };
+    let Some(path) = hud_window_state_path(app) else {
+        return;
+    };
+    let Some(parent) = path.parent() else {
+        return;
+    };
+
+    if fs::create_dir_all(parent).is_err() {
+        return;
+    }
+
+    if let Ok(raw) = serde_json::to_string_pretty(&state) {
+        let _ = fs::write(path, raw);
+    }
+}
+
+fn hud_window_state_path(app: &AppHandle) -> Option<PathBuf> {
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|directory| directory.join(HUD_WINDOW_STATE_FILE))
+}
+
+fn normalize_hud_window_state(state: HudWindowState) -> Option<HudWindowState> {
+    if state.width < HUD_MIN_WIDTH || state.height < HUD_MIN_HEIGHT {
+        return None;
+    }
+
+    if state.width > 4096 || state.height > 4096 {
+        return None;
+    }
+
+    Some(state)
 }
 
 #[tauri::command]

@@ -1,6 +1,6 @@
 {
   "name": "@moneysiren/local-api",
-  "version": "0.1.0-alpha.34",
+  "version": "0.1.0-alpha.35",
   "private": true,
   "type": "module",
   "main": "dist/local-api/src/index.js",

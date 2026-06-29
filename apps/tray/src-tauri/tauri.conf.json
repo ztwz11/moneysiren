@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "MoneySiren Tray",
-  "version": "0.1.0-alpha.30",
+  "version": "0.1.0-alpha.31",
   "identifier": "dev.moneysiren.tray",
   "build": {
     "beforeDevCommand": "",
@@ -20,7 +20,7 @@
         "minHeight": 640,
         "resizable": true,
         "center": true,
-        "visible": false
+        "visible": true
       }
     ],
     "macOSPrivateApi": true,

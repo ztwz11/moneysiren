@@ -4,6 +4,8 @@
   "description": "Local MoneySiren desktop windows can drag, minimize, close, and toggle always-on-top.",
   "remote": {
     "urls": [
+      "http://127.0.0.1:3000/*",
+      "http://localhost:3000/*",
       "http://127.0.0.1:*/*",
       "http://localhost:*/*"
     ]

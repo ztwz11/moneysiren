@@ -75,7 +75,7 @@ Install the generated tarball into a temporary project:
 mkdir -p /tmp/moneysiren-alpha-review
 cd /tmp/moneysiren-alpha-review
 npm init -y
-npm install /path/to/moneysiren-cli-0.1.0-alpha.30.tgz
+npm install /path/to/moneysiren-cli-0.1.0-alpha.31.tgz
 npm exec moneysiren
 npm exec moneysiren -- --version
 npm exec moneysiren -- /version
@@ -91,7 +91,7 @@ PowerShell equivalent for the temporary project:
 New-Item -ItemType Directory -Force -Path $env:TEMP\moneysiren-alpha-review
 Set-Location $env:TEMP\moneysiren-alpha-review
 npm init -y
-npm install C:\path\to\moneysiren-cli-0.1.0-alpha.30.tgz
+npm install C:\path\to\moneysiren-cli-0.1.0-alpha.31.tgz
 npm exec moneysiren
 npm exec moneysiren -- --version
 npm exec moneysiren -- modes

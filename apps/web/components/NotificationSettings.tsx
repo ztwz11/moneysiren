@@ -16,6 +16,7 @@ import {
   DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS,
   DEFAULT_NOTIFICATION_PREFERENCES,
   DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
+  HUD_BACKGROUND_NONE,
   HUD_DISPLAY_MODES,
   NOTIFICATION_WIDGET_KEYS,
   type DigestInterval,
@@ -75,6 +76,8 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
   const [lastPreview, setLastPreview] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("loading");
   const [statusMessage, setStatusMessage] = useState(messages.settings.notificationStoredLocally);
+  const hudBackgroundNone = hudBackgroundColor === HUD_BACKGROUND_NONE;
+  const hudPercentModeIsRemaining = hudShowRemainingPercent && !hudShowUsagePercent;
 
   useEffect(() => {
     let mounted = true;
@@ -377,32 +380,21 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                 </label>
               </div>
               <div className="notification-field">
-                <span className="metric-label">{messages.settings.hudShowUsagePercent}</span>
+                <span className="metric-label">{hudPercentModeIsRemaining ? messages.settings.hudShowRemainingPercent : messages.settings.hudShowUsagePercent}</span>
                 <label className="notification-toggle-card notification-hud-toggle-card">
                   <input
-                    checked={hudShowUsagePercent}
-                    onChange={(event) => setHudShowUsagePercent(event.currentTarget.checked)}
+                    checked={hudPercentModeIsRemaining}
+                    onChange={(event) => {
+                      const showRemaining = event.currentTarget.checked;
+                      setHudShowRemainingPercent(showRemaining);
+                      setHudShowUsagePercent(!showRemaining);
+                    }}
                     type="checkbox"
                   />
                   <span className="toggle-switch" aria-hidden="true" />
                   <span>
-                    <strong>{hudShowUsagePercent ? messages.settings.notificationEnabled : messages.settings.notificationDisabled}</strong>
-                    <span className="metric-meta">{messages.settings.hudShowUsagePercent}</span>
-                  </span>
-                </label>
-              </div>
-              <div className="notification-field">
-                <span className="metric-label">{messages.settings.hudShowRemainingPercent}</span>
-                <label className="notification-toggle-card notification-hud-toggle-card">
-                  <input
-                    checked={hudShowRemainingPercent}
-                    onChange={(event) => setHudShowRemainingPercent(event.currentTarget.checked)}
-                    type="checkbox"
-                  />
-                  <span className="toggle-switch" aria-hidden="true" />
-                  <span>
-                    <strong>{hudShowRemainingPercent ? messages.settings.notificationEnabled : messages.settings.notificationDisabled}</strong>
-                    <span className="metric-meta">{messages.settings.hudShowRemainingPercent}</span>
+                    <strong>{hudPercentModeIsRemaining ? messages.settings.hudShowRemainingPercent : messages.settings.hudShowUsagePercent}</strong>
+                    <span className="metric-meta">{messages.settings.hudShowUsagePercent} / {messages.settings.hudShowRemainingPercent}</span>
                   </span>
                 </label>
               </div>
@@ -431,11 +423,24 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
               <label className="notification-field notification-color-field">
                 <span className="metric-label">{messages.settings.hudBackgroundColor}</span>
                 <input
+                  disabled={hudBackgroundNone}
                   onChange={(event) => setHudBackgroundColor(event.currentTarget.value)}
                   type="color"
-                  value={hudBackgroundColor}
+                  value={hudBackgroundNone ? "#ffffff" : hudBackgroundColor}
                 />
-                <span className="metric-meta">{hudBackgroundColor}</span>
+                <span className="metric-meta">{hudBackgroundNone ? hudBackgroundNoneLabel(locale) : hudBackgroundColor}</span>
+              </label>
+              <label className="notification-toggle-card notification-toggle-card-inline">
+                <input
+                  checked={hudBackgroundNone}
+                  onChange={(event) => setHudBackgroundColor(event.currentTarget.checked ? HUD_BACKGROUND_NONE : "#ffffff")}
+                  type="checkbox"
+                />
+                <span className="toggle-switch" aria-hidden="true" />
+                <span>
+                  <strong>{hudBackgroundNone ? messages.settings.notificationEnabled : messages.settings.notificationDisabled}</strong>
+                  <span className="metric-meta">{hudBackgroundNoneLabel(locale)}</span>
+                </span>
               </label>
               <label className="notification-field">
                 <span className="metric-label">{messages.settings.hudOpacity}</span>
@@ -596,8 +601,8 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
         opacity: hudOpacity,
         padding: hudPadding,
         rowHeight: hudRowHeight,
-        showRemainingPercent: hudShowRemainingPercent,
-        showUsagePercent: hudShowUsagePercent,
+        showRemainingPercent: hudPercentModeIsRemaining,
+        showUsagePercent: !hudPercentModeIsRemaining,
         selectedWidgets: hudSelectedWidgets,
       },
     };
@@ -714,6 +719,18 @@ function openHudWindow(locale: Locale) {
   const opened = window.open(url, "moneysiren-hud", "popup=yes,width=360,height=520,resizable=yes,scrollbars=no");
 
   opened?.focus();
+}
+
+function hudBackgroundNoneLabel(locale: Locale): string {
+  if (locale === "ko") {
+    return "배경 없음";
+  }
+
+  if (locale === "ja") {
+    return "背景なし";
+  }
+
+  return "No background";
 }
 
 function hudDisplayCopy(locale: Locale): {

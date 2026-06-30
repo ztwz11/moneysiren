@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { Check, Minus, Pin, PinOff, RefreshCw, Save, Settings, X } from "lucide-react";
 import type { Locale } from "../lib/i18n";
 import { openHudDashboardRoute } from "../lib/hud-navigation";
-import type { NotificationPreferences } from "./NotificationSettingsModel";
+import { HUD_BACKGROUND_NONE, type NotificationPreferences } from "./NotificationSettingsModel";
 import { withAppLoading } from "./AppLoadingOverlay";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type HudWindowAction = "close" | "minimize";
+const DEFAULT_HUD_BACKGROUND_COLOR = "#ffffff";
 
 interface HudWindowControlsProps {
   compactMode?: boolean;
@@ -18,6 +19,7 @@ interface HudWindowControlsProps {
   labels: {
     alwaysOnTop: string;
     backgroundColor: string;
+    backgroundNone: string;
     close: string;
     error: string;
     fontColor: string;
@@ -70,6 +72,8 @@ export function HudWindowControls({
   const [draftShowUsagePercent, setDraftShowUsagePercent] = useState(initialPreferences.hud.showUsagePercent);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const controlsLayerRef = useRef<HTMLDivElement | null>(null);
+  const draftBackgroundNone = draftBackgroundColor === HUD_BACKGROUND_NONE;
+  const draftPercentModeIsRemaining = draftShowRemainingPercent && !draftShowUsagePercent;
 
   useEffect(() => {
     if (compactMode) {
@@ -269,27 +273,17 @@ export function HudWindowControls({
           </label>
           <label className="hud-toggle-row">
             <input
-              checked={draftShowUsagePercent}
-              onChange={() => {
-                setDraftShowUsagePercent((current) => !current);
+              checked={draftPercentModeIsRemaining}
+              onChange={(event) => {
+                const showRemaining = event.currentTarget.checked;
+                setDraftShowRemainingPercent(showRemaining);
+                setDraftShowUsagePercent(!showRemaining);
                 setSaveState("idle");
               }}
               type="checkbox"
             />
             <span className="toggle-switch" aria-hidden="true" />
-            <span>{labels.showUsagePercent}</span>
-          </label>
-          <label className="hud-toggle-row">
-            <input
-              checked={draftShowRemainingPercent}
-              onChange={() => {
-                setDraftShowRemainingPercent((current) => !current);
-                setSaveState("idle");
-              }}
-              type="checkbox"
-            />
-            <span className="toggle-switch" aria-hidden="true" />
-            <span>{labels.showRemainingPercent}</span>
+            <span>{draftPercentModeIsRemaining ? labels.showRemainingPercent : labels.showUsagePercent}</span>
           </label>
           <label className="hud-range-row">
             <span>{labels.fontSize}</span>
@@ -321,14 +315,27 @@ export function HudWindowControls({
           <label className="hud-color-row">
             <span>{labels.backgroundColor}</span>
             <input
+              disabled={draftBackgroundNone}
               onChange={(event) => {
                 setDraftBackgroundColor(event.currentTarget.value);
                 setSaveState("idle");
               }}
               type="color"
-              value={draftBackgroundColor}
+              value={draftBackgroundNone ? DEFAULT_HUD_BACKGROUND_COLOR : draftBackgroundColor}
             />
-            <strong>{draftBackgroundColor}</strong>
+            <strong>{draftBackgroundNone ? labels.backgroundNone : draftBackgroundColor}</strong>
+          </label>
+          <label className="hud-toggle-row hud-background-none-row">
+            <input
+              checked={draftBackgroundNone}
+              onChange={(event) => {
+                setDraftBackgroundColor(event.currentTarget.checked ? HUD_BACKGROUND_NONE : DEFAULT_HUD_BACKGROUND_COLOR);
+                setSaveState("idle");
+              }}
+              type="checkbox"
+            />
+            <span className="toggle-switch" aria-hidden="true" />
+            <span>{labels.backgroundNone}</span>
           </label>
           <label className="hud-range-row">
             <span>{labels.opacity}</span>
@@ -426,8 +433,8 @@ export function HudWindowControls({
           opacity: draftOpacity,
           padding: draftPadding,
           rowHeight: draftRowHeight,
-          showRemainingPercent: draftShowRemainingPercent,
-          showUsagePercent: draftShowUsagePercent,
+          showRemainingPercent: draftPercentModeIsRemaining,
+          showUsagePercent: !draftPercentModeIsRemaining,
         });
         void applyAlwaysOnTop(savedPreferences.hud.alwaysOnTop);
         router.refresh();
@@ -478,7 +485,7 @@ async function applyAlwaysOnTop(alwaysOnTop: boolean): Promise<void> {
 
 async function openNotificationSettings(locale: Locale): Promise<void> {
   const routePath = `/${locale}/settings/notifications`;
-  const openedExternally = await openHudDashboardRoute(routePath);
+  const openedExternally = await openHudDashboardRoute(routePath, { preopenFallback: true });
 
   if (openedExternally || typeof window === "undefined") {
     return;

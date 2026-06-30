@@ -2066,6 +2066,10 @@ select {
   outline-offset: 2px;
 }
 
+.notification-toggle-card-inline {
+  padding: 8px;
+}
+
 .notification-field {
   display: grid;
   gap: 6px;
@@ -2300,6 +2304,12 @@ select {
   width: 100%;
 }
 
+.notification-color-field input[type="color"]:disabled,
+.hud-color-row input[type="color"]:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .notification-test-panel {
   background: var(--surface-raised);
   border: 1px solid var(--border-soft);
@@ -2361,7 +2371,7 @@ body:has(.hud-page)::-webkit-scrollbar {
   align-content: start;
   background: var(--hud-background-color, #ffffff);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(16, 24, 40, 0.08);
+  border: 1px solid transparent;
   box-sizing: border-box;
   color: var(--hud-font-color, var(--text));
   cursor: grab;
@@ -2523,6 +2533,11 @@ body:has(.hud-page)::-webkit-scrollbar {
 
 .hud-color-row {
   grid-template-columns: minmax(52px, 1fr) 34px 58px;
+}
+
+.hud-background-none-row {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 2px;
 }
 
 .hud-range-row input,
@@ -2689,7 +2704,7 @@ body:has(.hud-page)::-webkit-scrollbar {
   align-items: center;
   background: transparent;
   border: 0;
-  border-top: 1px solid rgba(16, 24, 40, 0.08);
+  border-top: 1px solid transparent;
   border-radius: 0;
   box-sizing: border-box;
   display: grid;

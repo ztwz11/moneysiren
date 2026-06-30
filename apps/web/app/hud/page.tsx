@@ -45,6 +45,7 @@ export default async function HudPage({ searchParams }: HudPageProps) {
       <HudDashboard
         controlLabels={{
           alwaysOnTop: messages.settings.hudAlwaysOnTop,
+          backgroundNone: hudBackgroundNoneLabel(locale),
           close: messages.settings.hudClose,
           error: messages.settings.notificationPrefsSaveError,
           backgroundColor: messages.settings.hudBackgroundColor,
@@ -69,6 +70,18 @@ export default async function HudPage({ searchParams }: HudPageProps) {
       />
     </main>
   );
+}
+
+function hudBackgroundNoneLabel(locale: Locale): string {
+  if (locale === "ko") {
+    return "배경 없음";
+  }
+
+  if (locale === "ja") {
+    return "背景なし";
+  }
+
+  return "No background";
 }
 
 function hudLabels(locale: Locale, messages: ReturnType<typeof getMessages>): HudDashboardLabels {

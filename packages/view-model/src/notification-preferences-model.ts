@@ -40,6 +40,7 @@ export const LOCAL_CLI_DASHBOARD_METRIC_KEYS = [
 export const DASHBOARD_VIEW_KEYS = ["overview", "today", "forecast", "risks"] as const;
 export const DASHBOARD_WIDGET_SIZES = ["compact", "normal", "wide", "full"] as const;
 export const HUD_DISPLAY_MODES = ["rows", "summary"] as const;
+export const HUD_BACKGROUND_NONE = "transparent";
 export const DASHBOARD_WIDGET_KEYS_BY_VIEW = {
   overview: [
     "overview_meta",
@@ -234,7 +235,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
     opacity: 0.94,
     padding: 6,
     rowHeight: 40,
-    showRemainingPercent: true,
+    showRemainingPercent: false,
     showUsagePercent: true,
     selectedWidgets: DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
   },
@@ -399,25 +400,43 @@ function parseHudPreferences(
   fallbackSelectedWidgets: readonly NotificationWidgetKey[] = DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets,
 ): HudPreferences {
   const record = isRecord(value) ? value : {};
+  const percentDisplay = parseHudPercentDisplay(record);
 
   return {
     alwaysOnTop: typeof record.alwaysOnTop === "boolean"
       ? record.alwaysOnTop
       : DEFAULT_NOTIFICATION_PREFERENCES.hud.alwaysOnTop,
-    backgroundColor: parseHexColor(record.backgroundColor, DEFAULT_NOTIFICATION_PREFERENCES.hud.backgroundColor),
+    backgroundColor: parseHudBackgroundColor(record.backgroundColor, DEFAULT_NOTIFICATION_PREFERENCES.hud.backgroundColor),
     displayMode: parseHudDisplayMode(record.displayMode),
     fontColor: parseHexColor(record.fontColor, DEFAULT_NOTIFICATION_PREFERENCES.hud.fontColor),
     fontScale: clampNumber(record.fontScale, 0.8, 1.3, DEFAULT_NOTIFICATION_PREFERENCES.hud.fontScale),
     opacity: clampNumber(record.opacity, 0, 1, DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity),
     padding: clampNumber(record.padding, 0, 18, DEFAULT_NOTIFICATION_PREFERENCES.hud.padding),
     rowHeight: clampNumber(record.rowHeight, 28, 76, DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight),
-    showRemainingPercent: typeof record.showRemainingPercent === "boolean"
-      ? record.showRemainingPercent
-      : DEFAULT_NOTIFICATION_PREFERENCES.hud.showRemainingPercent,
-    showUsagePercent: typeof record.showUsagePercent === "boolean"
-      ? record.showUsagePercent
-      : DEFAULT_NOTIFICATION_PREFERENCES.hud.showUsagePercent,
+    showRemainingPercent: percentDisplay.showRemainingPercent,
+    showUsagePercent: percentDisplay.showUsagePercent,
     selectedWidgets: parseSelectedWidgets(record.selectedWidgets, fallbackSelectedWidgets),
+  };
+}
+
+function parseHudPercentDisplay(record: Record<string, unknown>): Pick<HudPreferences, "showRemainingPercent" | "showUsagePercent"> {
+  const requestedUsage = typeof record.showUsagePercent === "boolean"
+    ? record.showUsagePercent
+    : DEFAULT_NOTIFICATION_PREFERENCES.hud.showUsagePercent;
+  const requestedRemaining = typeof record.showRemainingPercent === "boolean"
+    ? record.showRemainingPercent
+    : DEFAULT_NOTIFICATION_PREFERENCES.hud.showRemainingPercent;
+
+  if (requestedRemaining && !requestedUsage) {
+    return {
+      showRemainingPercent: true,
+      showUsagePercent: false,
+    };
+  }
+
+  return {
+    showRemainingPercent: false,
+    showUsagePercent: true,
   };
 }
 
@@ -429,6 +448,14 @@ function parseHexColor(value: unknown, fallback: string): string {
   const normalized = value.trim();
 
   return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized.toLowerCase() : fallback;
+}
+
+function parseHudBackgroundColor(value: unknown, fallback: string): string {
+  if (typeof value === "string" && value.trim().toLowerCase() === HUD_BACKGROUND_NONE) {
+    return HUD_BACKGROUND_NONE;
+  }
+
+  return parseHexColor(value, fallback);
 }
 
 function parseHudDisplayMode(value: unknown): HudDisplayMode {

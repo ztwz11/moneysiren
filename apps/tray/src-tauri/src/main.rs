@@ -388,9 +388,14 @@ fn sanitize_dashboard_route_path(url_path: &str) -> Option<&str> {
 
 fn open_external_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
-    let result = std::process::Command::new("cmd")
-        .args(["/C", "start", "", url])
-        .spawn();
+    let result = std::process::Command::new("explorer.exe")
+        .arg(url)
+        .spawn()
+        .or_else(|_| {
+            std::process::Command::new("cmd")
+                .args(["/C", "start", "", url])
+                .spawn()
+        });
 
     #[cfg(target_os = "macos")]
     let result = std::process::Command::new("open").arg(url).spawn();

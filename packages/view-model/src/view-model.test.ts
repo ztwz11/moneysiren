@@ -392,9 +392,32 @@ describe("shared view model", () => {
       padding: 14,
       rowHeight: 60,
       showRemainingPercent: false,
-      showUsagePercent: false,
+      showUsagePercent: true,
       selectedWidgets: ["openai_today_tokens"],
     });
+    expect(parseNotificationPreferences({
+      hud: {
+        showRemainingPercent: true,
+        showUsagePercent: false,
+      },
+    }).hud).toMatchObject({
+      showRemainingPercent: true,
+      showUsagePercent: false,
+    });
+    expect(parseNotificationPreferences({
+      hud: {
+        showRemainingPercent: true,
+        showUsagePercent: true,
+      },
+    }).hud).toMatchObject({
+      showRemainingPercent: false,
+      showUsagePercent: true,
+    });
+    expect(parseNotificationPreferences({
+      hud: {
+        backgroundColor: " transparent ",
+      },
+    }).hud.backgroundColor).toBe("transparent");
     expect(parseNotificationPreferences({
       hud: {
         backgroundColor: "url(javascript:alert(1))",

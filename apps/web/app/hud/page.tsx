@@ -47,6 +47,10 @@ export default async function HudPage({ searchParams }: HudPageProps) {
           alwaysOnTop: messages.settings.hudAlwaysOnTop,
           backgroundNone: hudBackgroundNoneLabel(locale),
           close: messages.settings.hudClose,
+          displayMode: hudDisplayModeLabel(locale),
+          displayModeCells: hudDisplayModeCellsLabel(locale),
+          displayModeRows: hudDisplayModeRowsLabel(locale),
+          displayModeSingleLine: hudDisplayModeSingleLineLabel(locale),
           error: messages.settings.notificationPrefsSaveError,
           backgroundColor: messages.settings.hudBackgroundColor,
           fontColor: messages.settings.hudFontColor,
@@ -82,6 +86,38 @@ function hudBackgroundNoneLabel(locale: Locale): string {
   }
 
   return "No background";
+}
+
+function hudDisplayModeLabel(locale: Locale): string {
+  if (locale === "ko") {
+    return "표시 방식";
+  }
+
+  if (locale === "ja") {
+    return "表示方式";
+  }
+
+  return "Display";
+}
+
+function hudDisplayModeRowsLabel(locale: Locale): string {
+  return locale === "ja" ? "ROW" : "ROW";
+}
+
+function hudDisplayModeCellsLabel(locale: Locale): string {
+  return locale === "ja" ? "CELL" : "CELL";
+}
+
+function hudDisplayModeSingleLineLabel(locale: Locale): string {
+  if (locale === "ko") {
+    return "한줄";
+  }
+
+  if (locale === "ja") {
+    return "1行";
+  }
+
+  return "One line";
 }
 
 function hudLabels(locale: Locale, messages: ReturnType<typeof getMessages>): HudDashboardLabels {

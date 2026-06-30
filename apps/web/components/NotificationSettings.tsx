@@ -361,7 +361,11 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                 <GalleryHorizontalEnd aria-hidden="true" size={14} />
                 <span>
                   <strong>{hudDisplayCopy(locale).previewLabel}</strong>
-                  <code>{hudDisplayMode === "summary" ? buildHudCompactPreview(hudSelectedWidgets) : HUD_DISPLAY_MODE_EXAMPLES.rows}</code>
+                  <code>
+                    {hudDisplayMode === "singleLine"
+                      ? buildHudCompactPreview(hudSelectedWidgets)
+                      : HUD_DISPLAY_MODE_EXAMPLES[hudDisplayMode]}
+                  </code>
                 </span>
               </div>
               <div className="notification-field">
@@ -742,11 +746,12 @@ function hudDisplayCopy(locale: Locale): {
   if (locale === "ko") {
     return {
       modeLabel: "HUD 표시 방식",
-      modeHelp: "행 목록 또는 시계 옆에 붙일 수 있는 짧은 한 줄 요약으로 표시합니다.",
+      modeHelp: "ROW, CELL, 한줄 중 HUD 표시 방식을 선택합니다.",
       previewLabel: "표시 예시",
       modes: {
-        rows: "행 목록",
-        summary: "짧은 요약",
+        rows: "ROW",
+        cells: "CELL",
+        singleLine: "한줄",
       },
     };
   }
@@ -754,22 +759,24 @@ function hudDisplayCopy(locale: Locale): {
   if (locale === "ja") {
     return {
       modeLabel: "HUD display",
-      modeHelp: "Show either detailed rows or a short clock-sized summary.",
+      modeHelp: "Choose ROW, CELL, or one-line HUD display.",
       previewLabel: "Preview",
       modes: {
-        rows: "Rows",
-        summary: "Compact summary",
+        rows: "ROW",
+        cells: "CELL",
+        singleLine: "One line",
       },
     };
   }
 
   return {
     modeLabel: "HUD display",
-    modeHelp: "Show either detailed rows or a short clock-sized summary.",
+    modeHelp: "Choose ROW, CELL, or one-line HUD display.",
     previewLabel: "Preview",
     modes: {
-      rows: "Rows",
-      summary: "Compact summary",
+      rows: "ROW",
+      cells: "CELL",
+      singleLine: "One line",
     },
   };
 }

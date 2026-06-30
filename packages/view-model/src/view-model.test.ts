@@ -385,7 +385,7 @@ describe("shared view model", () => {
     }).hud).toEqual({
       alwaysOnTop: false,
       backgroundColor: "#101820",
-      displayMode: "summary",
+      displayMode: "singleLine",
       fontColor: "#f5f7fb",
       fontScale: 0.87,
       opacity: 0,
@@ -394,6 +394,13 @@ describe("shared view model", () => {
       showRemainingPercent: false,
       showUsagePercent: true,
       selectedWidgets: ["openai_today_tokens"],
+    });
+    expect(parseNotificationPreferences({
+      hud: {
+        displayMode: "cells",
+      },
+    }).hud).toMatchObject({
+      displayMode: "cells",
     });
     expect(parseNotificationPreferences({
       hud: {

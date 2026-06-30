@@ -2364,14 +2364,14 @@ body:has(.hud-page)::-webkit-scrollbar {
   overflow: hidden;
   padding: var(--hud-padding, 6px);
   position: relative;
-  width: min(100vw, 340px);
+  width: 100vw;
 }
 
 .hud-content {
   align-content: start;
   background: var(--hud-background-color, #ffffff);
   backdrop-filter: blur(12px);
-  border: 1px solid transparent;
+  border: 0;
   box-sizing: border-box;
   color: var(--hud-font-color, var(--text));
   cursor: grab;
@@ -2505,6 +2505,7 @@ body:has(.hud-page)::-webkit-scrollbar {
 .hud-toggle-row,
 .hud-color-row,
 .hud-range-row,
+.hud-select-row,
 .hud-settings-link,
 .hud-save-status {
   align-items: center;
@@ -2533,6 +2534,21 @@ body:has(.hud-page)::-webkit-scrollbar {
 
 .hud-color-row {
   grid-template-columns: minmax(52px, 1fr) 34px 58px;
+}
+
+.hud-select-row {
+  grid-template-columns: minmax(52px, 1fr) minmax(82px, 1.2fr);
+}
+
+.hud-select-row select {
+  appearance: none;
+  background: #ffffff;
+  border: 1px solid rgba(16, 24, 40, 0.14);
+  border-radius: 5px;
+  color: #344054;
+  font: inherit;
+  min-width: 0;
+  padding: 4px 22px 4px 7px;
 }
 
 .hud-background-none-row {
@@ -2694,6 +2710,11 @@ body:has(.hud-page)::-webkit-scrollbar {
   min-width: 0;
 }
 
+.hud-item-list-cells {
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .hud-item-shell {
   min-width: 0;
   position: relative;
@@ -2735,8 +2756,7 @@ body:has(.hud-page)::-webkit-scrollbar {
 
 .hud-item:focus-visible,
 .hud-item-open-link:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: -2px;
+  outline: 0;
 }
 
 .hud-empty {
@@ -2810,6 +2830,34 @@ body:has(.hud-page)::-webkit-scrollbar {
 .hud-item-open-link:active {
   background: color-mix(in srgb, var(--cobalt) 18%, var(--cobalt-soft));
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.hud-item-list-cells .hud-item {
+  background: color-mix(in srgb, var(--hud-font-color, var(--text)) 3%, transparent);
+  border-top: 0;
+  border-radius: 6px;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: var(--hud-row-height, 40px);
+  padding: 6px;
+}
+
+.hud-item-list-cells .hud-item-copy {
+  gap: 2px;
+}
+
+.hud-item-list-cells .hud-item-detail {
+  display: none;
+}
+
+.hud-item-list-cells .hud-value {
+  justify-self: start;
+  margin-top: 2px;
+  max-width: 100%;
+}
+
+.hud-item-list-cells .hud-item-open-link {
+  right: 3px;
+  top: 3px;
 }
 
 .hud-item strong,

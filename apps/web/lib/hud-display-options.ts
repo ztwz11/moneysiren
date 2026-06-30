@@ -70,11 +70,12 @@ export const HUD_WIDGET_DISPLAY_EXAMPLES = {
 
 export const HUD_DISPLAY_MODE_EXAMPLES = {
   rows: "Codex CLI · 5h / used 22% · left 78%",
-  summary: "MS 5h 78% · W 69% · R2",
+  cells: "Codex CLI · 5h 78%",
+  singleLine: "MS 5h 78% · W 69% · R2",
 } satisfies Record<HudDisplayMode, string>;
 
 export function buildHudCompactPreview(selectedWidgets: readonly NotificationWidgetKey[]): string {
   const examples = selectedWidgets.map((widgetKey) => HUD_WIDGET_DISPLAY_EXAMPLES[widgetKey].example);
 
-  return examples.length === 0 ? HUD_DISPLAY_MODE_EXAMPLES.summary : examples.join(" · ");
+  return examples.length === 0 ? HUD_DISPLAY_MODE_EXAMPLES.singleLine : examples.join(" · ");
 }

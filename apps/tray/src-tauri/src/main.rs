@@ -436,6 +436,7 @@ fn open_hud_window(app: &AppHandle) {
             .resizable(true)
             .decorations(false)
             .transparent(true)
+            .shadow(false)
             .always_on_top(true)
             .skip_taskbar(false)
             .visible(true);

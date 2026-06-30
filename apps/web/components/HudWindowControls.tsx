@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { Check, Minus, Pin, PinOff, RefreshCw, Save, Settings, X } from "lucide-react";
 import type { Locale } from "../lib/i18n";
 import { openHudDashboardRoute } from "../lib/hud-navigation";
-import { HUD_BACKGROUND_NONE, type NotificationPreferences } from "./NotificationSettingsModel";
+import {
+  HUD_BACKGROUND_NONE,
+  HUD_DISPLAY_MODES,
+  type HudDisplayMode,
+  type NotificationPreferences,
+} from "./NotificationSettingsModel";
 import { withAppLoading } from "./AppLoadingOverlay";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -21,6 +26,10 @@ interface HudWindowControlsProps {
     backgroundColor: string;
     backgroundNone: string;
     close: string;
+    displayMode: string;
+    displayModeCells: string;
+    displayModeRows: string;
+    displayModeSingleLine: string;
     error: string;
     fontColor: string;
     fontSize: string;
@@ -63,6 +72,7 @@ export function HudWindowControls({
   const [controlsOpen, setControlsOpen] = useState(initialSetupOpen);
   const [draftAlwaysOnTop, setDraftAlwaysOnTop] = useState(initialPreferences.hud.alwaysOnTop);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(initialPreferences.hud.backgroundColor);
+  const [draftDisplayMode, setDraftDisplayMode] = useState<HudDisplayMode>(initialPreferences.hud.displayMode);
   const [draftFontColor, setDraftFontColor] = useState(initialPreferences.hud.fontColor);
   const [draftFontScale, setDraftFontScale] = useState(initialPreferences.hud.fontScale);
   const [draftOpacity, setDraftOpacity] = useState(initialPreferences.hud.opacity);
@@ -118,6 +128,7 @@ export function HudWindowControls({
   useEffect(() => {
     setDraftAlwaysOnTop(initialPreferences.hud.alwaysOnTop);
     setDraftBackgroundColor(initialPreferences.hud.backgroundColor);
+    setDraftDisplayMode(initialPreferences.hud.displayMode);
     setDraftFontColor(initialPreferences.hud.fontColor);
     setDraftFontScale(initialPreferences.hud.fontScale);
     setDraftOpacity(initialPreferences.hud.opacity);
@@ -129,6 +140,7 @@ export function HudWindowControls({
   }, [
     initialPreferences.hud.alwaysOnTop,
     initialPreferences.hud.backgroundColor,
+    initialPreferences.hud.displayMode,
     initialPreferences.hud.fontColor,
     initialPreferences.hud.fontScale,
     initialPreferences.hud.opacity,
@@ -285,6 +297,22 @@ export function HudWindowControls({
             <span className="toggle-switch" aria-hidden="true" />
             <span>{draftPercentModeIsRemaining ? labels.showRemainingPercent : labels.showUsagePercent}</span>
           </label>
+          <label className="hud-select-row">
+            <span>{labels.displayMode}</span>
+            <select
+              onChange={(event) => {
+                setDraftDisplayMode(event.currentTarget.value as HudDisplayMode);
+                setSaveState("idle");
+              }}
+              value={draftDisplayMode}
+            >
+              {HUD_DISPLAY_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {hudDisplayModeLabel(mode, labels)}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="hud-range-row">
             <span>{labels.fontSize}</span>
             <input
@@ -428,6 +456,7 @@ export function HudWindowControls({
         const savedPreferences = await saveHudPreferences(initialPreferences, {
           alwaysOnTop: draftAlwaysOnTop,
           backgroundColor: draftBackgroundColor,
+          displayMode: draftDisplayMode,
           fontColor: draftFontColor,
           fontScale: draftFontScale,
           opacity: draftOpacity,
@@ -517,6 +546,7 @@ async function saveHudPreferences(
     NotificationPreferences["hud"],
     | "alwaysOnTop"
     | "backgroundColor"
+    | "displayMode"
     | "fontColor"
     | "fontScale"
     | "opacity"
@@ -583,4 +613,19 @@ async function createLocalSession(): Promise<{ csrfToken: string }> {
   }
 
   return await response.json() as { csrfToken: string };
+}
+
+function hudDisplayModeLabel(
+  mode: HudDisplayMode,
+  labels: HudWindowControlsProps["labels"],
+): string {
+  if (mode === "cells") {
+    return labels.displayModeCells;
+  }
+
+  if (mode === "singleLine") {
+    return labels.displayModeSingleLine;
+  }
+
+  return labels.displayModeRows;
 }

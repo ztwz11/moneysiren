@@ -39,7 +39,7 @@ export const LOCAL_CLI_DASHBOARD_METRIC_KEYS = [
 
 export const DASHBOARD_VIEW_KEYS = ["overview", "today", "forecast", "risks"] as const;
 export const DASHBOARD_WIDGET_SIZES = ["compact", "normal", "wide", "full"] as const;
-export const HUD_DISPLAY_MODES = ["rows", "summary"] as const;
+export const HUD_DISPLAY_MODES = ["rows", "cells", "singleLine"] as const;
 export const HUD_BACKGROUND_NONE = "transparent";
 export const DASHBOARD_WIDGET_KEYS_BY_VIEW = {
   overview: [
@@ -459,6 +459,10 @@ function parseHudBackgroundColor(value: unknown, fallback: string): string {
 }
 
 function parseHudDisplayMode(value: unknown): HudDisplayMode {
+  if (value === "summary") {
+    return "singleLine";
+  }
+
   return typeof value === "string" && HUD_DISPLAY_MODES.includes(value as HudDisplayMode)
     ? value as HudDisplayMode
     : DEFAULT_NOTIFICATION_PREFERENCES.hud.displayMode;

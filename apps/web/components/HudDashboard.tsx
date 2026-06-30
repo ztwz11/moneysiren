@@ -16,6 +16,7 @@ const HUD_DETAIL_SEPARATOR = " · ";
 const HUD_MINI_WIDTH = 278;
 const HUD_MINI_HEIGHT = 38;
 const HUD_MINI_MARGIN = 12;
+const HUD_RESIZE_EDGE_GUARD_PX = 10;
 
 export interface HudDashboardLabels {
   title: string;
@@ -207,6 +208,8 @@ export function HudDashboard({
 
     await enterMiniMode();
   }, [enterMiniMode, exitMiniMode, miniMode]);
+  const displayMode = miniMode ? "singleLine" : initialPreferences.hud.displayMode;
+  const itemListClassName = `hud-item-list hud-item-list-${displayMode === "singleLine" ? "single-line" : displayMode}`;
 
   return (
     <>
@@ -230,7 +233,7 @@ export function HudDashboard({
             <span>{transportError}</span>
           </div>
         )}
-        <section className="hud-item-list" aria-label={labels.items}>
+        <section className={itemListClassName} aria-label={labels.items}>
           {model.items.length === 0 ? (
             miniMode ? (
               <button
@@ -247,7 +250,7 @@ export function HudDashboard({
                 <strong>{polling ? controlLabels.toolLoadingPreparingView : labels.empty}</strong>
               </div>
             )
-          ) : miniMode || initialPreferences.hud.displayMode === "summary" ? (
+          ) : displayMode === "singleLine" ? (
             <HudSummaryCard
               hudPreferences={initialPreferences.hud}
               items={model.items}
@@ -681,7 +684,7 @@ function useHudWindowDrag(): () => boolean {
     }
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.button !== 0 || shouldSkipHudDrag(event.target)) {
+      if (event.button !== 0 || shouldSkipHudDrag(event)) {
         dragStartRef.current = null;
         return;
       }
@@ -727,9 +730,25 @@ function useHudWindowDrag(): () => boolean {
   return useCallback(() => Date.now() < suppressClickUntilRef.current, []);
 }
 
-function shouldSkipHudDrag(target: EventTarget | null): boolean {
+function shouldSkipHudDrag(event: PointerEvent): boolean {
+  const target = event.target;
+
+  if (isHudResizeEdgePointer(event)) {
+    return true;
+  }
+
   return target instanceof Element &&
     target.closest("[data-hud-no-drag], .hud-window-controls, .hud-settings-popover, input, select, textarea") !== null;
+}
+
+function isHudResizeEdgePointer(event: PointerEvent): boolean {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  return event.clientX <= HUD_RESIZE_EDGE_GUARD_PX ||
+    width - event.clientX <= HUD_RESIZE_EDGE_GUARD_PX ||
+    event.clientY <= HUD_RESIZE_EDGE_GUARD_PX ||
+    height - event.clientY <= HUD_RESIZE_EDGE_GUARD_PX;
 }
 
 async function startHudWindowDrag(): Promise<void> {

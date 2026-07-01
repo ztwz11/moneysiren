@@ -14,11 +14,11 @@ describe("HUD display options", () => {
     }
   });
 
-  it("builds the compact clock-sized preview", () => {
+  it("builds the full-name one-line preview", () => {
     expect(buildHudCompactPreview([
       "codex_five_hour_percent",
       "codex_weekly_percent",
       "codex_reset_credit_count",
-    ])).toBe("MS 5h 78% · W 69% · R2");
+    ])).toBe("Codex CLI 5h 78% · Codex CLI weekly 69% · Codex reset credits 2");
   });
 });

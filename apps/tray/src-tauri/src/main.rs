@@ -16,8 +16,6 @@ const LOCALE_ENV_KEY: &str = "MONEYSIREN_LOCALE";
 const HUD_WINDOW_STATE_FILE: &str = "hud-window-state.json";
 const HUD_DEFAULT_WIDTH: f64 = 340.0;
 const HUD_DEFAULT_HEIGHT: f64 = 360.0;
-const HUD_MIN_WIDTH: u32 = 280;
-const HUD_MIN_HEIGHT: u32 = 240;
 const LOCALE_ENV_KEYS: [&str; 6] = [
     LOCALE_ENV_KEY,
     "LANGUAGE",
@@ -432,7 +430,6 @@ fn open_hud_window(app: &AppHandle) {
                 saved_state.map_or(HUD_DEFAULT_WIDTH, |state| state.width as f64),
                 saved_state.map_or(HUD_DEFAULT_HEIGHT, |state| state.height as f64),
             )
-            .min_inner_size(HUD_MIN_WIDTH as f64, HUD_MIN_HEIGHT as f64)
             .resizable(true)
             .decorations(false)
             .transparent(true)
@@ -512,7 +509,7 @@ fn hud_window_state_path(app: &AppHandle) -> Option<PathBuf> {
 }
 
 fn normalize_hud_window_state(state: HudWindowState) -> Option<HudWindowState> {
-    if state.width < HUD_MIN_WIDTH || state.height < HUD_MIN_HEIGHT {
+    if state.width == 0 || state.height == 0 {
         return None;
     }
 

@@ -18,11 +18,13 @@ import {
   DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS,
   HUD_BACKGROUND_NONE,
   HUD_DISPLAY_MODES,
+  HUD_LABEL_MODES,
   NOTIFICATION_WIDGET_KEYS,
   type DigestInterval,
   type DashboardBudgetPreferences,
   type DashboardWidgetLayoutPreferences,
   type HudDisplayMode,
+  type HudLabelMode,
   type LocalCliDashboardMetricKey,
   type NotificationPreferences,
   type NotificationThresholdDraft,
@@ -50,6 +52,7 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
   const [hudDisplayMode, setHudDisplayMode] = useState<HudDisplayMode>(DEFAULT_NOTIFICATION_PREFERENCES.hud.displayMode);
   const [hudFontColor, setHudFontColor] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.fontColor);
   const [hudFontScale, setHudFontScale] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.fontScale);
+  const [hudLabelMode, setHudLabelMode] = useState<HudLabelMode>(DEFAULT_NOTIFICATION_PREFERENCES.hud.labelMode);
   const [hudOpacity, setHudOpacity] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity);
   const [hudPadding, setHudPadding] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.padding);
   const [hudRowHeight, setHudRowHeight] = useState(DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight);
@@ -368,6 +371,21 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                   </code>
                 </span>
               </div>
+              <label className="notification-field">
+                <span className="metric-label">{hudLabelCopy(locale).modeLabel}</span>
+                <select
+                  className="notification-select"
+                  onChange={(event) => setHudLabelMode(event.currentTarget.value as HudLabelMode)}
+                  value={hudLabelMode}
+                >
+                  {HUD_LABEL_MODES.map((mode) => (
+                    <option key={mode} value={mode}>
+                      {hudLabelCopy(locale).modes[mode]}
+                    </option>
+                  ))}
+                </select>
+                <span className="metric-meta">{hudLabelCopy(locale).modeHelp}</span>
+              </label>
               <div className="notification-field">
                 <span className="metric-label">{messages.settings.hudAlwaysOnTop}</span>
                 <label className="notification-toggle-card notification-hud-toggle-card">
@@ -568,6 +586,7 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
     setHudDisplayMode(preferences.hud.displayMode);
     setHudFontColor(preferences.hud.fontColor);
     setHudFontScale(preferences.hud.fontScale);
+    setHudLabelMode(preferences.hud.labelMode);
     setHudOpacity(preferences.hud.opacity);
     setHudPadding(preferences.hud.padding);
     setHudRowHeight(preferences.hud.rowHeight);
@@ -602,6 +621,7 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
         displayMode: hudDisplayMode,
         fontColor: hudFontColor,
         fontScale: hudFontScale,
+        labelMode: hudLabelMode,
         opacity: hudOpacity,
         padding: hudPadding,
         rowHeight: hudRowHeight,
@@ -777,6 +797,43 @@ function hudDisplayCopy(locale: Locale): {
       rows: "ROW",
       cells: "CELL",
       singleLine: "One line",
+    },
+  };
+}
+
+function hudLabelCopy(locale: Locale): {
+  modeLabel: string;
+  modeHelp: string;
+  modes: Record<HudLabelMode, string>;
+} {
+  if (locale === "ko") {
+    return {
+      modeLabel: "HUD name display",
+      modeHelp: "Show full names, or show icons only when the HUD needs to stay compact.",
+      modes: {
+        text: "Full name",
+        icon: "Icon only",
+      },
+    };
+  }
+
+  if (locale === "ja") {
+    return {
+      modeLabel: "HUD name display",
+      modeHelp: "Show full names, or show icons only when the HUD needs to stay compact.",
+      modes: {
+        text: "Full name",
+        icon: "Icon only",
+      },
+    };
+  }
+
+  return {
+    modeLabel: "HUD name display",
+    modeHelp: "Show full names, or show icons only when the HUD needs to stay compact.",
+    modes: {
+      text: "Full name",
+      icon: "Icon only",
     },
   };
 }

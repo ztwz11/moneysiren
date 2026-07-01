@@ -8,7 +8,9 @@ import { openHudDashboardRoute } from "../lib/hud-navigation";
 import {
   HUD_BACKGROUND_NONE,
   HUD_DISPLAY_MODES,
+  HUD_LABEL_MODES,
   type HudDisplayMode,
+  type HudLabelMode,
   type NotificationPreferences,
 } from "./NotificationSettingsModel";
 import { withAppLoading } from "./AppLoadingOverlay";
@@ -33,6 +35,9 @@ interface HudWindowControlsProps {
     error: string;
     fontColor: string;
     fontSize: string;
+    labelMode: string;
+    labelModeIcon: string;
+    labelModeText: string;
     minimize: string;
     opacity: string;
     padding: string;
@@ -75,6 +80,7 @@ export function HudWindowControls({
   const [draftDisplayMode, setDraftDisplayMode] = useState<HudDisplayMode>(initialPreferences.hud.displayMode);
   const [draftFontColor, setDraftFontColor] = useState(initialPreferences.hud.fontColor);
   const [draftFontScale, setDraftFontScale] = useState(initialPreferences.hud.fontScale);
+  const [draftLabelMode, setDraftLabelMode] = useState<HudLabelMode>(initialPreferences.hud.labelMode);
   const [draftOpacity, setDraftOpacity] = useState(initialPreferences.hud.opacity);
   const [draftPadding, setDraftPadding] = useState(initialPreferences.hud.padding);
   const [draftRowHeight, setDraftRowHeight] = useState(initialPreferences.hud.rowHeight);
@@ -131,6 +137,7 @@ export function HudWindowControls({
     setDraftDisplayMode(initialPreferences.hud.displayMode);
     setDraftFontColor(initialPreferences.hud.fontColor);
     setDraftFontScale(initialPreferences.hud.fontScale);
+    setDraftLabelMode(initialPreferences.hud.labelMode);
     setDraftOpacity(initialPreferences.hud.opacity);
     setDraftPadding(initialPreferences.hud.padding);
     setDraftRowHeight(initialPreferences.hud.rowHeight);
@@ -143,6 +150,7 @@ export function HudWindowControls({
     initialPreferences.hud.displayMode,
     initialPreferences.hud.fontColor,
     initialPreferences.hud.fontScale,
+    initialPreferences.hud.labelMode,
     initialPreferences.hud.opacity,
     initialPreferences.hud.padding,
     initialPreferences.hud.rowHeight,
@@ -313,6 +321,22 @@ export function HudWindowControls({
               ))}
             </select>
           </label>
+          <label className="hud-select-row">
+            <span>{labels.labelMode}</span>
+            <select
+              onChange={(event) => {
+                setDraftLabelMode(event.currentTarget.value as HudLabelMode);
+                setSaveState("idle");
+              }}
+              value={draftLabelMode}
+            >
+              {HUD_LABEL_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {hudLabelModeLabel(mode, labels)}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="hud-range-row">
             <span>{labels.fontSize}</span>
             <input
@@ -459,6 +483,7 @@ export function HudWindowControls({
           displayMode: draftDisplayMode,
           fontColor: draftFontColor,
           fontScale: draftFontScale,
+          labelMode: draftLabelMode,
           opacity: draftOpacity,
           padding: draftPadding,
           rowHeight: draftRowHeight,
@@ -549,6 +574,7 @@ async function saveHudPreferences(
     | "displayMode"
     | "fontColor"
     | "fontScale"
+    | "labelMode"
     | "opacity"
     | "padding"
     | "rowHeight"
@@ -628,4 +654,11 @@ function hudDisplayModeLabel(
   }
 
   return labels.displayModeRows;
+}
+
+function hudLabelModeLabel(
+  mode: HudLabelMode,
+  labels: HudWindowControlsProps["labels"],
+): string {
+  return mode === "icon" ? labels.labelModeIcon : labels.labelModeText;
 }

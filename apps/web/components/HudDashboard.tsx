@@ -1,11 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Clock, ExternalLink, RotateCw } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  Clock,
+  Cloud,
+  Cpu,
+  DollarSign,
+  ExternalLink,
+  Gauge,
+  KeyRound,
+  RotateCw,
+  Server,
+  Zap,
+} from "lucide-react";
 import type { CreditAccuracy, HudItemView, HudViewModel, QuotaItemView } from "../../../packages/view-model/src/hud-model";
 import type { Locale } from "../lib/i18n";
 import type { NotificationPreferences } from "./NotificationSettingsModel";
-import { HUD_WIDGET_DISPLAY_EXAMPLES } from "../lib/hud-display-options";
 import { refreshLocalLive } from "../lib/local-client";
 import { openHudDashboardRoute } from "../lib/hud-navigation";
 import { HudWindowControls } from "./HudWindowControls";
@@ -79,6 +91,16 @@ interface HudDashboardProps {
   controlLabels: Parameters<typeof HudWindowControls>[0]["labels"];
   labels: HudDashboardLabels;
   locale: Locale;
+}
+
+type HudLabelMode = NotificationPreferences["hud"]["labelMode"];
+type HudIconKind = "cost" | "live" | "risk" | "stale" | "tokens" | "quota" | "reset" | "health" | "cloud";
+
+interface HudSummaryPart {
+  icon: HudIconKind;
+  id: string;
+  label: string;
+  value: string;
 }
 
 export function HudDashboard({
@@ -318,8 +340,7 @@ function HudSummaryCard({
   wasRecentDrag: () => boolean;
 }) {
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const summaryParts = compactSummaryParts(items, hudPreferences, labels, locale, modelGeneratedAt);
-  const summary = summaryParts.length === 0 ? labels.empty : summaryParts.join(HUD_DETAIL_SEPARATOR);
+  const summaryParts = hudSummaryParts(items, hudPreferences, labels, locale, modelGeneratedAt);
 
   return (
     <div className={popoverOpen ? "hud-item-shell hud-item-shell-open" : "hud-item-shell"}>
@@ -340,7 +361,32 @@ function HudSummaryCard({
         }}
         type="button"
       >
-        <span>{summary}</span>
+        {summaryParts.length === 0 ? (
+          <span>{labels.empty}</span>
+        ) : (
+          <span className={hudPreferences.labelMode === "icon" ? "hud-summary-line hud-summary-line-icons" : "hud-summary-line"}>
+            {summaryParts.map((part, index) => (
+              <span
+                aria-label={`${part.label} ${part.value}`}
+                className="hud-summary-token"
+                key={part.id}
+                title={`${part.label} ${part.value}`}
+              >
+                {index > 0 ? (
+                  <span aria-hidden="true" className="hud-summary-separator">
+                    {HUD_DETAIL_SEPARATOR}
+                  </span>
+                ) : null}
+                {hudPreferences.labelMode === "icon" ? (
+                  <HudItemIcon kind={part.icon} />
+                ) : (
+                  <span className="hud-summary-label">{part.label}</span>
+                )}
+                <span className="hud-summary-value">{part.value}</span>
+              </span>
+            ))}
+          </span>
+        )}
       </button>
       {miniMode ? null : <HudItemOpenLink href={`/${locale}/dashboard/overview`} label={labels.openTarget} />}
       {!miniMode && popoverOpen ? (
@@ -399,10 +445,16 @@ function HudItemCard({
               setPopoverOpen((current) => !current);
             }
           }}
-          type="button"
-        >
-          <span className="hud-item-copy">
-            <strong>{providerLabel(item.providerKey)}{HUD_DETAIL_SEPARATOR}{windowLabel}</strong>
+        type="button"
+      >
+        <span className="hud-item-copy">
+            <strong>
+              <HudItemTitle
+                icon="quota"
+                label={`${providerLabel(item.providerKey)}${HUD_DETAIL_SEPARATOR}${windowLabel}`}
+                labelMode={hudPreferences.labelMode}
+              />
+            </strong>
             {summaryParts.length === 0 ? null : (
               <span className="hud-item-detail">{summaryParts.join(HUD_DETAIL_SEPARATOR)}</span>
             )}
@@ -438,10 +490,16 @@ function HudItemCard({
               setPopoverOpen((current) => !current);
             }
           }}
-          type="button"
-        >
-          <span className="hud-item-copy">
-            <strong>{item.label}</strong>
+        type="button"
+      >
+        <span className="hud-item-copy">
+            <strong>
+              <HudItemTitle
+                icon={widgetIconKind(item.widgetKey)}
+                label={item.label}
+                labelMode={hudPreferences.labelMode}
+              />
+            </strong>
             <span className="hud-item-detail">{item.value}</span>
           </span>
           <span className={`hud-value hud-value-${item.riskSeverity}`}>{visibleValue}</span>
@@ -484,7 +542,13 @@ function HudItemCard({
         type="button"
       >
         <span className="hud-item-copy">
-          <strong>{providerLabel(item.providerKey)} · {title}</strong>
+          <strong>
+            <HudItemTitle
+              icon="reset"
+              label={`${providerLabel(item.providerKey)} ${HUD_DETAIL_SEPARATOR} ${title}`}
+              labelMode={hudPreferences.labelMode}
+            />
+          </strong>
           <span className="hud-item-detail">{detail}</span>
         </span>
         <span className={`hud-value hud-value-${item.riskSeverity}`}>{value}</span>
@@ -512,6 +576,74 @@ function HudItemCard({
       ) : null}
     </div>
   );
+}
+
+function HudItemTitle({
+  icon,
+  label,
+  labelMode,
+}: {
+  icon: HudIconKind;
+  label: string;
+  labelMode: HudLabelMode;
+}) {
+  if (labelMode === "icon") {
+    return (
+      <span aria-label={label} className="hud-icon-title" title={label}>
+        <HudItemIcon kind={icon} />
+        <span className="hud-sr-only">{label}</span>
+      </span>
+    );
+  }
+
+  return <>{label}</>;
+}
+
+function HudItemIcon({ kind }: { kind: HudIconKind }) {
+  const props = {
+    "aria-hidden": true,
+    className: "hud-item-icon",
+    size: 13,
+    strokeWidth: 1.9,
+  } as const;
+
+  if (kind === "cost") {
+    return <DollarSign {...props} />;
+  }
+
+  if (kind === "live") {
+    return <Zap {...props} />;
+  }
+
+  if (kind === "risk") {
+    return <AlertTriangle {...props} />;
+  }
+
+  if (kind === "stale") {
+    return <Clock {...props} />;
+  }
+
+  if (kind === "tokens") {
+    return <Cpu {...props} />;
+  }
+
+  if (kind === "quota") {
+    return <Gauge {...props} />;
+  }
+
+  if (kind === "reset") {
+    return <KeyRound {...props} />;
+  }
+
+  if (kind === "health") {
+    return <Server {...props} />;
+  }
+
+  if (kind === "cloud") {
+    return <Cloud {...props} />;
+  }
+
+  return <CalendarDays {...props} />;
 }
 
 function HudItemOpenLink({ href, label }: { href: string; label: string }) {
@@ -804,83 +936,88 @@ function providerLabel(providerKey: string): string {
   return providerKey;
 }
 
-function compactSummaryParts(
+function hudSummaryParts(
   items: readonly HudItemView[],
   hudPreferences: NotificationPreferences["hud"],
   labels: HudDashboardLabels,
   locale: Locale,
   modelGeneratedAt: string,
-): string[] {
-  const parts: string[] = [];
-  let previousProviderKey: string | null = null;
+): HudSummaryPart[] {
+  return items.map((item): HudSummaryPart => {
+    if (item.kind === "quota") {
+      const percent = hudPreferences.showRemainingPercent
+        ? item.progress.remainingPercent
+        : item.progress.usedPercent;
 
-  for (const item of items) {
-    const providerPrefix = item.providerKey === previousProviderKey ? "" : `${compactProviderLabel(item.providerKey)} `;
-    const part = item.kind === "quota"
-      ? compactQuotaPart(item, providerPrefix, hudPreferences, locale)
-      : item.kind === "credit_pool"
-        ? compactCreditPart(item, providerPrefix, labels, locale, modelGeneratedAt)
-        : compactWidgetPart(item, locale);
-
-    if (part.length === 0) {
-      continue;
+      return {
+        icon: "quota",
+        id: item.id,
+        label: `${providerLabel(item.providerKey)} ${quotaWindowLabel(item.window, labels)}`,
+        value: percent === null ? labels.unknown : formatPercent(percent, locale),
+      };
     }
 
-    parts.push(part);
-    previousProviderKey = item.providerKey;
-  }
+    if (item.kind === "credit_pool") {
+      if (item.variant === "count") {
+        return {
+          icon: "reset",
+          id: item.id,
+          label: `${providerLabel(item.providerKey)} ${labels.resetCredits}`,
+          value: item.availableCount === null ? labels.unknown : new Intl.NumberFormat(locale).format(item.availableCount),
+        };
+      }
 
-  return parts;
+      return {
+        icon: "reset",
+        id: item.id,
+        label: `${providerLabel(item.providerKey)} ${labels.resetCreditExpiry}`,
+        value: item.nearestExpiryAt === null ? labels.noExpiry : formatRelative(item.nearestExpiryAt, modelGeneratedAt, locale),
+      };
+    }
+
+    return {
+      icon: widgetIconKind(item.widgetKey),
+      id: item.id,
+      label: item.label,
+      value: compactWidgetValue(item, locale),
+    };
+  });
 }
 
-function compactQuotaPart(
-  item: QuotaItemView,
-  providerPrefix: string,
-  hudPreferences: NotificationPreferences["hud"],
-  locale: Locale,
-): string {
-  const percent = hudPreferences.showRemainingPercent
-    ? item.progress.remainingPercent
-    : hudPreferences.showUsagePercent
-      ? item.progress.usedPercent
-      : null;
-  const formattedPercent = percent === null ? "" : ` ${formatPercent(percent, locale)}`;
-
-  return `${providerPrefix}${compactWindowLabel(item.window)}${formattedPercent}`.trim();
-}
-
-function compactCreditPart(
-  item: Extract<HudItemView, { kind: "credit_pool" }>,
-  providerPrefix: string,
-  labels: HudDashboardLabels,
-  locale: Locale,
-  modelGeneratedAt: string,
-): string {
-  if (item.variant === "count") {
-    const count = item.availableCount === null ? labels.unknown : new Intl.NumberFormat(locale).format(item.availableCount);
-
-    return `${providerPrefix}R${count}`.trim();
+function widgetIconKind(widgetKey: Extract<HudItemView, { kind: "widget" }>["widgetKey"]): HudIconKind {
+  if (widgetKey === "month_forecast" || widgetKey === "aws_month_forecast" || widgetKey === "openai_today_cost" || widgetKey === "cloudflare_month_to_date") {
+    return "cost";
   }
 
-  const expiry = item.nearestExpiryAt === null
-    ? labels.noExpiry
-    : formatCompactRelative(item.nearestExpiryAt, modelGeneratedAt, locale);
-
-  return `${providerPrefix}R ${expiry}`.trim();
-}
-
-function compactWidgetPart(
-  item: Extract<HudItemView, { kind: "widget" }>,
-  locale: Locale,
-): string {
-  const label = HUD_WIDGET_DISPLAY_EXAMPLES[item.widgetKey].shortLabel;
-  const value = compactWidgetValue(item, locale);
-
-  if (item.widgetKey === "codex_reset_credit_count") {
-    return `${label}${value}`;
+  if (widgetKey === "today_live_cost") {
+    return "live";
   }
 
-  return `${label} ${value}`.trim();
+  if (widgetKey === "risk_high_count") {
+    return "risk";
+  }
+
+  if (widgetKey === "stale_connection_count") {
+    return "stale";
+  }
+
+  if (widgetKey === "openai_today_tokens") {
+    return "tokens";
+  }
+
+  if (widgetKey === "codex_five_hour_percent" || widgetKey === "codex_weekly_percent" || widgetKey === "claude_five_hour_percent" || widgetKey === "claude_weekly_percent") {
+    return "quota";
+  }
+
+  if (widgetKey === "codex_reset_credit_count" || widgetKey === "codex_reset_credit_expiry") {
+    return "reset";
+  }
+
+  if (widgetKey === "supabase_usage_health") {
+    return "health";
+  }
+
+  return "cloud";
 }
 
 function compactWidgetValue(
@@ -1013,42 +1150,6 @@ function summaryDetail(
     expiry,
     accuracyLabel(item.accuracy, labels),
   ].join(HUD_DETAIL_SEPARATOR);
-}
-
-function compactProviderLabel(providerKey: string | null): string {
-  if (providerKey === null) {
-    return "";
-  }
-
-  if (providerKey.startsWith("codex-")) {
-    return "MS";
-  }
-
-  if (providerKey.startsWith("claude-")) {
-    return "CL";
-  }
-
-  if (providerKey === "antigravity") {
-    return "AG";
-  }
-
-  return providerKey.slice(0, 3).toUpperCase();
-}
-
-function compactWindowLabel(window: QuotaItemView["window"]): string {
-  if (window === "five_hour") {
-    return "5h";
-  }
-
-  if (window === "weekly") {
-    return "W";
-  }
-
-  if (window === "budget") {
-    return "B";
-  }
-
-  return "Ctx";
 }
 
 function quotaWindowLabel(window: QuotaItemView["window"], labels: HudDashboardLabels): string {
@@ -1189,29 +1290,4 @@ function formatRelative(value: string, base: string, locale: Locale): string {
   }
 
   return new Intl.RelativeTimeFormat(locale, { numeric: "always" }).format(Math.round(seconds / 60), "minute");
-}
-
-function formatCompactRelative(value: string, base: string, locale: Locale): string {
-  const target = Date.parse(value);
-  const now = Date.parse(base);
-
-  if (!Number.isFinite(target) || !Number.isFinite(now)) {
-    return value;
-  }
-
-  const seconds = Math.max(0, Math.round((target - now) / 1000));
-
-  if (seconds >= 86_400) {
-    return `${Math.ceil(seconds / 86_400)}d`;
-  }
-
-  if (seconds >= 3_600) {
-    return `${Math.ceil(seconds / 3_600)}h`;
-  }
-
-  if (seconds >= 60) {
-    return `${Math.ceil(seconds / 60)}m`;
-  }
-
-  return locale === "ko" ? "곧" : "soon";
 }

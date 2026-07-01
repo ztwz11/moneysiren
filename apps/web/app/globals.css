@@ -2796,6 +2796,67 @@ body:has(.hud-page)::-webkit-scrollbar {
   white-space: nowrap;
 }
 
+.hud-item-summary .hud-summary-line {
+  align-items: center;
+  display: flex;
+  gap: 0;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.hud-item-summary .hud-summary-token {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 1 auto;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.hud-item-summary .hud-summary-label,
+.hud-item-summary .hud-summary-value,
+.hud-item-summary .hud-summary-separator {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-summary-separator {
+  color: color-mix(in srgb, var(--hud-font-color, var(--text)) 46%, transparent);
+  margin: 0 2px;
+}
+
+.hud-summary-line-icons .hud-summary-token {
+  gap: 3px;
+}
+
+.hud-icon-title {
+  align-items: center;
+  display: inline-flex;
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.hud-item-icon {
+  flex: 0 0 auto;
+}
+
+.hud-sr-only {
+  clip: rect(0 0 0 0);
+  border: 0;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 .hud-item-open-link {
   align-items: center;
   background: color-mix(in srgb, var(--hud-background-color, #ffffff) 88%, transparent);

@@ -40,6 +40,7 @@ export const LOCAL_CLI_DASHBOARD_METRIC_KEYS = [
 export const DASHBOARD_VIEW_KEYS = ["overview", "today", "forecast", "risks"] as const;
 export const DASHBOARD_WIDGET_SIZES = ["compact", "normal", "wide", "full"] as const;
 export const HUD_DISPLAY_MODES = ["rows", "cells", "singleLine"] as const;
+export const HUD_LABEL_MODES = ["text", "icon"] as const;
 export const HUD_BACKGROUND_NONE = "transparent";
 export const DASHBOARD_WIDGET_KEYS_BY_VIEW = {
   overview: [
@@ -71,6 +72,7 @@ export type DashboardViewKey = (typeof DASHBOARD_VIEW_KEYS)[number];
 export type DashboardWidgetSize = (typeof DASHBOARD_WIDGET_SIZES)[number];
 export type DashboardWidgetKey = (typeof DASHBOARD_WIDGET_KEYS_BY_VIEW)[DashboardViewKey][number];
 export type HudDisplayMode = (typeof HUD_DISPLAY_MODES)[number];
+export type HudLabelMode = (typeof HUD_LABEL_MODES)[number];
 export type ThresholdOperator = "gte" | "lte" | "eq";
 export type DigestInterval = "six-hours" | "daily" | "weekly";
 
@@ -125,6 +127,7 @@ export interface HudPreferences {
   displayMode: HudDisplayMode;
   fontColor: string;
   fontScale: number;
+  labelMode: HudLabelMode;
   opacity: number;
   padding: number;
   rowHeight: number;
@@ -232,6 +235,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
     displayMode: "rows",
     fontColor: "#1f2937",
     fontScale: 0.95,
+    labelMode: "text",
     opacity: 0.94,
     padding: 6,
     rowHeight: 40,
@@ -410,6 +414,7 @@ function parseHudPreferences(
     displayMode: parseHudDisplayMode(record.displayMode),
     fontColor: parseHexColor(record.fontColor, DEFAULT_NOTIFICATION_PREFERENCES.hud.fontColor),
     fontScale: clampNumber(record.fontScale, 0.8, 1.3, DEFAULT_NOTIFICATION_PREFERENCES.hud.fontScale),
+    labelMode: parseHudLabelMode(record.labelMode),
     opacity: clampNumber(record.opacity, 0, 1, DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity),
     padding: clampNumber(record.padding, 0, 18, DEFAULT_NOTIFICATION_PREFERENCES.hud.padding),
     rowHeight: clampNumber(record.rowHeight, 28, 76, DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight),
@@ -466,6 +471,12 @@ function parseHudDisplayMode(value: unknown): HudDisplayMode {
   return typeof value === "string" && HUD_DISPLAY_MODES.includes(value as HudDisplayMode)
     ? value as HudDisplayMode
     : DEFAULT_NOTIFICATION_PREFERENCES.hud.displayMode;
+}
+
+function parseHudLabelMode(value: unknown): HudLabelMode {
+  return typeof value === "string" && HUD_LABEL_MODES.includes(value as HudLabelMode)
+    ? value as HudLabelMode
+    : DEFAULT_NOTIFICATION_PREFERENCES.hud.labelMode;
 }
 
 function parseLocalCliDashboardMetricKeys(

@@ -361,6 +361,7 @@ describe("shared view model", () => {
       displayMode: DEFAULT_NOTIFICATION_PREFERENCES.hud.displayMode,
       fontColor: DEFAULT_NOTIFICATION_PREFERENCES.hud.fontColor,
       fontScale: 1.3,
+      labelMode: DEFAULT_NOTIFICATION_PREFERENCES.hud.labelMode,
       opacity: 0,
       padding: DEFAULT_NOTIFICATION_PREFERENCES.hud.padding,
       rowHeight: DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight,
@@ -375,6 +376,7 @@ describe("shared view model", () => {
         displayMode: "summary",
         fontColor: "#f5f7fb",
         fontScale: 0.87,
+        labelMode: "icon",
         opacity: 0,
         padding: 14,
         rowHeight: 60,
@@ -388,6 +390,7 @@ describe("shared view model", () => {
       displayMode: "singleLine",
       fontColor: "#f5f7fb",
       fontScale: 0.87,
+      labelMode: "icon",
       opacity: 0,
       padding: 14,
       rowHeight: 60,
@@ -401,6 +404,13 @@ describe("shared view model", () => {
       },
     }).hud).toMatchObject({
       displayMode: "cells",
+    });
+    expect(parseNotificationPreferences({
+      hud: {
+        labelMode: "icon",
+      },
+    }).hud).toMatchObject({
+      labelMode: "icon",
     });
     expect(parseNotificationPreferences({
       hud: {
@@ -439,6 +449,7 @@ describe("shared view model", () => {
       displayMode: DEFAULT_NOTIFICATION_PREFERENCES.hud.displayMode,
       fontColor: DEFAULT_NOTIFICATION_PREFERENCES.hud.fontColor,
       fontScale: DEFAULT_NOTIFICATION_PREFERENCES.hud.fontScale,
+      labelMode: DEFAULT_NOTIFICATION_PREFERENCES.hud.labelMode,
       opacity: DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity,
       padding: 18,
       rowHeight: 28,
@@ -457,6 +468,7 @@ describe("shared view model", () => {
       displayMode: DEFAULT_NOTIFICATION_PREFERENCES.hud.displayMode,
       fontColor: DEFAULT_NOTIFICATION_PREFERENCES.hud.fontColor,
       fontScale: 0.95,
+      labelMode: DEFAULT_NOTIFICATION_PREFERENCES.hud.labelMode,
       opacity: DEFAULT_NOTIFICATION_PREFERENCES.hud.opacity,
       padding: DEFAULT_NOTIFICATION_PREFERENCES.hud.padding,
       rowHeight: DEFAULT_NOTIFICATION_PREFERENCES.hud.rowHeight,

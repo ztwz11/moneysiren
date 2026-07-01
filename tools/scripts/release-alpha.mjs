@@ -22,7 +22,7 @@ const repository = args.repo ?? parseGitHubRepository(capture("git", ["remote", 
 const expectedWorkflows = ["ci", "secret-scan", "npm-publish-cli", "desktop-release"];
 
 if (!isAlphaVersion(nextVersion)) {
-  fail(`Expected an alpha version such as 0.1.0-alpha.39, received: ${nextVersion}`);
+  fail(`Expected an alpha version such as 0.1.0-alpha.41, received: ${nextVersion}`);
 }
 
 if (branch !== args.branch) {
@@ -426,7 +426,7 @@ function printHelp() {
   console.log(`
 Usage:
   npm run release:alpha
-  npm run release:alpha -- --version 0.1.0-alpha.39
+  npm run release:alpha -- --version 0.1.0-alpha.41
   npm run release:alpha -- --include-working-tree
 
 What it does:

@@ -90,6 +90,7 @@ assert(mainRs.includes("MONEYSIREN_LOCALE"), "Rust entrypoint must support local
 assert(mainRs.includes("DesktopMode::Hud"), "Rust entrypoint must branch into HUD-only desktop mode.");
 assert(mainRs.includes(".skip_taskbar(false)"), "HUD window must appear in the taskbar.");
 assert(mainRs.includes(".shadow(false)"), "HUD window shadow must be disabled for borderless transparency.");
+assert(!mainRs.includes(".min_inner_size("), "HUD window must not enforce a native minimum size.");
 assert(mainRs.includes("get_webview_window(\"moneysiren-hud\")"), "HUD window controls must target the HUD window label.");
 assert(mainRs.includes("explorer.exe"), "Windows external dashboard routes should use explorer.exe before shell fallback.");
 assert(mainRs.includes("secrets_returned: false"), "Native status must declare secretsReturned=false.");

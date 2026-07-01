@@ -55,6 +55,9 @@ export default async function HudPage({ searchParams }: HudPageProps) {
           backgroundColor: messages.settings.hudBackgroundColor,
           fontColor: messages.settings.hudFontColor,
           fontSize: messages.settings.hudFontSize,
+          labelMode: hudLabelModeLabel(locale),
+          labelModeIcon: hudLabelModeIconLabel(locale),
+          labelModeText: hudLabelModeTextLabel(locale),
           minimize: messages.settings.hudMinimize,
           opacity: messages.settings.hudOpacity,
           padding: messages.settings.hudPadding,
@@ -118,6 +121,18 @@ function hudDisplayModeSingleLineLabel(locale: Locale): string {
   }
 
   return "One line";
+}
+
+function hudLabelModeLabel(locale: Locale): string {
+  return locale === "ko" || locale === "ja" ? "Name" : "Name";
+}
+
+function hudLabelModeTextLabel(locale: Locale): string {
+  return locale === "ko" || locale === "ja" ? "Full name" : "Full name";
+}
+
+function hudLabelModeIconLabel(locale: Locale): string {
+  return locale === "ko" || locale === "ja" ? "Icon" : "Icon";
 }
 
 function hudLabels(locale: Locale, messages: ReturnType<typeof getMessages>): HudDashboardLabels {

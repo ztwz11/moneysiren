@@ -123,12 +123,14 @@ describe("HUD view model", () => {
     });
   });
 
-  it("creates separate Codex App and Codex CLI credit count and expiry items", () => {
+  it("shows Codex as one HUD provider when Codex App and CLI are both present", () => {
     const hud = buildHudViewModel(todayLive([
       provider("codex-app", [
+        { key: "five_hour_limit_percent", value: 12, unit: "percent" },
         { key: "usage_reset_credit", value: 1, unit: "count", resetAt: "2026-06-20T00:00:00.000Z" },
       ]),
       provider("codex-cli", [
+        { key: "five_hour_limit_percent", value: 40, unit: "percent" },
         { key: "usage_reset_credit_estimate", value: 1, unit: "count", resetAt: "2026-06-13T01:00:00.000Z" },
       ]),
     ]));
@@ -136,8 +138,16 @@ describe("HUD view model", () => {
     expect(hud.items.filter((item) => item.kind === "credit_pool").map((item) => item.id).sort()).toEqual([
       "codex-app:credit-pool:count",
       "codex-app:credit-pool:expiry",
-      "codex-cli:credit-pool:count",
-      "codex-cli:credit-pool:expiry",
+    ]);
+    expect(hud.items.filter((item) => item.kind === "quota" && item.window === "five_hour")).toEqual([
+      expect.objectContaining({
+        id: "codex-app:five_hour",
+        providerKey: "codex-app",
+        progress: expect.objectContaining({
+          usedPercent: 12,
+          remainingPercent: 88,
+        }),
+      }),
     ]);
   });
 

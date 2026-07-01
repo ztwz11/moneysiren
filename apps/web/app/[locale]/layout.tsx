@@ -51,7 +51,7 @@ async function readSavedServiceNavItems(): Promise<ServiceNavItem[]> {
     ]);
     const savedProviderKeys = new Set(snapshot.providers.map((provider) => provider.providerKey));
 
-    return CONNECTABLE_PROVIDER_KEYS
+    const navItems = CONNECTABLE_PROVIDER_KEYS
       .filter((providerKey) =>
         savedProviderKeys.has(providerKey) ||
         config.providers[providerKey].configured ||
@@ -60,8 +60,41 @@ async function readSavedServiceNavItems(): Promise<ServiceNavItem[]> {
       .map((provider) => ({
         providerKey: provider,
         label: findAvailableProvider(provider)?.name ?? provider,
+        saved: savedProviderKeys.has(provider),
+        configured: config.providers[provider].configured,
       }));
+
+    return mergeCodexServiceNavItems(navItems);
   } catch {
     return [];
   }
+}
+
+function mergeCodexServiceNavItems(
+  items: readonly (ServiceNavItem & { saved: boolean; configured: boolean })[],
+): ServiceNavItem[] {
+  const codexItems = items.filter((item) => item.providerKey === "codex-app" || item.providerKey === "codex-cli");
+
+  if (codexItems.length < 2) {
+    return items.map(({ providerKey, label }) => ({ providerKey, label }));
+  }
+
+  const preferred = codexItems.find((item) => item.providerKey === "codex-app" && (item.saved || item.configured)) ??
+    codexItems.find((item) => item.providerKey === "codex-cli" && (item.saved || item.configured)) ??
+    codexItems.find((item) => item.providerKey === "codex-app") ??
+    codexItems[0]!;
+  let inserted = false;
+
+  return items.flatMap((item) => {
+    if (item.providerKey !== "codex-app" && item.providerKey !== "codex-cli") {
+      return [{ providerKey: item.providerKey, label: item.label }];
+    }
+
+    if (inserted) {
+      return [];
+    }
+
+    inserted = true;
+    return [{ providerKey: preferred.providerKey, label: "Codex" }];
+  });
 }

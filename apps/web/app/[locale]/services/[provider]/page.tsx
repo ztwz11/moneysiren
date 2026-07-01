@@ -25,8 +25,11 @@ export default async function ServiceDetailPage({ params }: PageProps) {
   const messages = getMessages(locale);
   const dashboard = await readOperationsDashboard();
   const localCliProvider = isLocalAiCliProvider(providerKey);
-  const provider = (localCliProvider ? dashboard.providers : dashboard.visibleProviders)
-    .find((item) => item.providerKey === providerKey);
+  const providerRows = localCliProvider ? dashboard.providers : dashboard.visibleProviders;
+  const provider = providerRows.find((item) => item.providerKey === providerKey) ??
+    (isCodexLocalAiProvider(providerKey)
+      ? providerRows.find((item) => isCodexLocalAiProvider(item.providerKey))
+      : undefined);
 
   if (provider === undefined) {
     notFound();

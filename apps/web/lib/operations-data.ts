@@ -40,6 +40,7 @@ import {
   type LiveTodayFreshness,
   type LiveTodayProviderSnapshot,
   type LiveTodaySnapshot,
+  type LiveTodayUsageMetric,
   type LiveTodayUsageSummary,
 } from "./live-today";
 import { readExchangeRate, type ExchangeRateResult } from "./exchange-rates";
@@ -47,6 +48,10 @@ import { readLocalAiCliStatus, type LocalAiCliStatusPayload } from "./local-tool
 
 export type CanonicalFreshness = "fresh" | "stale" | "missing";
 export type LiveFreshness = "live" | "stale" | "error" | "unavailable" | "not_configured" | "locked";
+
+const CODEX_APP_PROVIDER_KEY: ProviderKey = "codex-app";
+const CODEX_CLI_PROVIDER_KEY: ProviderKey = "codex-cli";
+const CODEX_DISPLAY_NAME = "Codex";
 
 export interface OperationsDashboard {
   generatedAt: string;
@@ -308,8 +313,9 @@ export function buildOperationsDashboard(
       risks,
     } satisfies OperationsProvider;
   });
-  const visibleProviders = providers.filter(isVisibleProvider);
-  const visibleConnections = providers.flatMap((provider) =>
+  const displayProviders = mergeCodexDisplayProviders(providers);
+  const visibleProviders = displayProviders.filter(isVisibleProvider);
+  const visibleConnections = displayProviders.flatMap((provider) =>
     buildProviderConnectionRows(provider, options.liveToday?.providers ?? [], conversion)
   );
   const usageTrend = visibleProviders.flatMap((provider) => provider.usageTrend);
@@ -363,7 +369,7 @@ export function buildOperationsDashboard(
       remainingDaysInMonth: remainingDays,
       budget,
     },
-    providers,
+    providers: displayProviders,
     visibleProviders,
     visibleConnections,
     usageTrend,
@@ -379,6 +385,260 @@ export function buildOperationsDashboard(
       alert.providerKey !== null && visibleProviderKeys.has(alert.providerKey)
     ),
   };
+}
+
+function mergeCodexDisplayProviders(providers: OperationsProvider[]): OperationsProvider[] {
+  const appIndex = providers.findIndex((provider) => provider.providerKey === CODEX_APP_PROVIDER_KEY);
+  const cliIndex = providers.findIndex((provider) => provider.providerKey === CODEX_CLI_PROVIDER_KEY);
+
+  if (appIndex < 0 || cliIndex < 0) {
+    return providers;
+  }
+
+  const appProvider = providers[appIndex];
+  const cliProvider = providers[cliIndex];
+
+  if (appProvider === undefined || cliProvider === undefined || !isVisibleProvider(appProvider) || !isVisibleProvider(cliProvider)) {
+    return providers;
+  }
+
+  const primary = pickCodexPrimaryProvider(appProvider, cliProvider);
+  const secondary = primary === appProvider ? cliProvider : appProvider;
+  const primaryIndex = primary === appProvider ? appIndex : cliIndex;
+  const secondaryIndex = secondary === appProvider ? appIndex : cliIndex;
+  const merged = mergeCodexProviderRows(primary, secondary);
+
+  return providers.flatMap((provider, index) => {
+    if (index === secondaryIndex) {
+      return [];
+    }
+
+    return index === primaryIndex ? [merged] : [provider];
+  });
+}
+
+function pickCodexPrimaryProvider(appProvider: OperationsProvider, cliProvider: OperationsProvider): OperationsProvider {
+  if (appProvider.currentUsageSummary !== null) {
+    return appProvider;
+  }
+
+  if (cliProvider.currentUsageSummary !== null) {
+    return cliProvider;
+  }
+
+  return appProvider.latestLiveCheck !== null ? appProvider : cliProvider;
+}
+
+function mergeCodexProviderRows(primary: OperationsProvider, secondary: OperationsProvider): OperationsProvider {
+  const currency = singleCurrency([primary.currency, secondary.currency]) ?? primary.currency;
+  const canSumAmounts = primary.currency === currency && secondary.currency === currency;
+  const todayLiveAmountMinor = primary.todayLiveAmountMinor === null && secondary.todayLiveAmountMinor === null
+    ? null
+    : canSumAmounts
+      ? (primary.todayLiveAmountMinor ?? 0) + (secondary.todayLiveAmountMinor ?? 0)
+      : primary.todayLiveAmountMinor;
+
+  return {
+    ...primary,
+    displayName: CODEX_DISPLAY_NAME,
+    connections: uniqueConnections([...primary.connections, ...secondary.connections]),
+    connectionState: summarizeConnectionStates([primary.connectionState, secondary.connectionState]),
+    credentialSource: credentialSourceForState(summarizeConnectionStates([primary.connectionState, secondary.connectionState])),
+    readOnlyTestState: summarizeConnectionStates([primary.readOnlyTestState, secondary.readOnlyTestState]),
+    authMethod: uniqueTexts([primary.authMethod, secondary.authMethod]).join(" / "),
+    credentialRequirements: uniqueTexts([...primary.credentialRequirements, ...secondary.credentialRequirements]),
+    requiredEnvKeys: uniqueTexts([...primary.requiredEnvKeys, ...secondary.requiredEnvKeys]),
+    configuredEnvKeys: uniqueTexts([...primary.configuredEnvKeys, ...secondary.configuredEnvKeys]),
+    missingEnvKeys: uniqueTexts([...primary.missingEnvKeys, ...secondary.missingEnvKeys]),
+    setupLinks: uniqueSetupLinks([...primary.setupLinks, ...secondary.setupLinks]),
+    canonicalFreshness: summarizeCanonicalFreshnessValues([primary.canonicalFreshness, secondary.canonicalFreshness]),
+    liveFreshness: summarizeLiveFreshnessValues([primary.liveFreshness, secondary.liveFreshness]),
+    liveConfidence: highestConfidence([primary.liveConfidence, secondary.liveConfidence]),
+    currentUsageSummary: mergeCodexUsageSummary([primary.currentUsageSummary, secondary.currentUsageSummary]),
+    latestCanonicalSync: latestIso([primary.latestCanonicalSync, secondary.latestCanonicalSync].filter((value): value is string => value !== null)),
+    latestLiveCheck: latestIso([primary.latestLiveCheck, secondary.latestLiveCheck].filter((value): value is string => value !== null)),
+    monthForecastAmountMinor: canSumAmounts
+      ? primary.monthForecastAmountMinor + secondary.monthForecastAmountMinor
+      : primary.monthForecastAmountMinor,
+    confirmedAmountMinor: canSumAmounts
+      ? primary.confirmedAmountMinor + secondary.confirmedAmountMinor
+      : primary.confirmedAmountMinor,
+    todayLiveAmountMinor,
+    todayLiveIncluded: primary.todayLiveIncluded || secondary.todayLiveIncluded,
+    currency,
+    usageSnapshotCount: primary.usageSnapshotCount + secondary.usageSnapshotCount,
+    serviceCostBreakdown: [...primary.serviceCostBreakdown, ...secondary.serviceCostBreakdown],
+    usageTrend: [...primary.usageTrend, ...secondary.usageTrend].map((point) => ({
+      ...point,
+      providerKey: primary.providerKey,
+      displayName: CODEX_DISPLAY_NAME,
+    })),
+    healthStatus: summarizeHealthStatuses([primary.healthStatus, secondary.healthStatus]),
+    riskLevel: summarizeRiskLevels([primary.riskLevel, secondary.riskLevel]),
+    alertCount: primary.alertCount + secondary.alertCount,
+    risks: [...primary.risks, ...secondary.risks],
+  };
+}
+
+function uniqueConnections(
+  connections: readonly ProviderCredentialConnectionStatus[],
+): ProviderCredentialConnectionStatus[] {
+  const byId = new Map<string, ProviderCredentialConnectionStatus>();
+
+  for (const connection of connections) {
+    if (!byId.has(connection.connectionId)) {
+      byId.set(connection.connectionId, connection);
+    }
+  }
+
+  return [...byId.values()];
+}
+
+function uniqueSetupLinks(links: readonly ProviderSetupLink[]): ProviderSetupLink[] {
+  const byKey = new Map<string, ProviderSetupLink>();
+
+  for (const link of links) {
+    byKey.set(`${link.href}:${link.label}`, link);
+  }
+
+  return [...byKey.values()];
+}
+
+function uniqueTexts(values: readonly string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
+}
+
+function summarizeConnectionStates(values: readonly ConnectionState[]): ConnectionState {
+  const order: readonly ConnectionState[] = [
+    "read_only_ready",
+    "env_configured",
+    "credential_store_configured",
+    "oauth_connected",
+    "locked",
+    "expired",
+    "invalid",
+    "not_configured",
+  ];
+
+  return order.find((value) => values.includes(value)) ?? "not_configured";
+}
+
+function credentialSourceForState(state: ConnectionState): OperationsProvider["credentialSource"] {
+  if (state === "env_configured" || state === "read_only_ready") {
+    return "env";
+  }
+
+  if (state === "credential_store_configured") {
+    return "credential_store";
+  }
+
+  if (state === "oauth_connected") {
+    return "oauth";
+  }
+
+  if (state === "locked") {
+    return "locked";
+  }
+
+  return "none";
+}
+
+function summarizeCanonicalFreshnessValues(values: readonly CanonicalFreshness[]): CanonicalFreshness {
+  if (values.includes("fresh")) {
+    return "fresh";
+  }
+
+  return values.includes("stale") ? "stale" : "missing";
+}
+
+function summarizeLiveFreshnessValues(values: readonly LiveFreshness[]): LiveFreshness {
+  if (values.includes("live")) {
+    return "live";
+  }
+
+  const order: readonly LiveFreshness[] = ["error", "locked", "stale", "unavailable", "not_configured"];
+
+  return order.find((value) => values.includes(value)) ?? "unavailable";
+}
+
+function summarizeHealthStatuses(values: readonly DashboardHealthStatus[]): DashboardHealthStatus {
+  if (values.includes("down")) {
+    return "down";
+  }
+
+  if (values.includes("degraded")) {
+    return "degraded";
+  }
+
+  if (values.includes("unknown")) {
+    return "unknown";
+  }
+
+  return "ok";
+}
+
+function summarizeRiskLevels(values: readonly DashboardRiskLevel[]): DashboardRiskLevel {
+  if (values.includes("critical")) {
+    return "critical";
+  }
+
+  return values.includes("warning") ? "warning" : "low";
+}
+
+function mergeCodexUsageSummary(
+  summaries: readonly (LiveTodayUsageSummary | null)[],
+): LiveTodayUsageSummary | null {
+  const available = summaries.filter((summary): summary is LiveTodayUsageSummary => summary !== null);
+
+  if (available.length === 0) {
+    return null;
+  }
+
+  return {
+    kind: "llm_subscription",
+    period: "current_month",
+    metrics: mergeCodexUsageMetrics(available),
+    topServices: uniqueTexts(available.flatMap((summary) => summary.topServices)),
+  };
+}
+
+function mergeCodexUsageMetrics(summaries: readonly LiveTodayUsageSummary[]): LiveTodayUsageMetric[] {
+  const metrics: LiveTodayUsageMetric[] = [];
+  const selectedMetricKeys = new Set<string>();
+  const selectedCreditMetricKeys = new Set<string>();
+
+  for (const summary of summaries) {
+    for (const metric of summary.metrics) {
+      if (metric.key === "usage_reset_credit" || metric.key === "usage_reset_credit_estimate") {
+        const metricKey = resetCreditMetricIdentity(metric);
+
+        if (!selectedCreditMetricKeys.has(metricKey)) {
+          selectedCreditMetricKeys.add(metricKey);
+          metrics.push(metric);
+        }
+
+        continue;
+      }
+
+      if (!selectedMetricKeys.has(metric.key)) {
+        selectedMetricKeys.add(metric.key);
+        metrics.push(metric);
+      }
+    }
+  }
+
+  return metrics;
+}
+
+function resetCreditMetricIdentity(metric: LiveTodayUsageMetric): string {
+  return [
+    metric.key,
+    metric.itemKey ?? "",
+    metric.resetAt ?? "",
+    metric.resetAtLatest ?? "",
+    metric.source ?? "",
+    metric.value,
+  ].join(":");
 }
 
 export function resolveDashboardTimezone(env: Record<string, string | undefined> = process.env): string {

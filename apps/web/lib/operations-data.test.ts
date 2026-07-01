@@ -509,6 +509,133 @@ describe("operations dashboard data", () => {
     expect(buildServiceRemediation(codexApp!, "ko").items).toHaveLength(0);
   });
 
+  it("shows Codex App and Codex CLI as one Codex row when both are configured", () => {
+    const checkedAt = "2026-06-05T03:00:00.000Z";
+    const dashboard = buildOperationsDashboard(BASE_DASHBOARD, {
+      env: {},
+      now: new Date(checkedAt),
+      timezone: "Asia/Seoul",
+      connections: {
+        generatedAt: checkedAt,
+        localOnly: true,
+        secretsReturned: false,
+        providerWriteActionsEnabled: false,
+        providers: [
+          {
+            providerKey: "codex-app",
+            displayName: "Codex App",
+            authMethod: "Local app",
+            connectionState: "env_configured",
+            credentialSource: "env",
+            readOnlyTestState: "read_only_ready",
+            emergencyAccessState: "emergency_planned",
+            connections: [],
+            requiredEnvKeys: [],
+            configuredEnvKeys: ["codex_app_sessions"],
+            missingEnvKeys: [],
+            credentialRequirements: [],
+            credentialStore: {
+              backend: "memory",
+              storeState: "ready",
+              readOnlyState: "not_configured",
+              emergencyState: "not_configured",
+            },
+          },
+          {
+            providerKey: "codex-cli",
+            displayName: "Codex CLI",
+            authMethod: "Local CLI",
+            connectionState: "env_configured",
+            credentialSource: "env",
+            readOnlyTestState: "read_only_ready",
+            emergencyAccessState: "emergency_planned",
+            connections: [],
+            requiredEnvKeys: [],
+            configuredEnvKeys: ["codex command"],
+            missingEnvKeys: [],
+            credentialRequirements: [],
+            credentialStore: {
+              backend: "memory",
+              storeState: "ready",
+              readOnlyState: "not_configured",
+              emergencyState: "not_configured",
+            },
+          },
+        ],
+      },
+      liveToday: {
+        generatedAt: checkedAt,
+        ttlSeconds: 60,
+        cacheState: "fresh",
+        providers: [
+          {
+            providerKey: "codex-app",
+            connectionId: "env",
+            connectionLabel: "Environment",
+            checkedAt,
+            expiresAt: "2026-06-05T03:01:00.000Z",
+            ttlSeconds: 5,
+            freshness: "live",
+            liveGranularity: "usage_only",
+            confidence: "low",
+            provisional: true,
+            todayLiveAmountMinor: null,
+            currency: "USD",
+            included: false,
+            status: "ok",
+            usageSummary: {
+              kind: "llm_subscription",
+              period: "current_month",
+              metrics: [
+                { key: "five_hour_limit_percent", value: 22, unit: "percent" },
+              ],
+              topServices: ["codex-app:gpt-5"],
+            },
+          },
+          {
+            providerKey: "codex-cli",
+            connectionId: "env",
+            connectionLabel: "Environment",
+            checkedAt,
+            expiresAt: "2026-06-05T03:01:00.000Z",
+            ttlSeconds: 5,
+            freshness: "live",
+            liveGranularity: "usage_only",
+            confidence: "low",
+            provisional: true,
+            todayLiveAmountMinor: null,
+            currency: "USD",
+            included: false,
+            status: "ok",
+            usageSummary: {
+              kind: "llm_subscription",
+              period: "current_month",
+              metrics: [
+                { key: "total_tokens", value: 913830, unit: "tokens" },
+              ],
+              topServices: ["codex-cli:gpt-5"],
+            },
+          },
+        ],
+      },
+    });
+    const codexRows = dashboard.visibleProviders.filter((provider) =>
+      provider.providerKey === "codex-app" || provider.providerKey === "codex-cli"
+    );
+
+    expect(codexRows).toHaveLength(1);
+    expect(codexRows[0]).toMatchObject({
+      providerKey: "codex-app",
+      displayName: "Codex",
+      currentUsageSummary: {
+        metrics: expect.arrayContaining([
+          expect.objectContaining({ key: "five_hour_limit_percent", value: 22 }),
+          expect.objectContaining({ key: "total_tokens", value: 913830 }),
+        ]),
+      },
+    });
+  });
+
   it("falls back when an invalid dashboard timezone is configured", () => {
     expect(resolveDashboardTimezone({ MONEYSIREN_TIMEZONE: "Not/AZone" })).toBeTruthy();
   });

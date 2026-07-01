@@ -9,7 +9,7 @@ on:
       tag:
         description: "Release tag to create or update"
         required: true
-        default: "v0.1.0-alpha.43"
+        default: "v0.1.0-alpha.44"
       create_release:
         description: "Create/update the GitHub Release and upload assets"
         required: true

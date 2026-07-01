@@ -104,6 +104,7 @@ export const CODEX_APP_PROVIDER_KEY = "codex-app";
 export const CODEX_CLI_PROVIDER_KEY = "codex-cli";
 
 const CODEX_PROVIDER_KEYS = [CODEX_APP_PROVIDER_KEY, CODEX_CLI_PROVIDER_KEY] as const;
+const CODEX_DISPLAY_NAME = "Codex";
 const CLI_HUD_WIDGET_KEYS = new Set<NotificationWidgetKey>([
   "claude_five_hour_percent",
   "claude_weekly_percent",
@@ -123,7 +124,8 @@ export function buildHudViewModel(
   todayLive: TodayLiveView,
   options: BuildHudViewModelOptions = {},
 ): HudViewModel {
-  const providerItems = todayLive.providers.flatMap((provider) => hudItemsForProvider(provider, todayLive.generatedAt));
+  const providers = mergeCodexProvidersForHud(todayLive.providers);
+  const providerItems = providers.flatMap((provider) => hudItemsForProvider(provider, todayLive.generatedAt));
   const widgetItems = options.digest === undefined ? [] : hudItemsForDigest(options.digest);
   const items = [...providerItems, ...widgetItems];
   const sync = summarizeAggregateSync(items.map((item) => item.sync));
@@ -143,6 +145,114 @@ export function buildHudViewModel(
     },
     items,
   };
+}
+
+function mergeCodexProvidersForHud(providers: readonly TodayLiveProviderView[]): TodayLiveProviderView[] {
+  const codexProviders = providers.filter((provider) => isCodexProviderKey(provider.providerKey));
+  const hasApp = codexProviders.some((provider) => provider.providerKey === CODEX_APP_PROVIDER_KEY);
+  const hasCli = codexProviders.some((provider) => provider.providerKey === CODEX_CLI_PROVIDER_KEY);
+
+  if (!hasApp || !hasCli) {
+    return [...providers];
+  }
+
+  const merged = mergeCodexProviderViews(codexProviders);
+  let inserted = false;
+
+  return providers.flatMap((provider) => {
+    if (!isCodexProviderKey(provider.providerKey)) {
+      return [provider];
+    }
+
+    if (inserted) {
+      return [];
+    }
+
+    inserted = true;
+    return [merged];
+  });
+}
+
+function mergeCodexProviderViews(providers: readonly TodayLiveProviderView[]): TodayLiveProviderView {
+  const ordered = orderedCodexProviders(providers);
+  const preferred = ordered.find((provider) =>
+    provider.providerKey === CODEX_APP_PROVIDER_KEY && provider.metrics.length > 0
+  ) ?? ordered.find((provider) => provider.providerKey === CODEX_APP_PROVIDER_KEY) ?? ordered[0]!;
+  const includedProviders = ordered.filter((provider) => provider.included && provider.todayLiveAmountMinor !== null);
+  const currency = singleCurrency(includedProviders.map((provider) => provider.currency)) ??
+    singleCurrency(ordered.map((provider) => provider.currency)) ??
+    preferred.currency;
+  const canInclude = includedProviders.length > 0 && includedProviders.every((provider) => provider.currency === currency);
+  const ttlSeconds = minFinite(ordered.map((provider) => provider.ttlSeconds)) ?? preferred.ttlSeconds;
+  const revision = maxFinite(ordered.map((provider) => provider.revision ?? Number.NaN));
+  const message = uniqueTexts(ordered.map((provider) => provider.message)).join(" / ");
+
+  return {
+    ...preferred,
+    displayName: CODEX_DISPLAY_NAME,
+    checkedAt: latestIso(ordered.map((provider) => provider.checkedAt)),
+    expiresAt: latestIso(ordered.map((provider) => provider.expiresAt ?? null)),
+    lastAttemptAt: latestIso(ordered.map((provider) => provider.lastAttemptAt ?? null)),
+    lastSuccessAt: latestIso(ordered.map((provider) => provider.lastSuccessAt ?? null)),
+    freshUntil: latestIso(ordered.map((provider) => provider.freshUntil ?? null)),
+    staleUntil: latestIso(ordered.map((provider) => provider.staleUntil ?? null)),
+    lastRefreshFailed: ordered.some((provider) => provider.lastRefreshFailed === true),
+    ...(ttlSeconds === undefined ? {} : { ttlSeconds }),
+    ...(revision === null ? {} : { revision }),
+    ...(message.length === 0 ? {} : { message }),
+    freshness: summarizeMergedFreshness(ordered.map((provider) => provider.freshness)),
+    confidence: summarizeMergedConfidence(ordered.map((provider) => provider.confidence)),
+    todayLiveAmountMinor: canInclude ? sum(includedProviders.map((provider) => provider.todayLiveAmountMinor ?? 0)) : null,
+    currency,
+    included: canInclude,
+    metrics: mergeCodexMetrics(ordered),
+  };
+}
+
+function orderedCodexProviders(providers: readonly TodayLiveProviderView[]): TodayLiveProviderView[] {
+  return [
+    ...providers.filter((provider) => provider.providerKey === CODEX_APP_PROVIDER_KEY),
+    ...providers.filter((provider) => provider.providerKey === CODEX_CLI_PROVIDER_KEY),
+  ];
+}
+
+function mergeCodexMetrics(providers: readonly TodayLiveProviderView[]): TodayLiveMetric[] {
+  const metrics: TodayLiveMetric[] = [];
+  const selectedMetricKeys = new Set<string>();
+  const selectedCreditMetricKeys = new Set<string>();
+
+  for (const provider of providers) {
+    for (const metric of provider.metrics) {
+      if (metric.key === "usage_reset_credit" || metric.key === "usage_reset_credit_estimate") {
+        const metricKey = creditMetricIdentity(metric);
+
+        if (!selectedCreditMetricKeys.has(metricKey)) {
+          selectedCreditMetricKeys.add(metricKey);
+          metrics.push(metric);
+        }
+
+        continue;
+      }
+
+      if (!selectedMetricKeys.has(metric.key)) {
+        selectedMetricKeys.add(metric.key);
+        metrics.push(metric);
+      }
+    }
+  }
+
+  return metrics;
+}
+
+function creditMetricIdentity(metric: TodayLiveMetric): string {
+  return [
+    metric.key,
+    metric.itemKey ?? "",
+    metric.resetAt ?? "",
+    metric.resetAtLatest ?? "",
+    metric.source ?? "",
+    metric.value,
+  ].join(":");
 }
 
 export function filterHudViewModelByWidgets(
@@ -504,6 +614,81 @@ function compareNullableIso(left: string | null, right: string | null): number {
   }
 
   return Date.parse(left) - Date.parse(right);
+}
+
+function latestIso(values: readonly (string | null)[]): string | null {
+  return values
+    .filter((value): value is string => value !== null && Number.isFinite(Date.parse(value)))
+    .sort((first, second) => second.localeCompare(first))[0] ?? null;
+}
+
+function singleCurrency(values: readonly string[]): string | null {
+  const normalized = values
+    .map((currency) => currency.trim().toUpperCase())
+    .filter((currency) => currency.length > 0);
+  const unique = new Set(normalized);
+
+  return unique.size === 1 ? normalized[0] ?? null : null;
+}
+
+function minFinite(values: readonly (number | undefined)[]): number | undefined {
+  const finiteValues = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+
+  return finiteValues.length === 0 ? undefined : Math.min(...finiteValues);
+}
+
+function maxFinite(values: readonly number[]): number | null {
+  const finiteValues = values.filter((value) => Number.isFinite(value));
+
+  return finiteValues.length === 0 ? null : Math.max(...finiteValues);
+}
+
+function uniqueTexts(values: readonly (string | undefined)[]): string[] {
+  return [...new Set(
+    values
+      .map((value) => value?.trim() ?? "")
+      .filter((value) => value.length > 0),
+  )];
+}
+
+function summarizeMergedFreshness(
+  values: readonly TodayLiveProviderView["freshness"][],
+): TodayLiveProviderView["freshness"] {
+  if (values.includes("live")) {
+    return "live";
+  }
+
+  const order: readonly TodayLiveProviderView["freshness"][] = [
+    "error",
+    "locked",
+    "stale",
+    "unavailable",
+    "not_configured",
+  ];
+
+  return order.find((value) => values.includes(value)) ?? "unavailable";
+}
+
+function summarizeMergedConfidence(
+  values: readonly TodayLiveProviderView["confidence"][],
+): TodayLiveProviderView["confidence"] {
+  if (values.includes("high")) {
+    return "high";
+  }
+
+  if (values.includes("medium")) {
+    return "medium";
+  }
+
+  if (values.includes("low")) {
+    return "low";
+  }
+
+  return "none";
+}
+
+function sum(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0);
 }
 
 function dataRevisionFor(todayLive: TodayLiveView): string {

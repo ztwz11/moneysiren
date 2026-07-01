@@ -174,7 +174,9 @@ describe("connection status", () => {
       now: () => new Date("2026-06-08T00:00:00.000Z"),
     });
 
+    expect(payload.providers.find((provider) => provider.providerKey === "codex-app")).toBeUndefined();
     expect(payload.providers.find((provider) => provider.providerKey === "codex-cli")).toMatchObject({
+      displayName: "Codex",
       connectionState: "env_configured",
       credentialSource: "env",
       readOnlyTestState: "read_only_ready",

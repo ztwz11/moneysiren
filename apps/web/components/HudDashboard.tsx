@@ -913,12 +913,8 @@ function localizePath(path: string, locale: Locale): string {
 }
 
 function providerLabel(providerKey: string): string {
-  if (providerKey === "codex-app") {
-    return "Codex App";
-  }
-
-  if (providerKey === "codex-cli") {
-    return "Codex CLI";
+  if (providerKey === "codex-app" || providerKey === "codex-cli") {
+    return "Codex";
   }
 
   if (providerKey === "claude-app") {

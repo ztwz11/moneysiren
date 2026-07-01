@@ -28,6 +28,9 @@ export type ConnectionState =
 export type EmergencyAccessState = "emergency_not_configured" | "emergency_planned";
 export type CredentialSource = "env" | "credential_store" | "oauth" | "locked" | "none";
 
+const CODEX_APP_PROVIDER_KEY: ProviderKey = "codex-app";
+const CODEX_CLI_PROVIDER_KEY: ProviderKey = "codex-cli";
+
 export interface ProviderConnectionStatus {
   providerKey: ProviderKey;
   displayName: string;
@@ -137,8 +140,108 @@ export async function readConnectionsStatus(
     localOnly: true,
     secretsReturned: false,
     providerWriteActionsEnabled: false,
-    providers,
+    providers: mergeCodexConnectionProviders(providers),
   };
+}
+
+function mergeCodexConnectionProviders(
+  providers: readonly ProviderConnectionStatus[],
+): readonly ProviderConnectionStatus[] {
+  const appIndex = providers.findIndex((provider) => provider.providerKey === CODEX_APP_PROVIDER_KEY);
+  const cliIndex = providers.findIndex((provider) => provider.providerKey === CODEX_CLI_PROVIDER_KEY);
+
+  if (appIndex < 0 || cliIndex < 0) {
+    return providers;
+  }
+
+  const appProvider = providers[appIndex];
+  const cliProvider = providers[cliIndex];
+
+  if (appProvider === undefined || cliProvider === undefined) {
+    return providers;
+  }
+
+  const primary = pickCodexConnectionPrimary(appProvider, cliProvider);
+  const secondary = primary === appProvider ? cliProvider : appProvider;
+  const primaryIndex = primary === appProvider ? appIndex : cliIndex;
+  const secondaryIndex = secondary === appProvider ? appIndex : cliIndex;
+  const connectionState = summarizeProviderConnectionStates([primary.connectionState, secondary.connectionState]);
+  const merged: ProviderConnectionStatus = {
+    ...primary,
+    displayName: "Codex",
+    authMethod: uniqueTexts([primary.authMethod, secondary.authMethod]).join(" / "),
+    connectionState,
+    credentialSource: credentialSourceFor(connectionState),
+    readOnlyTestState: summarizeProviderConnectionStates([primary.readOnlyTestState, secondary.readOnlyTestState]),
+    connections: uniqueConnections([...primary.connections, ...secondary.connections]),
+    requiredEnvKeys: uniqueTexts([...primary.requiredEnvKeys, ...secondary.requiredEnvKeys]),
+    configuredEnvKeys: uniqueTexts([...primary.configuredEnvKeys, ...secondary.configuredEnvKeys]),
+    missingEnvKeys: connectionState === "not_configured"
+      ? uniqueTexts([...primary.missingEnvKeys, ...secondary.missingEnvKeys])
+      : [],
+    credentialRequirements: uniqueTexts([...primary.credentialRequirements, ...secondary.credentialRequirements]),
+  };
+
+  return providers.flatMap((provider, index) => {
+    if (index === secondaryIndex) {
+      return [];
+    }
+
+    return index === primaryIndex ? [merged] : [provider];
+  });
+}
+
+function pickCodexConnectionPrimary(
+  appProvider: ProviderConnectionStatus,
+  cliProvider: ProviderConnectionStatus,
+): ProviderConnectionStatus {
+  const appRank = connectionStateRank(appProvider.connectionState);
+  const cliRank = connectionStateRank(cliProvider.connectionState);
+
+  if (cliRank > appRank) {
+    return cliProvider;
+  }
+
+  return appProvider;
+}
+
+function connectionStateRank(state: ConnectionState): number {
+  const order: readonly ConnectionState[] = [
+    "not_configured",
+    "invalid",
+    "expired",
+    "locked",
+    "oauth_connected",
+    "credential_store_configured",
+    "env_configured",
+    "read_only_ready",
+  ];
+
+  return order.indexOf(state);
+}
+
+function summarizeProviderConnectionStates(values: readonly ConnectionState[]): ConnectionState {
+  return values
+    .map((state) => ({ state, rank: connectionStateRank(state) }))
+    .sort((first, second) => second.rank - first.rank)[0]?.state ?? "not_configured";
+}
+
+function uniqueConnections(
+  connections: readonly ProviderCredentialConnectionStatus[],
+): ProviderCredentialConnectionStatus[] {
+  const byId = new Map<string, ProviderCredentialConnectionStatus>();
+
+  for (const connection of connections) {
+    if (!byId.has(connection.connectionId)) {
+      byId.set(connection.connectionId, connection);
+    }
+  }
+
+  return [...byId.values()];
+}
+
+function uniqueTexts(values: readonly string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
 }
 
 function credentialConnectionStatusFor(status: CredentialStatus): ProviderCredentialConnectionStatus {
@@ -240,7 +343,7 @@ function summarizeReadOnlyTestState(
 }
 
 function credentialSourceFor(connectionState: ConnectionState): CredentialSource {
-  if (connectionState === "env_configured") {
+  if (connectionState === "env_configured" || connectionState === "read_only_ready") {
     return "env";
   }
 

@@ -2190,6 +2190,17 @@ select {
   width: 100%;
 }
 
+.notification-hud-actions {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+}
+
+.notification-hud-save-button {
+  min-height: 36px;
+  width: 100%;
+}
+
 .notification-hud-toggle-card {
   min-height: 48px;
   padding: 8px 9px;
@@ -2372,6 +2383,8 @@ body:has(.hud-page)::-webkit-scrollbar {
   background: var(--hud-background-color, #ffffff);
   backdrop-filter: blur(12px);
   border: 0;
+  border-radius: 0;
+  box-shadow: none;
   box-sizing: border-box;
   color: var(--hud-font-color, var(--text));
   cursor: grab;
@@ -2430,8 +2443,9 @@ body:has(.hud-page)::-webkit-scrollbar {
 .hud-control-button {
   align-items: center;
   background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(16, 24, 40, 0.12);
+  border: 0;
   border-radius: 5px;
+  box-shadow: none;
   color: #4b5563;
   cursor: pointer;
   display: inline-flex;
@@ -2450,8 +2464,7 @@ body:has(.hud-page)::-webkit-scrollbar {
 .hud-control-button[aria-pressed="true"],
 .hud-control-button-active {
   background: color-mix(in srgb, var(--blue) 22%, #ffffff);
-  border-color: color-mix(in srgb, var(--blue) 62%, rgba(16, 24, 40, 0.12));
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(0, 122, 153, 0.08);
+  box-shadow: none;
   color: var(--blue);
 }
 
@@ -2469,9 +2482,9 @@ body:has(.hud-page)::-webkit-scrollbar {
 .hud-settings-popover {
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(16, 24, 40, 0.12);
+  border: 0;
   border-radius: 7px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
   display: grid;
   gap: 6px;
   max-height: calc(100vh - 42px);
@@ -2543,7 +2556,7 @@ body:has(.hud-page)::-webkit-scrollbar {
 .hud-select-row select {
   appearance: none;
   background: #ffffff;
-  border: 1px solid rgba(16, 24, 40, 0.14);
+  border: 0;
   border-radius: 5px;
   color: #344054;
   font: inherit;
@@ -2552,7 +2565,7 @@ body:has(.hud-page)::-webkit-scrollbar {
 }
 
 .hud-background-none-row {
-  border-top: 1px solid var(--border-soft);
+  border-top: 0;
   padding-top: 2px;
 }
 
@@ -2598,7 +2611,7 @@ body:has(.hud-page)::-webkit-scrollbar {
 
 .hud-settings-link {
   background: transparent;
-  border-top: 1px solid var(--border-soft);
+  border-top: 0;
   border-right: 0;
   border-bottom: 0;
   border-left: 0;
@@ -2616,7 +2629,7 @@ body:has(.hud-page)::-webkit-scrollbar {
 .hud-save-button {
   align-items: center;
   background: var(--blue);
-  border: 1px solid var(--blue);
+  border: 0;
   border-radius: 5px;
   color: #ffffff;
   cursor: pointer;
@@ -2637,7 +2650,7 @@ body:has(.hud-page)::-webkit-scrollbar {
 
 .hud-save-button:active:not(:disabled) {
   background: color-mix(in srgb, var(--blue) 88%, #000000);
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.24);
+  box-shadow: none;
 }
 
 .hud-save-status {
@@ -2694,7 +2707,7 @@ body:has(.hud-page)::-webkit-scrollbar {
 .hud-inline-error {
   align-items: center;
   background: var(--red-soft);
-  border: 1px solid #f5b5b0;
+  border: 0;
   border-radius: 6px;
   color: var(--red);
   display: flex;
@@ -2860,8 +2873,9 @@ body:has(.hud-page)::-webkit-scrollbar {
 .hud-item-open-link {
   align-items: center;
   background: color-mix(in srgb, var(--hud-background-color, #ffffff) 88%, transparent);
-  border: 1px solid rgba(16, 24, 40, 0.1);
+  border: 0;
   border-radius: 5px;
+  box-shadow: none;
   color: color-mix(in srgb, var(--hud-font-color, var(--text)) 70%, transparent);
   display: inline-flex;
   height: 22px;
@@ -2890,7 +2904,7 @@ body:has(.hud-page)::-webkit-scrollbar {
 
 .hud-item-open-link:active {
   background: color-mix(in srgb, var(--cobalt) 18%, var(--cobalt-soft));
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
 }
 
 .hud-item-list-cells .hud-item {
@@ -2994,8 +3008,9 @@ body:has(.hud-page)::-webkit-scrollbar {
 
 .hud-item-popover {
   background: color-mix(in srgb, var(--hud-background-color, #ffffff) 94%, var(--hud-font-color, var(--text)) 6%);
-  border: 1px solid rgba(16, 24, 40, 0.1);
+  border: 0;
   border-radius: 6px;
+  box-shadow: none;
   color: var(--hud-font-color, var(--text));
   cursor: default;
   display: grid;
@@ -3057,7 +3072,7 @@ body:has(.hud-page)::-webkit-scrollbar {
 .hud-refresh-indicator {
   align-items: center;
   background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(16, 24, 40, 0.1);
+  border: 0;
   border-radius: 999px;
   bottom: 6px;
   color: var(--blue);

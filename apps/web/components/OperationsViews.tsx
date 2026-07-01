@@ -660,9 +660,11 @@ export function ProviderCatalogView({
   locale: Locale;
   messages: Messages;
 }) {
+  const displayProviders = mergeCodexCatalogProviders(providers);
+
   return (
     <div className="catalog-grid">
-      {providers.map((provider) => (
+      {displayProviders.map((provider) => (
         <article className="catalog-card" key={provider.key}>
           <div className="catalog-card-header">
             <ProviderIcon
@@ -690,6 +692,57 @@ export function ProviderCatalogView({
       ))}
     </div>
   );
+}
+
+function mergeCodexCatalogProviders(providers: readonly ProviderCatalogItem[]): ProviderCatalogItem[] {
+  const codexProviders = providers.filter((provider) => provider.key === "codex-app" || provider.key === "codex-cli");
+
+  if (codexProviders.length < 2) {
+    return [...providers];
+  }
+
+  const appProvider = codexProviders.find((provider) => provider.key === "codex-app") ?? codexProviders[0]!;
+  const cliProvider = codexProviders.find((provider) => provider.key === "codex-cli");
+  const merged: ProviderCatalogItem = {
+    ...appProvider,
+    name: "Codex",
+    authMethods: uniqueStrings(codexProviders.flatMap((provider) => provider.authMethods)),
+    dataSurfaces: uniqueStrings(codexProviders.flatMap((provider) => provider.dataSurfaces)),
+    requiredEnvKeys: uniqueStrings(codexProviders.flatMap((provider) => provider.requiredEnvKeys)),
+    credentialRequirements: uniqueStrings(codexProviders.flatMap((provider) => provider.credentialRequirements)),
+    setupLinks: uniqueProviderSetupLinks([
+      ...appProvider.setupLinks,
+      ...(cliProvider?.setupLinks ?? []),
+    ]),
+  };
+  let inserted = false;
+
+  return providers.flatMap((provider) => {
+    if (provider.key !== "codex-app" && provider.key !== "codex-cli") {
+      return [provider];
+    }
+
+    if (inserted) {
+      return [];
+    }
+
+    inserted = true;
+    return [merged];
+  });
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
+}
+
+function uniqueProviderSetupLinks(links: readonly ProviderSetupLink[]): ProviderSetupLink[] {
+  const byKey = new Map<string, ProviderSetupLink>();
+
+  for (const link of links) {
+    byKey.set(`${link.href}:${link.label}`, link);
+  }
+
+  return [...byKey.values()];
 }
 
 export function ConnectionsView({ dashboard, locale, messages }: ViewProps) {

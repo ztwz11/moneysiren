@@ -33,9 +33,8 @@ import {
 } from "./NotificationSettingsModel";
 import { withAppLoading } from "./AppLoadingOverlay";
 import {
-  HUD_DISPLAY_MODE_EXAMPLES,
-  HUD_WIDGET_DISPLAY_EXAMPLES,
-  buildHudCompactPreview,
+  buildHudDisplayPreview,
+  getHudWidgetDisplayExample,
 } from "../lib/hud-display-options";
 
 type SaveState = "idle" | "loading" | "saving" | "saved" | "error";
@@ -81,6 +80,15 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
   const [statusMessage, setStatusMessage] = useState(messages.settings.notificationStoredLocally);
   const hudBackgroundNone = hudBackgroundColor === HUD_BACKGROUND_NONE;
   const hudPercentModeIsRemaining = hudShowRemainingPercent && !hudShowUsagePercent;
+  const hudPercentMode = hudPercentModeIsRemaining ? "remaining" : "usage";
+  const hudPreviewText = buildHudDisplayPreview({
+    displayMode: hudDisplayMode,
+    labelMode: hudLabelMode,
+    locale,
+    percentMode: hudPercentMode,
+    selectedWidgets: hudSelectedWidgets,
+  });
+  const hudPercentCopy = hudPercentDisplayCopy(locale);
 
   useEffect(() => {
     let mounted = true;
@@ -346,7 +354,7 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                 <span>{messages.settings.hudOpenWindow}</span>
               </button>
               <label className="notification-field">
-                <span className="metric-label">{hudDisplayCopy(locale).modeLabel}</span>
+                <span className="metric-label">{hudDisplayControlCopy(locale).modeLabel}</span>
                 <select
                   className="notification-select"
                   onChange={(event) => setHudDisplayMode(event.currentTarget.value as HudDisplayMode)}
@@ -354,25 +362,21 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                 >
                   {HUD_DISPLAY_MODES.map((mode) => (
                     <option key={mode} value={mode}>
-                      {hudDisplayCopy(locale).modes[mode]}
+                      {hudDisplayControlCopy(locale).modes[mode]}
                     </option>
                   ))}
                 </select>
-                <span className="metric-meta">{hudDisplayCopy(locale).modeHelp}</span>
+                <span className="metric-meta">{hudDisplayControlCopy(locale).modeHelp}</span>
               </label>
-              <div className="notification-hud-mode-preview" aria-label={hudDisplayCopy(locale).previewLabel}>
+              <div className="notification-hud-mode-preview" aria-label={hudDisplayControlCopy(locale).previewLabel}>
                 <GalleryHorizontalEnd aria-hidden="true" size={14} />
                 <span>
-                  <strong>{hudDisplayCopy(locale).previewLabel}</strong>
-                  <code>
-                    {hudDisplayMode === "singleLine"
-                      ? buildHudCompactPreview(hudSelectedWidgets)
-                      : HUD_DISPLAY_MODE_EXAMPLES[hudDisplayMode]}
-                  </code>
+                  <strong>{hudDisplayControlCopy(locale).previewLabel}</strong>
+                  <code>{hudPreviewText}</code>
                 </span>
               </div>
               <label className="notification-field">
-                <span className="metric-label">{hudLabelCopy(locale).modeLabel}</span>
+                <span className="metric-label">{hudLabelControlCopy(locale).modeLabel}</span>
                 <select
                   className="notification-select"
                   onChange={(event) => setHudLabelMode(event.currentTarget.value as HudLabelMode)}
@@ -380,11 +384,11 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                 >
                   {HUD_LABEL_MODES.map((mode) => (
                     <option key={mode} value={mode}>
-                      {hudLabelCopy(locale).modes[mode]}
+                      {hudLabelControlCopy(locale).modes[mode]}
                     </option>
                   ))}
                 </select>
-                <span className="metric-meta">{hudLabelCopy(locale).modeHelp}</span>
+                <span className="metric-meta">{hudLabelControlCopy(locale).modeHelp}</span>
               </label>
               <div className="notification-field">
                 <span className="metric-label">{messages.settings.hudAlwaysOnTop}</span>
@@ -402,7 +406,7 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                 </label>
               </div>
               <div className="notification-field">
-                <span className="metric-label">{hudPercentModeIsRemaining ? messages.settings.hudShowRemainingPercent : messages.settings.hudShowUsagePercent}</span>
+                <span className="metric-label">{hudPercentCopy.modeLabel}</span>
                 <label className="notification-toggle-card notification-hud-toggle-card">
                   <input
                     checked={hudPercentModeIsRemaining}
@@ -415,8 +419,8 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                   />
                   <span className="toggle-switch" aria-hidden="true" />
                   <span>
-                    <strong>{hudPercentModeIsRemaining ? messages.settings.hudShowRemainingPercent : messages.settings.hudShowUsagePercent}</strong>
-                    <span className="metric-meta">{messages.settings.hudShowUsagePercent} / {messages.settings.hudShowRemainingPercent}</span>
+                    <strong>{hudPercentModeIsRemaining ? hudPercentCopy.remainingMode : hudPercentCopy.usageMode}</strong>
+                    <span className="metric-meta">{hudPercentCopy.modeHelp}</span>
                   </span>
                 </label>
               </div>
@@ -514,6 +518,11 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                 {NOTIFICATION_WIDGET_KEYS.map((widgetKey) => {
                   const selectedIndex = hudSelectedWidgets.indexOf(widgetKey);
                   const selected = selectedIndex >= 0;
+                  const widgetPreview = getHudWidgetDisplayExample(widgetKey, {
+                    labelMode: hudLabelMode,
+                    locale,
+                    percentMode: hudPercentMode,
+                  });
 
                   return (
                     <label
@@ -531,13 +540,31 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                           {messages.settings.widgetOrder}: {selected ? selectedIndex + 1 : "-"}
                         </span>
                         <span className="notification-hud-widget-example">
-                          <span>{HUD_WIDGET_DISPLAY_EXAMPLES[widgetKey].shortLabel}</span>
-                          <code>{HUD_WIDGET_DISPLAY_EXAMPLES[widgetKey].example}</code>
+                          <span>{widgetPreview.shortLabel}</span>
+                          <code>{widgetPreview.example}</code>
                         </span>
                       </span>
                     </label>
                   );
                 })}
+              </div>
+              <div className="notification-hud-actions">
+                <button
+                  className="primary-button notification-hud-save-button"
+                  disabled={saveState === "loading" || saveState === "saving"}
+                  onClick={() => {
+                    void saveNotificationPreferences();
+                  }}
+                  type="button"
+                >
+                  {saveState === "saving" ? messages.settings.toolLoadingPreparingView : messages.settings.hudSaveSettings}
+                </button>
+                <span
+                  className={saveState === "error" ? "notification-save-status notification-save-status-error" : "notification-save-status"}
+                  role="status"
+                >
+                  {saveState === "saved" ? messages.settings.notificationPrefsSaved : statusMessage}
+                </span>
               </div>
             </div>
             <p className="metric-meta">{messages.settings.desktopAppInfo}</p>
@@ -743,6 +770,119 @@ function openHudWindow(locale: Locale) {
   const opened = window.open(url, "moneysiren-hud", "popup=yes,width=360,height=520,resizable=yes,scrollbars=no");
 
   opened?.focus();
+}
+
+function hudDisplayControlCopy(locale: Locale): {
+  modeLabel: string;
+  modeHelp: string;
+  previewLabel: string;
+  modes: Record<HudDisplayMode, string>;
+} {
+  if (locale === "ko") {
+    return {
+      modeLabel: "HUD 표시 방식",
+      modeHelp: "행, 칸, 한 줄 중 실제 HUD에 적용할 표시 방식을 선택합니다.",
+      previewLabel: "표시 예시",
+      modes: {
+        rows: "행으로 보기 (ROW)",
+        cells: "칸으로 보기 (CELL)",
+        singleLine: "한 줄로 보기",
+      },
+    };
+  }
+
+  if (locale === "ja") {
+    return {
+      modeLabel: "HUD display mode",
+      modeHelp: "Choose the row, cell, or one-line layout used by the HUD.",
+      previewLabel: "Preview",
+      modes: {
+        rows: "Rows",
+        cells: "Cells",
+        singleLine: "One line",
+      },
+    };
+  }
+
+  return {
+    modeLabel: "HUD display mode",
+    modeHelp: "Choose the row, cell, or one-line layout used by the HUD.",
+    previewLabel: "Preview",
+    modes: {
+      rows: "Rows",
+      cells: "Cells",
+      singleLine: "One line",
+    },
+  };
+}
+
+function hudLabelControlCopy(locale: Locale): {
+  modeLabel: string;
+  modeHelp: string;
+  modes: Record<HudLabelMode, string>;
+} {
+  if (locale === "ko") {
+    return {
+      modeLabel: "항목 이름 표시",
+      modeHelp: "전체 이름을 표시하거나, 좁게 볼 때 아이콘만 표시합니다.",
+      modes: {
+        text: "전체 이름",
+        icon: "아이콘만",
+      },
+    };
+  }
+
+  if (locale === "ja") {
+    return {
+      modeLabel: "Item name display",
+      modeHelp: "Show full item names, or show icons only for compact HUD use.",
+      modes: {
+        text: "Full name",
+        icon: "Icon only",
+      },
+    };
+  }
+
+  return {
+    modeLabel: "Item name display",
+    modeHelp: "Show full item names, or show icons only for compact HUD use.",
+    modes: {
+      text: "Full name",
+      icon: "Icon only",
+    },
+  };
+}
+
+function hudPercentDisplayCopy(locale: Locale): {
+  modeLabel: string;
+  modeHelp: string;
+  remainingMode: string;
+  usageMode: string;
+} {
+  if (locale === "ko") {
+    return {
+      modeLabel: "사용량 표시 기준",
+      modeHelp: "한 번에 하나만 표시합니다. 토글을 끄면 사용량, 켜면 남은량을 표시합니다.",
+      remainingMode: "남은량 기준",
+      usageMode: "사용량 기준",
+    };
+  }
+
+  if (locale === "ja") {
+    return {
+      modeLabel: "Usage display basis",
+      modeHelp: "Only one value is shown. Off shows used; on shows remaining.",
+      remainingMode: "Remaining",
+      usageMode: "Used",
+    };
+  }
+
+  return {
+    modeLabel: "Usage display basis",
+    modeHelp: "Only one value is shown. Off shows used; on shows remaining.",
+    remainingMode: "Remaining",
+    usageMode: "Used",
+  };
 }
 
 function hudBackgroundNoneLabel(locale: Locale): string {

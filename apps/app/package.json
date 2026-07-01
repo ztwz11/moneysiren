@@ -1,6 +1,6 @@
 {
   "name": "@moneysiren/app",
-  "version": "0.1.0-alpha.44",
+  "version": "0.1.0-alpha.45",
   "description": "One-command installer for the MoneySiren CLI, local web dashboard, and HUD.",
   "private": false,
   "license": "MIT",

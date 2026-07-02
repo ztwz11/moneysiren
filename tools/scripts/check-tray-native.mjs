@@ -25,6 +25,7 @@ const actionIds = [
   "quit",
 ];
 const allowedEndpoints = [
+  "/api/local/desktop-runtime",
   "/api/local/health",
   "/api/local/open-external",
   "/api/local/tray-menu",
@@ -94,6 +95,7 @@ assert(mainRs.includes(".shadow(false)"), "HUD window shadow must be disabled fo
 assert(!mainRs.includes(".min_inner_size("), "HUD window must not enforce a native minimum size.");
 assert(mainRs.includes("get_webview_window(\"moneysiren-hud\")"), "HUD window controls must target the HUD window label.");
 assert(mainRs.includes("open_dashboard_url_external"), "HUD links must support opening the current loopback URL externally.");
+assert(mainRs.includes("show_hud_window"), "Web UI actions must be able to ask the desktop shell to show the native HUD window.");
 assert(mainRs.includes("sanitize_loopback_dashboard_url"), "HUD external URL opening must validate loopback URLs.");
 assert(mainRs.includes("explorer.exe"), "Windows external dashboard routes should use explorer.exe before shell fallback.");
 assert(mainRs.includes("secrets_returned: false"), "Native status must declare secretsReturned=false.");

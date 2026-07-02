@@ -5,6 +5,14 @@ import { useEffect, useState } from "react";
 import { stopLocalWebRuntime } from "../lib/local-client";
 import type { Locale } from "../lib/i18n";
 
+type RuntimeShutdownLocale = Extract<Locale, "en" | "ko" | "ja">;
+type RuntimeShutdownCopy = {
+  button: string;
+  confirm: string;
+  failed: string;
+  loading: string;
+};
+
 const COPY = {
   en: {
     button: "Stop local web runtime",
@@ -24,15 +32,11 @@ const COPY = {
     loading: "ローカルランタイムを停止中",
     failed: "ローカルランタイムを停止できませんでした。",
   },
-} satisfies Record<Locale, {
-  button: string;
-  confirm: string;
-  failed: string;
-  loading: string;
-}>;
+} satisfies Record<RuntimeShutdownLocale, RuntimeShutdownCopy>;
 
 export function RuntimeShutdownButton({ locale }: { locale: Locale }) {
-  const copy = COPY[locale];
+  const copyLocale: RuntimeShutdownLocale = locale === "ko" || locale === "ja" ? locale : "en";
+  const copy = COPY[copyLocale];
   const [isStopping, setIsStopping] = useState(false);
   const [progress, setProgress] = useState(10);
   const [error, setError] = useState<string | null>(null);

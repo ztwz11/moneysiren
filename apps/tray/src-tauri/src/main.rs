@@ -37,7 +37,8 @@ const TRAY_ACTIONS: [TrayAction; 6] = [
     TrayAction::new("quit", TrayRoute::None, true),
 ];
 
-const LOCAL_API_ENDPOINTS: [&str; 4] = [
+const LOCAL_API_ENDPOINTS: [&str; 5] = [
+    "/api/local/desktop-runtime",
     "/api/local/health",
     "/api/local/open-external",
     "/api/local/tray-menu",
@@ -127,7 +128,9 @@ fn main() {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
                 }
-                open_hud_window(app.handle());
+                if let Err(error) = open_hud_window(app.handle()) {
+                    eprintln!("{error}");
+                }
             } else {
                 let locale = current_locale();
                 navigate_dashboard_route(
@@ -142,6 +145,7 @@ fn main() {
             open_dashboard_route,
             open_dashboard_route_external,
             open_dashboard_url_external,
+            show_hud_window,
             tray_native_status
         ])
         .run(tauri::generate_context!())
@@ -156,17 +160,25 @@ enum DesktopMode {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Locale {
+    De,
     En,
+    Es,
+    Fr,
     Ko,
     Ja,
+    Zh,
 }
 
 impl Locale {
     const fn code(self) -> &'static str {
         match self {
+            Self::De => "de",
             Self::En => "en",
+            Self::Es => "es",
+            Self::Fr => "fr",
             Self::Ko => "ko",
             Self::Ja => "ja",
+            Self::Zh => "zh",
         }
     }
 }
@@ -231,8 +243,12 @@ fn parse_locale_hint(value: &str) -> Option<Locale> {
         let primary = normalized.split('-').next().unwrap_or_default();
 
         match primary {
+            "de" => return Some(Locale::De),
+            "es" => return Some(Locale::Es),
+            "fr" => return Some(Locale::Fr),
             "ko" => return Some(Locale::Ko),
             "ja" => return Some(Locale::Ja),
+            "zh" => return Some(Locale::Zh),
             "en" => return Some(Locale::En),
             _ => {}
         }
@@ -261,7 +277,7 @@ fn tray_action_label(action_id: &str, locale: Locale) -> &'static str {
             "quit" => "MoneySirenを終了",
             _ => "MoneySiren",
         },
-        Locale::En => match action_id {
+        Locale::En | Locale::Zh | Locale::Es | Locale::Fr | Locale::De => match action_id {
             "show-hud" => "Open HUD",
             "open-dashboard" => "Open Dashboard",
             "open-today-live" => "Today Live",
@@ -326,7 +342,9 @@ fn handle_tray_action(app: &AppHandle, action_id: &str) {
     }
 
     if action_id == "show-hud" {
-        open_hud_window(app);
+        if let Err(error) = open_hud_window(app) {
+            eprintln!("{error}");
+        }
         let _ = app.emit("moneysiren://tray-action", action_id);
         return;
     }
@@ -381,6 +399,11 @@ fn open_dashboard_url_external(url: String) -> Result<(), String> {
     };
 
     open_external_url(target_url)
+}
+
+#[tauri::command]
+fn show_hud_window(app: AppHandle) -> Result<(), String> {
+    open_hud_window(&app)
 }
 
 fn sanitize_dashboard_route_path(url_path: &str) -> Option<&str> {
@@ -448,11 +471,11 @@ fn open_external_url(url: &str) -> Result<(), String> {
         .map_err(|error| format!("Failed to open dashboard route in browser: {error}"))
 }
 
-fn open_hud_window(app: &AppHandle) {
+fn open_hud_window(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("moneysiren-hud") {
-        let _ = window.show();
-        let _ = window.set_focus();
-        return;
+        window.show().map_err(|error| format!("Failed to show HUD window: {error}"))?;
+        window.set_focus().map_err(|error| format!("Failed to focus HUD window: {error}"))?;
+        return Ok(());
     }
 
     let url = format!(
@@ -460,9 +483,9 @@ fn open_hud_window(app: &AppHandle) {
         dashboard_base_url(),
         current_locale().code()
     );
-    let Ok(parsed_url) = url.parse() else {
-        return;
-    };
+    let parsed_url = url
+        .parse()
+        .map_err(|error| format!("Failed to parse HUD URL {url}: {error}"))?;
 
     let saved_state = read_hud_window_state(app);
     let mut builder =
@@ -484,12 +507,13 @@ fn open_hud_window(app: &AppHandle) {
         builder = builder.position(state.x as f64, state.y as f64);
     }
 
-    let Ok(window) = builder.build() else {
-        return;
-    };
+    let window = builder
+        .build()
+        .map_err(|error| format!("Failed to build HUD window: {error}"))?;
 
     attach_hud_window_state_listener(app, &window);
-    let _ = window.set_focus();
+    window.set_focus().map_err(|error| format!("Failed to focus HUD window: {error}"))?;
+    Ok(())
 }
 
 fn attach_hud_window_state_listener(app: &AppHandle, window: &WebviewWindow) {

@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { AppShell, type ServiceNavItem } from "../../components/AppShell";
-import { getMessages, isLocale, type Locale } from "../../lib/i18n";
+import { LOCALES, getMessages, isLocale, type Locale } from "../../lib/i18n";
 import { readDashboardSnapshot } from "../../lib/dashboard-data";
+import { readWebNotificationPreferences } from "../../lib/local-notification-model";
 import { resolveDashboardTimezone } from "../../lib/operations-data";
 import {
   CONNECTABLE_PROVIDER_KEYS,
@@ -19,7 +20,7 @@ interface LocaleLayoutProps {
 }
 
 export function generateStaticParams() {
-  return [{ locale: "ko" }, { locale: "en" }, { locale: "ja" }];
+  return LOCALES.map((locale) => ({ locale }));
 }
 
 export const dynamic = "force-dynamic";
@@ -34,10 +35,19 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
   const locale = rawLocale as Locale;
   const messages = getMessages(locale);
   const timezone = resolveDashboardTimezone();
-  const serviceNavItems = await readSavedServiceNavItems();
+  const [serviceNavItems, notificationPreferences] = await Promise.all([
+    readSavedServiceNavItems(),
+    readWebNotificationPreferences(),
+  ]);
 
   return (
-    <AppShell locale={locale} messages={messages} serviceNavItems={serviceNavItems} timezone={timezone}>
+    <AppShell
+      desktopEnabled={notificationPreferences.desktopEnabled}
+      locale={locale}
+      messages={messages}
+      serviceNavItems={serviceNavItems}
+      timezone={timezone}
+    >
       {children}
     </AppShell>
   );

@@ -1,6 +1,27 @@
-export const LOCALES = ["ko", "en", "ja"] as const;
+const BASE_LOCALES = ["ko", "en", "ja"] as const;
+
+export const LOCALES = ["ko", "en", "ja", "zh", "es", "fr", "de"] as const;
+
+export const LOCALE_OPTIONS = [
+  { locale: "ko", iconSrc: "/flags/kr.svg", label: "한국어" },
+  { locale: "en", iconSrc: "/flags/us.svg", label: "English" },
+  { locale: "ja", iconSrc: "/flags/jp.svg", label: "日本語" },
+  { locale: "zh", iconSrc: "/flags/cn.svg", label: "中文" },
+  { locale: "es", iconSrc: "/flags/es.svg", label: "Español" },
+  { locale: "fr", iconSrc: "/flags/fr.svg", label: "Français" },
+  { locale: "de", iconSrc: "/flags/de.svg", label: "Deutsch" },
+] as const;
 
 export type Locale = (typeof LOCALES)[number];
+type BaseLocale = (typeof BASE_LOCALES)[number];
+type AddedLocale = Exclude<Locale, BaseLocale>;
+type DeepPartial<T> = {
+  [Key in keyof T]?: T[Key] extends Record<string, string>
+    ? Partial<T[Key]>
+    : T[Key] extends object
+      ? DeepPartial<T[Key]>
+      : T[Key];
+};
 
 export interface Messages {
   app: {
@@ -17,6 +38,7 @@ export interface Messages {
     dashboard: string;
     services: string;
     settings: string;
+    hud: string;
     overview: string;
     today: string;
     forecast: string;
@@ -189,6 +211,9 @@ export interface Messages {
     hudWidgetsTitle: string;
     hudWidgetsSubtitle: string;
     hudOpenWindow: string;
+    hudBrowserPreviewOpened: string;
+    hudDesktopUnavailable: string;
+    hudDesktopOpenRequested: string;
     testNotification: string;
     testNotificationSent: string;
     notificationLocalOnly: string;
@@ -354,7 +379,7 @@ export interface Messages {
   };
 }
 
-export const messages = {
+const baseMessages = {
   en: {
     app: {
       title: "MoneySiren",
@@ -370,6 +395,7 @@ export const messages = {
       dashboard: "Dashboard",
       services: "Services",
       settings: "Settings",
+      hud: "HUD",
       overview: "Dashboard",
       today: "Today Live",
       forecast: "Forecast",
@@ -542,6 +568,9 @@ export const messages = {
       hudWidgetsTitle: "HUD items",
       hudWidgetsSubtitle: "Choose exactly what stays visible in the floating HUD.",
       hudOpenWindow: "Open HUD window",
+      hudBrowserPreviewOpened: "Opened a browser HUD preview.",
+      hudDesktopUnavailable: "Desktop HUD runtime is not available in this session.",
+      hudDesktopOpenRequested: "Requested the desktop HUD window.",
       testNotification: "Test notification",
       testNotificationSent: "Preview generated",
       notificationLocalOnly: "Local preview only. No webhook or provider call is sent; the installed desktop app can consume the same digest.",
@@ -753,6 +782,7 @@ export const messages = {
       dashboard: "대시보드",
       services: "서비스",
       settings: "설정",
+      hud: "HUD",
       overview: "대시보드",
       today: "오늘 실시간",
       forecast: "예상",
@@ -925,6 +955,9 @@ export const messages = {
       hudWidgetsTitle: "HUD 표시 항목",
       hudWidgetsSubtitle: "떠 있는 HUD에 계속 보여줄 항목을 고릅니다.",
       hudOpenWindow: "HUD 창 열기",
+      hudBrowserPreviewOpened: "브라우저 HUD 미리보기를 열었습니다.",
+      hudDesktopUnavailable: "이 세션에서 Desktop HUD 런타임을 찾을 수 없습니다.",
+      hudDesktopOpenRequested: "Desktop HUD 창 열기를 요청했습니다.",
       testNotification: "테스트 알림",
       testNotificationSent: "Preview 생성됨",
       notificationLocalOnly: "로컬 미리보기 전용입니다. webhook이나 provider 호출은 보내지 않고, 설치된 데스크톱 앱이 같은 digest를 읽을 수 있습니다.",
@@ -1136,6 +1169,7 @@ export const messages = {
       dashboard: "ダッシュボード",
       services: "サービス",
       settings: "設定",
+      hud: "HUD",
       overview: "ダッシュボード",
       today: "今日のライブ",
       forecast: "予測",
@@ -1308,6 +1342,9 @@ export const messages = {
       hudWidgetsTitle: "HUD 表示項目",
       hudWidgetsSubtitle: "浮かせた HUD に表示する項目を選びます。",
       hudOpenWindow: "HUD ウィンドウを開く",
+      hudBrowserPreviewOpened: "ブラウザー HUD プレビューを開きました。",
+      hudDesktopUnavailable: "このセッションでは Desktop HUD ランタイムを利用できません。",
+      hudDesktopOpenRequested: "Desktop HUD ウィンドウの表示を要求しました。",
       testNotification: "テスト通知",
       testNotificationSent: "Preview 生成済み",
       notificationLocalOnly: "ローカルプレビュー専用です。webhook や provider 呼び出しは送信せず、インストール済み desktop app が同じ digest を読めます。",
@@ -1504,7 +1541,189 @@ export const messages = {
       noRisks: "ローカルデータにリスクはありません。",
     },
   },
+} satisfies Record<BaseLocale, Messages>;
+
+const addedLocaleMessageOverrides = {
+  zh: {
+    app: {
+      subtitle: "本地费用、用量和健康状态运营面板。",
+      menu: "打开菜单",
+      closeMenu: "关闭菜单",
+      locale: "语言",
+      timezone: "时区",
+      source: "来源",
+      generated: "生成时间",
+    },
+    nav: {
+      dashboard: "仪表盘",
+      services: "服务",
+      settings: "设置",
+      overview: "仪表盘",
+      today: "今日实时",
+      forecast: "预测",
+      risks: "风险",
+      allServices: "全部服务",
+      connections: "连接",
+      notifications: "通知",
+      preferences: "偏好设置",
+      providers: "服务商目录",
+    },
+    settings: {
+      notificationsTitle: "通知",
+      notificationsSubtitle: "选择本地 digest、组件和桌面通知显示的阈值。",
+      desktopAppInfo: "Tray/HUD 应用只读取此本地设置和清理后的 digest 数据，不接收 provider secret。",
+      hudOpenWindow: "打开 HUD 窗口",
+      hudBrowserPreviewOpened: "已打开浏览器 HUD 预览。",
+      hudDesktopUnavailable: "此会话中无法使用 Desktop HUD 运行时。",
+      hudDesktopOpenRequested: "已请求打开 Desktop HUD 窗口。",
+      preferencesTitle: "偏好设置",
+      preferencesSubtitle: "仅管理本地显示设置。",
+    },
+  },
+  es: {
+    app: {
+      subtitle: "Panel local de gasto, uso y estado.",
+      menu: "Abrir menú",
+      closeMenu: "Cerrar menú",
+      locale: "Idioma",
+      timezone: "Zona horaria",
+      source: "Fuente",
+      generated: "Generado",
+    },
+    nav: {
+      dashboard: "Panel",
+      services: "Servicios",
+      settings: "Ajustes",
+      overview: "Panel",
+      today: "Hoy en vivo",
+      forecast: "Previsión",
+      risks: "Riesgos",
+      allServices: "Todos los servicios",
+      connections: "Conexiones",
+      notifications: "Notificaciones",
+      preferences: "Preferencias",
+      providers: "Catálogo de proveedores",
+    },
+    settings: {
+      notificationsTitle: "Notificaciones",
+      notificationsSubtitle: "Elige el digest local, widgets y umbrales para el notifier de escritorio.",
+      desktopAppInfo: "La app Tray/HUD lee esta preferencia local y datos digest saneados. Nunca recibe provider secrets.",
+      hudOpenWindow: "Abrir ventana HUD",
+      hudBrowserPreviewOpened: "Vista previa HUD abierta en el navegador.",
+      hudDesktopUnavailable: "El runtime Desktop HUD no está disponible en esta sesión.",
+      hudDesktopOpenRequested: "Solicitud enviada para abrir la ventana Desktop HUD.",
+      preferencesTitle: "Preferencias",
+      preferencesSubtitle: "Solo ajustes locales de visualización.",
+    },
+  },
+  fr: {
+    app: {
+      subtitle: "Tableau local des coûts, usages et états.",
+      menu: "Ouvrir le menu",
+      closeMenu: "Fermer le menu",
+      locale: "Langue",
+      timezone: "Fuseau horaire",
+      source: "Source",
+      generated: "Généré",
+    },
+    nav: {
+      dashboard: "Tableau",
+      services: "Services",
+      settings: "Réglages",
+      overview: "Tableau",
+      today: "Aujourd'hui",
+      forecast: "Prévision",
+      risks: "Risques",
+      allServices: "Tous les services",
+      connections: "Connexions",
+      notifications: "Notifications",
+      preferences: "Préférences",
+      providers: "Catalogue fournisseurs",
+    },
+    settings: {
+      notificationsTitle: "Notifications",
+      notificationsSubtitle: "Choisissez le digest local, les widgets et les seuils du notifier desktop.",
+      desktopAppInfo: "L'app Tray/HUD lit cette préférence locale et des données digest nettoyées. Elle ne reçoit jamais de provider secrets.",
+      hudOpenWindow: "Ouvrir la fenêtre HUD",
+      hudBrowserPreviewOpened: "Aperçu HUD ouvert dans le navigateur.",
+      hudDesktopUnavailable: "Le runtime Desktop HUD n'est pas disponible dans cette session.",
+      hudDesktopOpenRequested: "Demande d'ouverture de la fenêtre Desktop HUD envoyée.",
+      preferencesTitle: "Préférences",
+      preferencesSubtitle: "Réglages d'affichage locaux uniquement.",
+    },
+  },
+  de: {
+    app: {
+      subtitle: "Lokales Dashboard für Kosten, Nutzung und Zustand.",
+      menu: "Menü öffnen",
+      closeMenu: "Menü schließen",
+      locale: "Sprache",
+      timezone: "Zeitzone",
+      source: "Quelle",
+      generated: "Erstellt",
+    },
+    nav: {
+      dashboard: "Dashboard",
+      services: "Dienste",
+      settings: "Einstellungen",
+      overview: "Dashboard",
+      today: "Heute live",
+      forecast: "Prognose",
+      risks: "Risiken",
+      allServices: "Alle Dienste",
+      connections: "Verbindungen",
+      notifications: "Benachrichtigungen",
+      preferences: "Voreinstellungen",
+      providers: "Provider-Katalog",
+    },
+    settings: {
+      notificationsTitle: "Benachrichtigungen",
+      notificationsSubtitle: "Wähle lokalen Digest, Widgets und Grenzwerte für den Desktop-Notifier.",
+      desktopAppInfo: "Die Tray/HUD-App liest diese lokale Einstellung und bereinigte Digest-Daten. Sie erhält keine provider secrets.",
+      hudOpenWindow: "HUD-Fenster öffnen",
+      hudBrowserPreviewOpened: "Browser-HUD-Vorschau geöffnet.",
+      hudDesktopUnavailable: "Desktop HUD Runtime ist in dieser Sitzung nicht verfügbar.",
+      hudDesktopOpenRequested: "Desktop HUD-Fenster wurde angefordert.",
+      preferencesTitle: "Voreinstellungen",
+      preferencesSubtitle: "Nur lokale Anzeigeeinstellungen.",
+    },
+  },
+} satisfies Record<AddedLocale, DeepPartial<Messages>>;
+
+export const messages = {
+  ...baseMessages,
+  zh: mergeMessages(baseMessages.en, addedLocaleMessageOverrides.zh),
+  es: mergeMessages(baseMessages.en, addedLocaleMessageOverrides.es),
+  fr: mergeMessages(baseMessages.en, addedLocaleMessageOverrides.fr),
+  de: mergeMessages(baseMessages.en, addedLocaleMessageOverrides.de),
 } satisfies Record<Locale, Messages>;
+
+function mergeMessages(base: Messages, overrides: DeepPartial<Messages>): Messages {
+  return mergeRecord(base, overrides);
+}
+
+function mergeRecord<T extends object>(base: T, overrides: DeepPartial<T>): T {
+  const result = { ...base } as Record<string, unknown>;
+  const baseRecord = base as Record<string, unknown>;
+
+  for (const [key, overrideValue] of Object.entries(overrides as Record<string, unknown>)) {
+    if (overrideValue === undefined) {
+      continue;
+    }
+
+    const baseValue = baseRecord[key];
+
+    result[key] = isRecord(baseValue) && isRecord(overrideValue)
+      ? mergeRecord(baseValue, overrideValue as DeepPartial<typeof baseValue>)
+      : overrideValue;
+  }
+
+  return result as T;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 export function isLocale(value: string): value is Locale {
   return LOCALES.includes(value as Locale);

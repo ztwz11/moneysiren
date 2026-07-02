@@ -7,6 +7,8 @@ import { AppLoadingOverlay } from "../../components/AppLoadingOverlay";
 import { HudDashboard, type HudDashboardLabels } from "../../components/HudDashboard";
 import type { CSSProperties } from "react";
 
+type HudDashboardLocale = Extract<Locale, "ko" | "en" | "ja">;
+
 interface HudPageProps {
   searchParams?: Promise<{
     locale?: string | string[];
@@ -136,6 +138,7 @@ function hudLabelModeIconLabel(locale: Locale): string {
 }
 
 function hudLabels(locale: Locale, messages: ReturnType<typeof getMessages>): HudDashboardLabels {
+  const hudLocale: HudDashboardLocale = locale === "ko" || locale === "ja" ? locale : "en";
   const localized = {
     ko: {
       title: "MoneySiren HUD",
@@ -245,9 +248,9 @@ function hudLabels(locale: Locale, messages: ReturnType<typeof getMessages>): Hu
       noExpiry: "No expiry",
       openTarget: "Open detail",
     },
-  } satisfies Record<Locale, HudDashboardLabels>;
+  } satisfies Record<HudDashboardLocale, HudDashboardLabels>;
 
-  return localized[locale];
+  return localized[hudLocale];
 }
 
 async function readLocale(searchParams: HudPageProps["searchParams"]): Promise<Locale> {

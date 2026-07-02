@@ -184,7 +184,7 @@ function parseLocaleHint(value) {
       .replaceAll("_", "-")
       .split("-")[0];
 
-    if (primary === "ko" || primary === "en" || primary === "ja") {
+    if (["ko", "en", "ja", "zh", "es", "fr", "de"].includes(primary)) {
       return primary;
     }
   }

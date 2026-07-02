@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import {
   BellRing,
   Clock3,
-  ExternalLink,
   GalleryHorizontalEnd,
   MonitorCheck,
   Send,
@@ -45,6 +44,8 @@ import {
   buildHudDisplayPreview,
   getHudWidgetDisplayExample,
 } from "../lib/hud-display-options";
+import { dispatchDesktopPreferenceUpdate } from "../lib/desktop-preference-events";
+import { openHudDashboardRoute } from "../lib/hud-navigation";
 
 type SaveState = "idle" | "loading" | "saving" | "saved" | "error";
 type ThresholdCategory = "cost" | "usage";
@@ -98,7 +99,10 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
   const [thresholdSettings, setThresholdSettings] = useState<NotificationThresholdSettings>(
     cloneThresholdSettings(DEFAULT_NOTIFICATION_THRESHOLD_SETTINGS),
   );
+  const [hudOpenPending, setHudOpenPending] = useState(false);
+  const [hudOpenFailed, setHudOpenFailed] = useState(false);
   const [lastPreview, setLastPreview] = useState<string | null>(null);
+  const [hudOpenMessage, setHudOpenMessage] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("loading");
   const [statusMessage, setStatusMessage] = useState(messages.settings.notificationStoredLocally);
   const hudBackgroundNone = hudBackgroundColor === HUD_BACKGROUND_NONE;
@@ -336,7 +340,11 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
             <label className="notification-toggle-card">
               <input
                 checked={desktopEnabled}
-                onChange={(event) => setDesktopEnabled(event.currentTarget.checked)}
+                onChange={(event) => {
+                  const nextDesktopEnabled = event.currentTarget.checked;
+                  setDesktopEnabled(nextDesktopEnabled);
+                  dispatchDesktopPreferenceUpdate(nextDesktopEnabled);
+                }}
                 type="checkbox"
               />
               <span className="toggle-switch" aria-hidden="true" />
@@ -356,12 +364,45 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
               </div>
               <button
                 className="secondary-button notification-hud-open-button"
-                onClick={() => openHudWindow(locale)}
+                disabled={hudOpenPending}
+                onClick={() => {
+                  setHudOpenPending(true);
+                  setHudOpenFailed(false);
+                  setHudOpenMessage(messages.settings.toolLoadingPreparingView);
+                  void openHudWindow(locale, desktopEnabled).then((opened) => {
+                    if (!opened) {
+                      setHudOpenFailed(true);
+                      setHudOpenMessage(messages.settings.hudDesktopUnavailable);
+                      setStatusMessage(messages.settings.hudDesktopUnavailable);
+                      setSaveState("error");
+                      return;
+                    }
+
+                    setHudOpenFailed(false);
+                    setHudOpenMessage(desktopEnabled
+                      ? messages.settings.hudDesktopOpenRequested
+                      : messages.settings.hudBrowserPreviewOpened);
+                  }).finally(() => {
+                    setHudOpenPending(false);
+                  });
+                }}
                 type="button"
               >
-                <ExternalLink aria-hidden="true" size={14} />
+                <MonitorCheck aria-hidden="true" size={14} />
                 <span>{messages.settings.hudOpenWindow}</span>
               </button>
+              {hudOpenMessage === null ? null : (
+                <p
+                  className={
+                    hudOpenFailed
+                      ? "notification-hud-open-status notification-hud-open-status-error"
+                      : "notification-hud-open-status"
+                  }
+                  role="status"
+                >
+                  {hudOpenMessage}
+                </p>
+              )}
               <label className="notification-field">
                 <span className="metric-label">{hudDisplayControlCopy(locale).modeLabel}</span>
                 <select
@@ -661,6 +702,7 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
     setThresholdRules(preferences.thresholdRules.map((rule) => ({ ...rule })));
     setThresholdSettings(cloneThresholdSettings(preferences.thresholdSettings));
     setDesktopEnabled(preferences.desktopEnabled);
+    dispatchDesktopPreferenceUpdate(preferences.desktopEnabled);
     setHudAlwaysOnTop(preferences.hud.alwaysOnTop);
     setHudBackgroundColor(preferences.hud.backgroundColor);
     setHudDisplayMode(preferences.hud.displayMode);
@@ -829,11 +871,11 @@ function buildPreviewMessage(
   return `${messages.notificationWidgets[firstWidget]} / ${digestInterval} / ${quietStart}-${quietEnd}`;
 }
 
-function openHudWindow(locale: Locale) {
-  const url = `/hud?locale=${encodeURIComponent(locale)}`;
-  const opened = window.open(url, "moneysiren-hud", "popup=yes,width=360,height=520,resizable=yes,scrollbars=no");
-
-  opened?.focus();
+function openHudWindow(locale: Locale, desktopEnabled: boolean): Promise<boolean> {
+  return openHudDashboardRoute(`/hud?locale=${encodeURIComponent(locale)}`, {
+    allowBrowserFallback: !desktopEnabled,
+    preopenFallback: !desktopEnabled,
+  });
 }
 
 function ThresholdCategoryPanel({

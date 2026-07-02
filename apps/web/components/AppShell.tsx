@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import {
   BarChart3,
   Bell,
   BellRing,
+  ChevronDown,
   ChevronsLeft,
   CircleHelp,
   Cloud,
@@ -14,6 +15,7 @@ import {
   Home,
   KeyRound,
   Link2,
+  Monitor,
   Share2,
   Settings,
   SlidersHorizontal,
@@ -21,15 +23,21 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  LOCALES,
+  LOCALE_OPTIONS,
   replaceLocale,
   type Locale,
   type Messages,
 } from "../lib/i18n";
 import { AppLoadingOverlay } from "./AppLoadingOverlay";
+import {
+  DESKTOP_PREFERENCE_EVENT,
+  desktopPreferenceFromEvent,
+} from "../lib/desktop-preference-events";
+import { openHudDashboardRoute } from "../lib/hud-navigation";
 
 interface AppShellProps {
   children: ReactNode;
+  desktopEnabled: boolean;
   locale: Locale;
   messages: Messages;
   serviceNavItems: readonly ServiceNavItem[];
@@ -42,7 +50,8 @@ export interface ServiceNavItem {
 }
 
 interface NavItem {
-  href: string;
+  action?: "open-hud";
+  href?: string;
   label: string;
   icon: LucideIcon;
 }
@@ -52,11 +61,39 @@ interface NavGroup {
   items: readonly NavItem[];
 }
 
-export function AppShell({ children, locale, messages, serviceNavItems, timezone }: AppShellProps) {
+export function AppShell({
+  children,
+  desktopEnabled: initialDesktopEnabled,
+  locale,
+  messages,
+  serviceNavItems,
+  timezone,
+}: AppShellProps) {
   const pathname = usePathname();
+  const [desktopEnabled, setDesktopEnabled] = useState(initialDesktopEnabled);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navGroups = buildNavGroups(locale, messages, serviceNavItems);
+
+  useEffect(() => {
+    setDesktopEnabled(initialDesktopEnabled);
+  }, [initialDesktopEnabled]);
+
+  useEffect(() => {
+    const handleDesktopPreference = (event: Event) => {
+      const nextDesktopEnabled = desktopPreferenceFromEvent(event);
+
+      if (nextDesktopEnabled !== null) {
+        setDesktopEnabled(nextDesktopEnabled);
+      }
+    };
+
+    window.addEventListener(DESKTOP_PREFERENCE_EVENT, handleDesktopPreference);
+
+    return () => {
+      window.removeEventListener(DESKTOP_PREFERENCE_EVENT, handleDesktopPreference);
+    };
+  }, []);
 
   return (
     <div className="app-shell" lang={locale}>
@@ -92,7 +129,14 @@ export function AppShell({ children, locale, messages, serviceNavItems, timezone
                 {messages.app.closeMenu}
               </button>
             </div>
-            <Navigation groups={navGroups} pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
+            <Navigation
+              desktopEnabled={desktopEnabled}
+              groups={navGroups}
+              locale={locale}
+              messages={messages}
+              pathname={pathname}
+              onNavigate={() => setDrawerOpen(false)}
+            />
             <ShellFooter locale={locale} messages={messages} pathname={pathname} timezone={timezone} />
           </aside>
         </>
@@ -107,7 +151,13 @@ export function AppShell({ children, locale, messages, serviceNavItems, timezone
               </span>
               <p className="brand-title">{messages.app.title}</p>
             </div>
-            <Navigation groups={navGroups} pathname={pathname} />
+            <Navigation
+              desktopEnabled={desktopEnabled}
+              groups={navGroups}
+              locale={locale}
+              messages={messages}
+              pathname={pathname}
+            />
           </div>
           <ShellFooter
             collapsed={sidebarCollapsed}
@@ -125,11 +175,17 @@ export function AppShell({ children, locale, messages, serviceNavItems, timezone
 }
 
 function Navigation({
+  desktopEnabled,
   groups,
+  locale,
+  messages,
   pathname,
   onNavigate,
 }: {
+  desktopEnabled: boolean;
   groups: readonly NavGroup[];
+  locale: Locale;
+  messages: Messages;
   pathname: string;
   onNavigate?: () => void;
 }) {
@@ -138,14 +194,46 @@ function Navigation({
       {groups.map((group) => (
         <div key={group.label}>
           {group.items.map((item) => {
-            const active = pathname === item.href;
+            const active = item.href !== undefined && pathname === item.href;
             const Icon = item.icon;
+            const key = item.href ?? item.action ?? item.label;
+
+            if (item.action === "open-hud") {
+              return (
+                <button
+                  className="nav-link nav-button"
+                  key={key}
+                  onClick={() => {
+                    void openHudDashboardRoute(`/hud?locale=${encodeURIComponent(locale)}`, {
+                      allowBrowserFallback: !desktopEnabled,
+                      preopenFallback: !desktopEnabled,
+                    }).then((opened) => {
+                      if (!opened) {
+                        window.alert(messages.settings.hudDesktopUnavailable);
+                      }
+                    });
+                    onNavigate?.();
+                  }}
+                  title={item.label}
+                  type="button"
+                >
+                  <span className="nav-link-body">
+                    <Icon aria-hidden="true" size={16} strokeWidth={1.8} />
+                    <span className="nav-link-label">{item.label}</span>
+                  </span>
+                </button>
+              );
+            }
+
+            if (item.href === undefined) {
+              return null;
+            }
 
             return (
               <Link
                 className={active ? "nav-link nav-link-active" : "nav-link"}
                 href={item.href}
-                key={item.href}
+                key={key}
                 {...(onNavigate === undefined ? {} : { onClick: onNavigate })}
               >
                 <span className="nav-link-body">
@@ -177,20 +265,63 @@ function ShellFooter({
   timezone: string;
 }) {
   const preferencesHref = `/${locale}/settings/preferences`;
+  const localeListId = useId();
+  const [localeOpen, setLocaleOpen] = useState(false);
+  const selectedLocaleOption = LOCALE_OPTIONS.find((option) => option.locale === locale) ?? LOCALE_OPTIONS[0];
 
   return (
     <div className="sidebar-footer">
       <div>
-        <div className="locale-switcher" aria-label={messages.app.locale}>
-          {LOCALES.map((nextLocale) => (
-            <Link
-              className={nextLocale === locale ? "locale-link locale-link-active" : "locale-link"}
-              href={replaceLocale(pathname, nextLocale)}
-              key={nextLocale}
-            >
-              {nextLocale.toUpperCase()}
-            </Link>
-          ))}
+        <div
+          className="locale-switcher locale-combobox"
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setLocaleOpen(false);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setLocaleOpen(false);
+            }
+          }}
+        >
+          <button
+            aria-controls={localeListId}
+            aria-expanded={localeOpen}
+            aria-haspopup="listbox"
+            aria-label={messages.app.locale}
+            className="locale-combobox-trigger"
+            onClick={() => setLocaleOpen((current) => !current)}
+            type="button"
+          >
+            <img
+              alt=""
+              aria-hidden="true"
+              className="locale-flag"
+              height={18}
+              src={selectedLocaleOption.iconSrc}
+              width={24}
+            />
+            <span className="locale-label">{selectedLocaleOption.label}</span>
+            <ChevronDown aria-hidden="true" className="locale-combobox-caret" size={14} />
+          </button>
+          {localeOpen ? (
+            <div aria-label={messages.app.locale} className="locale-combobox-menu" id={localeListId} role="listbox">
+              {LOCALE_OPTIONS.map(({ iconSrc, label, locale: nextLocale }) => (
+                <Link
+                  aria-selected={nextLocale === locale}
+                  className={nextLocale === locale ? "locale-option locale-option-active" : "locale-option"}
+                  href={replaceLocale(pathname, nextLocale)}
+                  key={nextLocale}
+                  onClick={() => setLocaleOpen(false)}
+                  role="option"
+                >
+                  <img alt="" aria-hidden="true" className="locale-flag" height={18} src={iconSrc} width={24} />
+                  <span>{label}</span>
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
       <div>
@@ -235,6 +366,7 @@ function buildNavGroups(
       label: messages.nav.dashboard,
       items: [
         { href: `${base}/dashboard/overview`, label: messages.nav.overview, icon: Home },
+        { action: "open-hud", label: messages.nav.hud, icon: Monitor },
         { href: `${base}/dashboard/today`, label: messages.nav.today, icon: BarChart3 },
         { href: `${base}/dashboard/forecast`, label: messages.nav.forecast, icon: WalletCards },
         { href: `${base}/dashboard/risks`, label: messages.nav.risks, icon: Bell },

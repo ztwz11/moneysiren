@@ -1,5 +1,8 @@
+import type { Locale } from "./i18n";
+
 export type ServiceRemediationSeverity = "info" | "warning" | "critical";
-export type ServiceRemediationLocale = "en" | "ko" | "ja";
+export type ServiceRemediationLocale = Locale;
+type ServiceRemediationMessageLocale = Extract<Locale, "en" | "ko" | "ja">;
 
 export interface ServiceRemediationInput {
   providerKey: string;
@@ -51,7 +54,7 @@ interface Labels {
   contactProviderStatus: string;
 }
 
-const LABELS: Record<ServiceRemediationLocale, Labels> = {
+const LABELS: Record<ServiceRemediationMessageLocale, Labels> = {
   en: {
     heading: "Lookup issue and actions",
     noAction: "No action needed",
@@ -97,14 +100,15 @@ export function buildServiceRemediation(
   service: ServiceRemediationInput,
   locale: ServiceRemediationLocale,
 ): ServiceRemediation {
-  const labels = LABELS[locale] ?? LABELS.en;
+  const messageLocale = serviceRemediationMessageLocale(locale);
+  const labels = LABELS[messageLocale];
   const items = dedupeItems([
-    ...connectionItems(service, locale, labels),
-    ...canonicalItems(service, locale, labels),
-    ...liveItems(service, locale, labels),
-    ...healthItems(service, locale, labels),
-    ...usageItems(service, locale, labels),
-    ...riskItems(service, locale, labels),
+    ...connectionItems(service, messageLocale, labels),
+    ...canonicalItems(service, messageLocale, labels),
+    ...liveItems(service, messageLocale, labels),
+    ...healthItems(service, messageLocale, labels),
+    ...usageItems(service, messageLocale, labels),
+    ...riskItems(service, messageLocale, labels),
   ]).sort(compareItems);
 
   return {
@@ -116,7 +120,7 @@ export function buildServiceRemediation(
 }
 
 export function serviceRemediationTableHeader(locale: ServiceRemediationLocale): string {
-  return LABELS[locale]?.tableHeader ?? LABELS.en.tableHeader;
+  return LABELS[serviceRemediationMessageLocale(locale)].tableHeader;
 }
 
 export function serviceRemediationSummary(
@@ -528,7 +532,11 @@ function providerHints(providerKey: string, locale: ServiceRemediationLocale): s
   return [];
 }
 
-function localeFromLabels(labels: Labels): ServiceRemediationLocale {
+function serviceRemediationMessageLocale(locale: ServiceRemediationLocale): ServiceRemediationMessageLocale {
+  return locale === "ko" || locale === "ja" ? locale : "en";
+}
+
+function localeFromLabels(labels: Labels): ServiceRemediationMessageLocale {
   if (labels === LABELS.ko) {
     return "ko";
   }

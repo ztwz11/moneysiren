@@ -10,15 +10,15 @@ The recommended npm app package installs all three surfaces without cloning this
 
 ## Requirements
 
-Use Node.js 20.11 or newer for source-free npm installs.
+Use Node.js 22.13 or newer for source-free npm installs.
 
 Required for `npm install -g @moneysiren/app`:
 
-- Node.js 20.11 or newer.
+- Node.js 22.13 or newer.
 
 Required only for source development:
 
-- Node.js 20.11 or newer.
+- Node.js 22.13 or newer.
 - pnpm 11.5.0 through Corepack.
 - Git.
 - Node.js with the SQLite runtime, or `sqlite3` on `PATH`/`MONEYSIREN_SQLITE_BIN` as a fallback.

@@ -6,7 +6,7 @@ MoneySiren is local-first. The CLI reads configuration and secrets from the proc
 
 ## Requirements
 
-- Node.js 20.11 or newer.
+- Node.js 22.13 or newer.
 - MoneySiren uses the Node SQLite runtime when available. `sqlite3` on `PATH` or `MONEYSIREN_SQLITE_BIN` is an optional fallback.
 - No live provider credentials are required for `moneysiren --version`, `moneysiren doctor`, or `moneysiren sync --provider mock`.
 

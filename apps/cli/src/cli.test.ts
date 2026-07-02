@@ -211,7 +211,7 @@ describe("MoneySiren CLI", () => {
     expect(packageJson.version).toBe(CLI_VERSION);
     expect(packageJson.license).toBe("MIT");
     expect(packageJson.packageManager).toBe("pnpm@11.5.0");
-    expect(packageJson.engines?.node).toBe(">=20.11.0");
+    expect(packageJson.engines?.node).toBe(">=22.13.0");
     expect(packageJson.publishConfig?.access).toBe("public");
     expect(packageJson.dependencies?.["@aws-sdk/client-cost-explorer"]).toBe("^3.1061.0");
     expect(packageJson.bin?.moneysiren).toBe("dist/apps/cli/src/index.js");

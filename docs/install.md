@@ -316,14 +316,14 @@ Bash/zsh:
 WINDOWS_CERTIFICATE_PASSWORD="<pfx-or-p12-password>" npm run release:signing:check -- windows
 ```
 
-Create or update the public release from a tag:
+Create or update the public release with the guarded release script:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+npm run release:public:dry-run
+npm run release:public
 ```
 
-Or run the workflow manually from GitHub Actions with a release tag. If only one signing identity is ready, set `desktop_targets` to `windows` or `macos`; skipped desktop assets are removed from the updated GitHub Release so stale unsigned desktop artifacts do not remain published. The workflow uploads SHA256 checksum files and Windows signature metadata next to the release artifacts when signing is configured.
+`release:public` creates and pushes the annotated `v*` tag after validation. It does not run `npm publish` locally; the tag-push GitHub Actions workflow owns npm publishing and GitHub Release asset creation. If only one signing identity is ready, run the workflow manually from GitHub Actions with `desktop_targets` set to `windows` or `macos`; skipped desktop assets are removed from the updated GitHub Release so stale unsigned desktop artifacts do not remain published. The workflow uploads SHA256 checksum files and Windows signature metadata next to the release artifacts when signing is configured.
 
 Unsigned Windows HUD artifacts are allowed only for explicit prerelease or local smoke review paths. Keep unsigned validation explicit and out of the public `v0.1.0` release:
 

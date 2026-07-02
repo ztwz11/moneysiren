@@ -248,16 +248,23 @@ npm uninstall -g @moneysiren/cli @moneysiren/app
 npm install -g @moneysiren/app --force
 ```
 
-Maintainers can verify and publish the public npm packages from the repository root:
+Maintainers can verify the public npm packages from the repository root:
 
 ```bash
 npm run publish:cli:dry-run
 npm run publish:app:dry-run
-npm run publish:cli:latest
-npm run publish:app:latest
 ```
 
-The dry runs check the full secret scan, npm package metadata, registry version availability, and tarball contents. The publish commands require a local npm login and publish `apps/cli` plus the one-command `apps/app` installer with the `latest` tag and public access. This repository change prepares the release; it does not run npm publish, create a GitHub Release, or create/push `v0.1.0`.
+The dry runs check the full secret scan, npm package metadata, registry version availability, and tarball contents.
+
+For the guarded public release flow, use:
+
+```bash
+npm run release:public:dry-run
+npm run release:public
+```
+
+`release:public` requires a non-prerelease semver such as `0.1.0`, runs the release validation suite, creates the annotated `v*` tag, pushes `main`, and pushes the tag. It does not run `npm publish` locally; tag-push GitHub Actions publish `@moneysiren/cli` and `@moneysiren/app` with the `latest` dist-tag and create the GitHub Release assets. Use `npm run release:public:include-working-tree` only when you intentionally want current local changes included in the release commit.
 
 During an interactive PowerShell, cmd, or shell install, the package asks which local surfaces to enable:
 

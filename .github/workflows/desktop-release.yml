@@ -47,7 +47,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 11.5.0
 
@@ -102,7 +102,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name
         with:
           version: 11.5.0

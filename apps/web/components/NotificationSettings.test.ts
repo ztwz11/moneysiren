@@ -11,6 +11,8 @@ import {
   NOTIFICATION_THRESHOLD_MODES,
   NOTIFICATION_WIDGET_KEYS,
   USAGE_NOTIFICATION_WIDGET_KEYS,
+  parseNonNegativeIntegerInput,
+  parseNonNegativeNumberInput,
 } from "./NotificationSettingsModel";
 
 describe("notification settings defaults", () => {
@@ -68,5 +70,18 @@ describe("notification settings defaults", () => {
       expect(rule.value).toBeGreaterThanOrEqual(0);
       expect(rule.cooldownMinutes).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it("does not coerce invalid threshold input to zero", () => {
+    expect(parseNonNegativeNumberInput("")).toBeNull();
+    expect(parseNonNegativeNumberInput("   ")).toBeNull();
+    expect(parseNonNegativeNumberInput("not-a-number")).toBeNull();
+    expect(parseNonNegativeNumberInput("-1")).toBeNull();
+    expect(parseNonNegativeNumberInput("0")).toBe(0);
+    expect(parseNonNegativeNumberInput("12.5")).toBe(12.5);
+
+    expect(parseNonNegativeIntegerInput("")).toBeNull();
+    expect(parseNonNegativeIntegerInput("-15")).toBeNull();
+    expect(parseNonNegativeIntegerInput("12.7")).toBe(13);
   });
 });

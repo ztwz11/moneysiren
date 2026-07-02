@@ -35,9 +35,13 @@ See [docs/codex-for-open-source.md](docs/codex-for-open-source.md).
 
 ## Current Status
 
-MoneySiren `v0.1.0-alpha.45` is published for local alpha review.
+MoneySiren `v0.1.0-alpha.45` is the latest published alpha for local review.
+The current `main` branch includes unreleased application-readiness
+documentation and notification threshold improvements after that release.
+Package manifests remain at `0.1.0-alpha.45` until the guarded alpha release
+script publishes the next version.
 
-The current alpha supports:
+The published alpha supports:
 
 - CLI-first setup and sync.
 - Local SQLite snapshots.
@@ -427,14 +431,16 @@ docker build --pull=false --target verify -t moneysiren:m10-verify .
 
 ## Validation
 
-Run the local validation gate with:
+Run the local validation gate with the same command set used by CI:
 
 ```bash
-pnpm test
 pnpm typecheck
-git diff --check
+pnpm test
+pnpm build
+pnpm tray:native:check
 npm run secret:scan
 npm run secret:scan:all
+git diff --check
 ```
 
 For documentation-only changes, at minimum run:

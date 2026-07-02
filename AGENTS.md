@@ -121,11 +121,10 @@ Every implementation slice must report:
 - pending risks
 - security impact
 
-## Spec Lock
+## Planning Gate
 
-Do not begin implementation slices until the planning artifacts are reviewed and the verdict is:
+For large feature or security-sensitive changes, produce a short plan first and
+wait for maintainer confirmation when working interactively.
 
-```text
-SPEC_LOCKED: YES
-CODING_LOOP_ALLOWED: YES
-```
+Small documentation, fixture, copy, and test improvements may proceed directly
+if they follow this AGENTS.md and preserve the local-first security model.

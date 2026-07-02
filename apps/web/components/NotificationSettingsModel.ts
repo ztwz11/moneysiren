@@ -36,3 +36,21 @@ export {
   type NotificationWidgetKey,
   type ThresholdOperator,
 } from "../../../packages/view-model/src/notification-preferences-model";
+
+export function parseNonNegativeNumberInput(value: string): number | null {
+  const trimmed = value.trim();
+
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+export function parseNonNegativeIntegerInput(value: string): number | null {
+  const parsed = parseNonNegativeNumberInput(value);
+
+  return parsed === null ? null : Math.round(parsed);
+}

@@ -43,25 +43,38 @@ Use this before submitting MoneySiren to an open-source maintainer support progr
 
 ## Validation
 
-Run before application. In this repository, the npm scripts call the repo-local
-`corepack pnpm` wrapper used on Windows:
+Run before application. Keep this command set aligned with `.github/workflows/ci.yml`:
 
 ```bash
-npm run test
-npm run typecheck
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm tray:native:check
 git diff --check
 npm run secret:scan
 npm run secret:scan:all
 ```
 
-Record results:
+Last verified locally before this cleanup pass:
 
 ```text
-npm run test:             PASS, 18 of 19 workspace projects
-npm run typecheck:        PASS, 18 of 19 workspace projects
-git diff --check:         PASS
-npm run secret:scan:      PASS, 453 files checked
-npm run secret:scan:all:  PASS, 453 files checked and git history checked
+Commit: 471e83b4cae11d0b4fc5f0fcc14435dcc8045a81
+Date: 2026-07-02 KST
+Scope: application-readiness documentation and notification threshold improvements
+```
+
+Record fresh results before submitting the exact commit under review:
+
+```text
+Commit:
+Date:
+pnpm typecheck:
+pnpm test:
+pnpm build:
+pnpm tray:native:check:
+git diff --check:
+npm run secret:scan:
+npm run secret:scan:all:
 ```
 
 ## Application answer checks

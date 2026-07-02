@@ -24,6 +24,8 @@ import {
   NOTIFICATION_THRESHOLD_MODES,
   NOTIFICATION_WIDGET_KEYS,
   USAGE_NOTIFICATION_WIDGET_KEYS,
+  parseNonNegativeIntegerInput,
+  parseNonNegativeNumberInput,
   type DigestInterval,
   type DashboardBudgetPreferences,
   type DashboardWidgetLayoutPreferences,
@@ -799,14 +801,20 @@ function toggleRequiredWidgetSelection(
   return current.length <= 1 ? [...current] : current.filter((item) => item !== widgetKey);
 }
 
-function positiveNumber(value: string): number {
-  const parsed = Number(value);
+function updateNumberInput(value: string, onValidValue: (value: number) => void): void {
+  const parsed = parseNonNegativeNumberInput(value);
 
-  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  if (parsed !== null) {
+    onValidValue(parsed);
+  }
 }
 
-function positiveInteger(value: string): number {
-  return Math.round(positiveNumber(value));
+function updateIntegerInput(value: string, onValidValue: (value: number) => void): void {
+  const parsed = parseNonNegativeIntegerInput(value);
+
+  if (parsed !== null) {
+    onValidValue(parsed);
+  }
 }
 
 function buildPreviewMessage(
@@ -904,7 +912,8 @@ function ThresholdCategoryPanel({
               <input
                 className="notification-input"
                 min="0"
-                onChange={(event) => onAggregateRuleChange({ value: positiveNumber(event.currentTarget.value) })}
+                onChange={(event) =>
+                  updateNumberInput(event.currentTarget.value, (value) => onAggregateRuleChange({ value }))}
                 type="number"
                 value={aggregateRule.value}
               />
@@ -914,7 +923,10 @@ function ThresholdCategoryPanel({
               <input
                 className="notification-input"
                 min="0"
-                onChange={(event) => onAggregateRuleChange({ cooldownMinutes: positiveInteger(event.currentTarget.value) })}
+                onChange={(event) =>
+                  updateIntegerInput(event.currentTarget.value, (cooldownMinutes) =>
+                    onAggregateRuleChange({ cooldownMinutes })
+                  )}
                 step="15"
                 type="number"
                 value={aggregateRule.cooldownMinutes}
@@ -992,7 +1004,10 @@ function ThresholdRulesPanel({
               <input
                 className="notification-input"
                 min="0"
-                onChange={(event) => onRuleChange(index, rule, { value: positiveNumber(event.currentTarget.value) })}
+                onChange={(event) =>
+                  updateNumberInput(event.currentTarget.value, (value) =>
+                    onRuleChange(index, rule, { value })
+                  )}
                 type="number"
                 value={rule.value}
               />
@@ -1002,7 +1017,10 @@ function ThresholdRulesPanel({
               <input
                 className="notification-input"
                 min="0"
-                onChange={(event) => onRuleChange(index, rule, { cooldownMinutes: positiveInteger(event.currentTarget.value) })}
+                onChange={(event) =>
+                  updateIntegerInput(event.currentTarget.value, (cooldownMinutes) =>
+                    onRuleChange(index, rule, { cooldownMinutes })
+                  )}
                 step="15"
                 type="number"
                 value={rule.cooldownMinutes}

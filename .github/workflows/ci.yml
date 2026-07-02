@@ -32,9 +32,9 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
-      - run: pnpm tray:native:check
-      - run: pnpm secret:scan
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - run: npm run tray:native:check
+      - run: npm run secret:scan
       - run: git diff --check

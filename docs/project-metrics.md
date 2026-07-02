@@ -13,15 +13,22 @@ This file should contain factual public project metrics only. Do not inflate or 
 - Local surfaces: CLI, local web dashboard, Tauri tray/HUD
 - Data store: local SQLite snapshots
 - Core safety posture: local-first, read-only connectors, telemetry off by default
-- Validation themes: tests, typecheck, secret scan, release checks
+- Validation themes: tests, typecheck, build, tray native checks, secret scan, release checks
 
-## Public adoption metrics
+## Adoption Metrics
 
-No public adoption metrics are recorded in this repository snapshot.
+MoneySiren should not be described as widely used unless verified public usage
+signals support that claim.
 
-Do not add stars, forks, downloads, external user counts, contributor counts, or
-release metrics unless they are verified from GitHub, npm, or release analytics
-and recorded with a date and source.
+When verified metrics are available, add only factual values with a date and
+source, such as:
+
+- GitHub stars
+- GitHub forks
+- GitHub release downloads
+- npm package downloads
+- known external contributors
+- known external users
 
 ## Suggested honest wording
 

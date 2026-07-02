@@ -434,10 +434,10 @@ docker build --pull=false --target verify -t moneysiren:m10-verify .
 Run the local validation gate with the same command set used by CI:
 
 ```bash
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm tray:native:check
+npm run typecheck
+npm run test
+npm run build
+npm run tray:native:check
 npm run secret:scan
 npm run secret:scan:all
 git diff --check
@@ -446,7 +446,7 @@ git diff --check
 For documentation-only changes, at minimum run:
 
 ```bash
-git diff --check -- README.md docs/install.md
+git diff --check -- README.md docs
 npm run secret:scan
 ```
 

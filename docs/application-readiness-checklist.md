@@ -41,37 +41,29 @@ Use this before submitting MoneySiren to an open-source maintainer support progr
 - [ ] No local prompt text is committed.
 - [ ] No Codex or Claude auth files are committed.
 
-## Validation
+## Validation Results
 
-Run before application. Keep this command set aligned with `.github/workflows/ci.yml`:
+Record results before application submission. Keep this command set aligned with
+`.github/workflows/ci.yml` plus the full-history secret scan used for public
+review:
 
 ```bash
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm tray:native:check
+npm run typecheck
+npm run test
+npm run build
+npm run tray:native:check
 git diff --check
 npm run secret:scan
 npm run secret:scan:all
 ```
 
-Last verified locally before this cleanup pass:
-
-```text
-Commit: 471e83b4cae11d0b4fc5f0fcc14435dcc8045a81
-Date: 2026-07-02 KST
-Scope: application-readiness documentation and notification threshold improvements
-```
-
-Record fresh results before submitting the exact commit under review:
-
 ```text
 Commit:
 Date:
-pnpm typecheck:
-pnpm test:
-pnpm build:
-pnpm tray:native:check:
+npm run typecheck:
+npm run test:
+npm run build:
+npm run tray:native:check:
 git diff --check:
 npm run secret:scan:
 npm run secret:scan:all:

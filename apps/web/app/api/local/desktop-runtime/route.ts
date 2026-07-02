@@ -79,34 +79,40 @@ async function readRequestBody(request: Request): Promise<unknown> {
 
 function startDesktopHudRuntime(options: { dashboardUrl: string; webBaseUrl: string }): void {
   const repoRoot = findRepoRoot(process.cwd());
+  const env = {
+    ...process.env,
+    MONEYSIREN_DESKTOP_MODE: "hud",
+    MONEYSIREN_LOCALE: localeFromUrl(options.dashboardUrl) ?? "en",
+    MONEYSIREN_WEB_URL: options.webBaseUrl,
+  };
+
+  if (desktopTrayMode() === "built") {
+    const executablePath = findBuiltTrayExecutable(repoRoot);
+
+    if (!existsSync(executablePath)) {
+      throw new Error("MoneySiren built desktop runtime was not found.");
+    }
+
+    startDetachedProcess(executablePath, [], repoRoot, env);
+    return;
+  }
+
   const launcherPath = resolve(repoRoot, "tools/scripts/run-web-with-tray.mjs");
 
   if (!existsSync(launcherPath)) {
     throw new Error("MoneySiren desktop runtime launcher was not found.");
   }
 
-  const child = spawn(process.execPath, [
+  startDetachedProcess(process.execPath, [
     launcherPath,
     "--skip-web",
     "--desktop-mode",
     "hud",
     "--tray-mode",
-    desktopTrayMode(),
+    "dev",
     "--dashboard-url",
     options.dashboardUrl,
-  ], {
-    cwd: repoRoot,
-    detached: true,
-    env: {
-      ...process.env,
-      MONEYSIREN_DESKTOP_MODE: "hud",
-      MONEYSIREN_WEB_URL: options.webBaseUrl,
-    },
-    stdio: "ignore",
-    windowsHide: true,
-  });
-
-  child.unref();
+  ], repoRoot, env);
 }
 
 function desktopTrayMode(): "dev" | "built" {
@@ -129,6 +135,57 @@ function findRepoRoot(startDirectory: string): string {
   }
 
   return current;
+}
+
+function findBuiltTrayExecutable(repoRoot: string): string {
+  const releaseDir = resolve(repoRoot, "apps/tray/src-tauri/target/release");
+
+  if (process.platform === "win32") {
+    return resolve(releaseDir, "moneysiren-tray.exe");
+  }
+
+  if (process.platform === "darwin") {
+    const appExecutable = resolve(releaseDir, "bundle/macos/MoneySiren Tray.app/Contents/MacOS/MoneySiren Tray");
+
+    return existsSync(appExecutable) ? appExecutable : resolve(releaseDir, "moneysiren-tray");
+  }
+
+  return resolve(releaseDir, "moneysiren-tray");
+}
+
+function startDetachedProcess(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): void {
+  const child = spawn(command, args, {
+    cwd,
+    detached: true,
+    env,
+    stdio: "ignore",
+    windowsHide: true,
+  });
+
+  child.unref();
+}
+
+function localeFromUrl(value: string): string | null {
+  try {
+    const parsedUrl = new URL(value);
+    const queryLocale = parseLocaleHint(parsedUrl.searchParams.get("locale"));
+
+    if (queryLocale !== null) {
+      return queryLocale;
+    }
+
+    return parseLocaleHint(parsedUrl.pathname.split("/").filter(Boolean)[0]);
+  } catch {
+    return null;
+  }
+}
+
+function parseLocaleHint(value: string | null | undefined): string | null {
+  const primary = value?.trim().toLowerCase().replaceAll("_", "-").split("-")[0];
+
+  return primary !== undefined && ["ko", "en", "ja", "zh", "es", "fr", "de"].includes(primary)
+    ? primary
+    : null;
 }
 
 function sanitizeHudRoutePath(path: string): string | null {

@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 
 vi.mock("node:child_process", () => ({
@@ -8,10 +8,20 @@ vi.mock("node:child_process", () => ({
   })),
 }));
 
+vi.mock("node:fs", () => ({
+  existsSync: vi.fn(() => true),
+}));
+
 const spawnMock = vi.mocked(spawn);
 
 beforeEach(() => {
   spawnMock.mockClear();
+  vi.stubEnv("NODE_ENV", "test");
+  vi.stubEnv("MONEYSIREN_DESKTOP_TRAY_MODE", undefined);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("POST /api/local/desktop-runtime", () => {
@@ -41,6 +51,33 @@ describe("POST /api/local/desktop-runtime", () => {
         windowsHide: true,
         env: expect.objectContaining({
           MONEYSIREN_DESKTOP_MODE: "hud",
+          MONEYSIREN_LOCALE: "ko",
+          MONEYSIREN_WEB_URL: "http://127.0.0.1:3000",
+        }),
+      }),
+    );
+  });
+
+  it("starts the built tray executable directly in release mode", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+
+    const response = await POST(localRequest({
+      body: JSON.stringify({ path: "/hud?locale=fr" }),
+      method: "POST",
+    }));
+
+    expect(response.status).toBe(202);
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+    expect(spawnMock).toHaveBeenCalledWith(
+      expect.not.stringContaining("node"),
+      [],
+      expect.objectContaining({
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true,
+        env: expect.objectContaining({
+          MONEYSIREN_DESKTOP_MODE: "hud",
+          MONEYSIREN_LOCALE: "fr",
           MONEYSIREN_WEB_URL: "http://127.0.0.1:3000",
         }),
       }),

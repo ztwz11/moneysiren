@@ -50,7 +50,7 @@ describe("local SQLite store", () => {
       provider: {
         key: "mock",
         displayName: "Mock Provider",
-        connectorVersion: "0.1.0-alpha.0",
+        connectorVersion: "0.1.0",
       },
       collectedAt: FIXED_NOW,
       status: "ok",
@@ -130,7 +130,7 @@ describe("local SQLite store", () => {
     const provider = {
       key: "mock",
       displayName: "Mock Provider",
-      connectorVersion: "0.1.0-alpha.0",
+      connectorVersion: "0.1.0",
     };
 
     await saveLocalProviderCollection({
@@ -209,7 +209,7 @@ describe("local SQLite store", () => {
       provider: {
         key: "mock",
         displayName: "Mock Provider",
-        connectorVersion: "0.1.0-alpha.0",
+        connectorVersion: "0.1.0",
       },
       collectedAt: FIXED_NOW,
       status: "ok",
@@ -221,7 +221,7 @@ describe("local SQLite store", () => {
       provider: {
         key: "mock",
         displayName: "Mock Provider",
-        connectorVersion: "0.1.0-alpha.0",
+        connectorVersion: "0.1.0",
       },
       collectedAt: "2026-06-02T09:10:00.000Z",
       status: "ok",
@@ -284,7 +284,7 @@ describe("local SQLite store", () => {
       provider: {
         key: "mock",
         displayName: "Mock Provider",
-        connectorVersion: "0.1.0-alpha.0",
+        connectorVersion: "0.1.0",
       },
       collectedAt: FIXED_NOW,
       status: "ok",
@@ -296,7 +296,7 @@ describe("local SQLite store", () => {
       provider: {
         key: "mock",
         displayName: "Mock Provider",
-        connectorVersion: "0.1.0-alpha.0",
+        connectorVersion: "0.1.0",
       },
       collectedAt: "2026-06-02T09:10:00.000Z",
       status: "ok",

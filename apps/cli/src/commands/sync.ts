@@ -218,7 +218,7 @@ async function syncMockProvider(context: CliExecutionContext, configuredDbPath: 
     provider: {
       key: connector.kind,
       displayName: connector.displayName,
-      connectorVersion: "0.1.0-alpha.0",
+      connectorVersion: "0.1.0",
     },
     collectedAt: collection.collectedAt,
     status: collection.status,
@@ -260,7 +260,7 @@ async function syncAwsProvider(
     provider: {
       key: connector.kind,
       displayName: connector.displayName,
-      connectorVersion: "0.1.0-alpha.0",
+      connectorVersion: "0.1.0",
     },
     collectedAt: collection.collectedAt,
     status: collection.status,
@@ -313,7 +313,7 @@ async function syncOpenAiProvider(
     provider: {
       key: connector.kind,
       displayName: connector.displayName,
-      connectorVersion: "0.1.0-alpha.0",
+      connectorVersion: "0.1.0",
     },
     collectedAt: collection.collectedAt,
     status: collection.status,
@@ -386,7 +386,7 @@ async function syncSupabaseProvider(
     provider: {
       key: connector.kind,
       displayName: connector.displayName,
-      connectorVersion: "0.1.0-alpha.0",
+      connectorVersion: "0.1.0",
     },
     collectedAt: collection.collectedAt,
     status: collection.status,
@@ -434,7 +434,7 @@ async function syncCloudflareProvider(
     provider: {
       key: connector.kind,
       displayName: connector.displayName,
-      connectorVersion: "0.1.0-alpha.0",
+      connectorVersion: "0.1.0",
     },
     collectedAt: collection.collectedAt,
     status: collection.status,

@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: moneysiren:0.1.0-alpha-local
+    image: moneysiren:0.1.0-local
     ports:
       - "3000:3000"
     environment:

@@ -325,7 +325,7 @@ function formatSignatureStatus(asset: ReleaseInstallResult["assets"][number]): s
   }
 
   if (asset.signatureStatus === "unsigned-prerelease-accepted") {
-    return "unsigned alpha accepted";
+    return "unsigned prerelease accepted";
   }
 
   return "not required";

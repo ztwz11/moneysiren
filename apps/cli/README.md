@@ -1,6 +1,6 @@
 # MoneySiren CLI
 
-Public alpha packaging metadata for `moneysiren`.
+Public packaging metadata for `moneysiren`.
 
 MoneySiren is local-first. The CLI reads configuration and secrets from the process environment only, writes normalized data to local SQLite, and does not enable telemetry by default.
 
@@ -10,12 +10,12 @@ MoneySiren is local-first. The CLI reads configuration and secrets from the proc
 - MoneySiren uses the Node SQLite runtime when available. `sqlite3` on `PATH` or `MONEYSIREN_SQLITE_BIN` is an optional fallback.
 - No live provider credentials are required for `moneysiren --version`, `moneysiren doctor`, or `moneysiren sync --provider mock`.
 
-## Published Alpha Usage
+## Published Usage
 
 For normal source-free installs, prefer the app package because it downloads the matching Web/HUD release assets during global npm install:
 
 ```bash
-npm install -g @moneysiren/app@alpha
+npm install -g @moneysiren/app
 msiren start
 msiren hud
 ```
@@ -23,7 +23,7 @@ msiren hud
 For CLI-only automation:
 
 ```bash
-npm install -g @moneysiren/cli@alpha
+npm install -g @moneysiren/cli
 moneysiren
 moneysiren --version
 moneysiren /version
@@ -47,14 +47,14 @@ Press Enter to accept the recommended default, which selects all three. In CI or
 One-off execution:
 
 ```bash
-npx --package @moneysiren/cli@alpha moneysiren
-npx --package @moneysiren/cli@alpha moneysiren --version
-npx --package @moneysiren/cli@alpha moneysiren /version
-npx --package @moneysiren/cli@alpha moneysiren modes
-npx --package @moneysiren/cli@alpha moneysiren doctor
-npx --package @moneysiren/cli@alpha moneysiren /doctor
-npx --package @moneysiren/cli@alpha moneysiren dashboard check
-npx --package @moneysiren/cli@alpha moneysiren sync --provider aws --profile <profile>
+npx --package @moneysiren/cli moneysiren
+npx --package @moneysiren/cli moneysiren --version
+npx --package @moneysiren/cli moneysiren /version
+npx --package @moneysiren/cli moneysiren modes
+npx --package @moneysiren/cli moneysiren doctor
+npx --package @moneysiren/cli moneysiren /doctor
+npx --package @moneysiren/cli moneysiren dashboard check
+npx --package @moneysiren/cli moneysiren sync --provider aws --profile <profile>
 ```
 
 `aws sso login --profile <profile>` refreshes AWS SSO credentials, but it does not set `AWS_PROFILE` in the current shell. Pass `--profile <profile>` or export `AWS_PROFILE` before live AWS sync.
@@ -72,10 +72,10 @@ npm pack
 Install the generated tarball into a temporary project:
 
 ```bash
-mkdir -p /tmp/moneysiren-alpha-review
-cd /tmp/moneysiren-alpha-review
+mkdir -p /tmp/moneysiren-release-review
+cd /tmp/moneysiren-release-review
 npm init -y
-npm install /path/to/moneysiren-cli-0.1.0-alpha.45.tgz
+npm install /path/to/moneysiren-cli-0.1.0.tgz
 npm exec moneysiren
 npm exec moneysiren -- --version
 npm exec moneysiren -- /version
@@ -88,10 +88,10 @@ npm exec moneysiren -- dashboard check
 PowerShell equivalent for the temporary project:
 
 ```powershell
-New-Item -ItemType Directory -Force -Path $env:TEMP\moneysiren-alpha-review
-Set-Location $env:TEMP\moneysiren-alpha-review
+New-Item -ItemType Directory -Force -Path $env:TEMP\moneysiren-release-review
+Set-Location $env:TEMP\moneysiren-release-review
 npm init -y
-npm install C:\path\to\moneysiren-cli-0.1.0-alpha.45.tgz
+npm install C:\path\to\moneysiren-cli-0.1.0.tgz
 npm exec moneysiren
 npm exec moneysiren -- --version
 npm exec moneysiren -- modes
@@ -102,16 +102,16 @@ Do not create `.env`, paste real API keys, or write Slack webhook URLs into loca
 
 Live provider sync is read-only and env-only. Use fixture mode for no-credentials review; export live credentials only in the shell for one run.
 
-## Publishing the Alpha
+## Publishing
 
 From the repository root:
 
 ```bash
 npm run publish:cli:dry-run
-npm run publish:cli:alpha
+npm run publish:cli:latest
 ```
 
-The dry run checks the full secret scan, package metadata, npm registry version availability, and tarball contents. The publish command requires `npm login` in the local terminal and publishes this package with the `alpha` tag and public access.
+The dry run checks the full secret scan, package metadata, npm registry version availability, and tarball contents. The publish command requires `npm login` in the local terminal and publishes this package with the `latest` tag and public access.
 
 If npm requires passkey or browser approval, complete the URL printed by npm and rerun the publish command. For CI publishing, add a granular npm token with publish access and bypass 2FA enabled as the `NPM_TOKEN` GitHub repository secret, then run the `npm-publish-cli` workflow manually.
 
@@ -147,7 +147,7 @@ Slash aliases are thin wrappers around the existing CLI commands. Home/help does
 
 - CLI automation from the npm package.
 - Local web dashboard/runtime, with `moneysiren serve` providing the sanitized local API runtime.
-- Desktop tray/notifier status and notification preview commands, while the native Tauri tray binary remains a separate repo/native build artifact for this alpha.
+- Desktop tray/notifier status and notification preview commands, while the native Tauri tray binary remains a separate repo/native build artifact for this initial public local release.
 
 The mode list includes the local install profile selected by npm `postinstall` or `moneysiren install`.
 

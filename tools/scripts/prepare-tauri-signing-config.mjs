@@ -80,7 +80,7 @@ console.log(`Prepared Tauri ${platform} signing config at ${outputPath}`);
 async function writeUnsignedConfig(targetPlatform) {
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(config, null, 2)}\n`);
-  console.log(`Prepared unsigned Tauri ${targetPlatform} alpha config at ${outputPath}`);
+  console.log(`Prepared unsigned Tauri ${targetPlatform} local smoke config at ${outputPath}`);
 }
 
 function parseArgs(values) {

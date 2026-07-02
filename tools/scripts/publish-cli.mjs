@@ -5,12 +5,12 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../..");
-const appRoot = resolve(repoRoot, "apps", "app");
-const packageJsonPath = resolve(appRoot, "package.json");
+const cliRoot = resolve(repoRoot, "apps", "cli");
+const packageJsonPath = resolve(cliRoot, "package.json");
 const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 const shouldPublish = process.argv.includes("--publish");
 const publishOtp = getCliValue("--otp");
-const npmTag = "alpha";
+const npmTag = "latest";
 const npmBin = "npm";
 const npmSpawnOptions = process.platform === "win32" ? { shell: true } : {};
 const npmCache = resolve(repoRoot, ".tmp", "npm-cache");
@@ -42,8 +42,8 @@ if (packageJson.publishConfig?.access !== "public") {
   fail(`${packageJson.name} must publish with public access.`);
 }
 
-if (!packageJson.version.includes("alpha")) {
-  fail(`Refusing to publish ${packageJson.name}@${packageJson.version}; expected an alpha version.`);
+if (/-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(packageJson.version)) {
+  fail(`Refusing to publish ${packageJson.name}@${packageJson.version} to latest; expected a public release version.`);
 }
 
 const existingVersion = spawnSync(npmBin, withNpmCache(["view", `${packageJson.name}@${packageJson.version}`, "version"]), {
@@ -61,25 +61,25 @@ if (!isNpmNotFound(existingVersion)) {
 }
 
 run(npmBin, getPublishArgs({ dryRun: true }), {
-  cwd: appRoot,
+  cwd: cliRoot,
 });
 
 if (!shouldPublish) {
   console.log([
     "",
     `Dry run passed for ${packageJson.name}@${packageJson.version}.`,
-    `Run \`npm run publish:app:alpha\` to publish with tag "${npmTag}".`,
+    `Run \`npm run publish:cli:latest\` to publish with tag "${npmTag}".`,
   ].join("\n"));
   process.exit(0);
 }
 
 run(npmBin, getPublishArgs({ dryRun: false }), {
-  cwd: appRoot,
+  cwd: cliRoot,
   failureMessage: [
     "npm publish failed.",
     "Publishing requires npm account 2FA approval, npm web/passkey authentication, or a granular access token with bypass 2FA enabled.",
     "If npm printed an authentication URL, open it in the browser, complete the approval, and rerun this command.",
-    "If your account has an authenticator OTP, retry with `npm run publish:app:alpha -- --otp=123456` using the current code.",
+    "If your account has an authenticator OTP, retry with `npm run publish:cli:latest -- --otp=123456` using the current code.",
     "For CI, create a granular npm token with publish access and bypass 2FA enabled, then store it only as `NPM_TOKEN` in GitHub Secrets or your shell.",
   ].join("\n"),
 });

@@ -8,8 +8,8 @@ This file should contain factual public project metrics only. Do not inflate or 
 
 - Repository visibility: public
 - License: MIT
-- Current maturity: pre-1.0 alpha
-- Current package channel: alpha
+- Current maturity: pre-1.0 initial public release
+- Current package channel: latest
 - Local surfaces: CLI, local web dashboard, Tauri tray/HUD
 - Data store: local SQLite snapshots
 - Core safety posture: local-first, read-only connectors, telemetry off by default

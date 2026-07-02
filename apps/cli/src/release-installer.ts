@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 
 export const DEFAULT_RELEASE_REPOSITORY = "ztwz11/moneysiren";
 // Keep the source-free installer pinned to the latest published desktop/web release tag.
-export const DEFAULT_RELEASE_TAG = "v0.1.0-alpha.45";
+export const DEFAULT_RELEASE_TAG = "v0.1.0";
 
 export interface ReleaseInstallOptions {
   env?: Record<string, string | undefined>;
@@ -460,7 +460,7 @@ const defaultReleaseAssetSignatureVerifier: ReleaseAssetSignatureVerifier = {
         return {
           verified: true,
           status: "unsigned-prerelease-accepted",
-          message: "Unsigned Windows HUD artifact accepted for alpha prerelease.",
+          message: "Unsigned Windows HUD artifact accepted for prerelease review.",
         };
       }
 

@@ -43,7 +43,7 @@ For a production-style local run from the repository root, use `npm run build:lo
 
 ## Release Artifacts
 
-The repository-level `desktop-release` GitHub Actions workflow builds signed source-free alpha artifacts when the required repository secrets are configured:
+The repository-level `desktop-release` GitHub Actions workflow builds signed source-free local release artifacts when the required repository secrets are configured:
 
 - Windows NSIS installer.
 - macOS notarized `.app` archive.
@@ -67,22 +67,22 @@ Optional repository variables:
 - `WINDOWS_TSP`: set to `true` for RFC 3161 timestamp servers.
 - `APPLE_PROVIDER_SHORT_NAME`: required only when Apple notarization needs an explicit provider.
 
-The desktop app remains a thin native shell in this alpha. It expects the local web runtime to be running on `http://127.0.0.1:3000`; it does not yet embed or auto-start the Next.js dashboard runtime.
+The desktop app remains a thin native shell in this initial public local release. It expects the local web runtime to be running on `http://127.0.0.1:3000`; it does not yet embed or auto-start the Next.js dashboard runtime.
 
 After publishing release assets, validate them from the repository root:
 
 ```bash
 npm run release:signing:encode-windows -- "<path-to-windows-code-signing.pfx>"
 npm run release:signing:check -- windows
-npm run release:check -- v0.1.0-alpha.45
+npm run release:check -- v0.1.0
 ```
 
 The encode helper writes `.tmp/codesign/windows-certificate.base64.txt` for the `WINDOWS_CERTIFICATE` repository secret without printing the private certificate to the terminal. Set `WINDOWS_CERTIFICATE_PASSWORD` in GitHub Secrets and in the local shell before running the signing readiness check. On Windows the release check also rejects installers whose Authenticode signature is missing, invalid, or signed by a different thumbprint than the release metadata. The GitHub Actions workflow can be run with `desktop_targets=windows`, `desktop_targets=macos`, or `desktop_targets=all`. Self-signed certificates are local-smoke-test only and do not fix public Windows publisher trust warnings.
 
-Before signing secrets are ready, an unsigned prerelease can be checked explicitly:
+Before signing secrets are ready, an unsigned prerelease or local smoke build can be checked explicitly:
 
 ```bash
-npm run release:check -- v0.1.0-alpha.45 --allow-unsigned-prerelease-windows
+npm run release:check -- v0.1.0-rc.1 --allow-unsigned-prerelease-windows
 ```
 
 ## Validation

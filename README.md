@@ -35,13 +35,11 @@ See [docs/codex-for-open-source.md](docs/codex-for-open-source.md).
 
 ## Current Status
 
-MoneySiren `v0.1.0-alpha.45` is the latest published alpha for local review.
-The current `main` branch includes unreleased application-readiness
-documentation and notification threshold improvements after that release.
-Package manifests remain at `0.1.0-alpha.45` until the guarded alpha release
-script publishes the next version.
+MoneySiren `v0.1.0` is the initial public local release.
 
-The published alpha supports:
+It provides source-free local installation through `@moneysiren/app`, a CLI-first setup flow, local SQLite snapshots, a local Next.js dashboard, and a Tauri tray/HUD desktop surface. MoneySiren remains early and local-first: provider connectors are read-only, telemetry is off by default, and raw provider payloads or credential material must not be persisted.
+
+The public local release supports:
 
 - CLI-first setup and sync.
 - Local SQLite snapshots.
@@ -54,7 +52,7 @@ The published alpha supports:
 - Local Codex CLI and Claude CLI usage estimates from local logs.
 - Korean daily reports and optional Slack webhook delivery.
 
-The recommended source-free install is `@moneysiren/app@alpha`. It installs the CLI aliases (`moneysiren` and `msiren`) and downloads the matching GitHub Release web runtime plus HUD desktop artifact. Use `@moneysiren/cli@alpha` only for CLI-only automation.
+The recommended source-free install is `@moneysiren/app`. It installs the CLI aliases (`moneysiren` and `msiren`) and downloads the matching GitHub Release web runtime plus HUD desktop artifact. Use `@moneysiren/cli` only for CLI-only automation.
 
 ## Screenshots
 
@@ -188,7 +186,7 @@ MONEYSIREN_CLOUDFLARE_FIXTURE=tests/fixtures/providers/cloudflare/billing-usage.
   pnpm --filter moneysiren dev -- sync --provider cloudflare
 ```
 
-Live connector paths are read-only and env-only in this alpha. Do not create `.env` files or commit live credentials.
+Live connector paths are read-only and env-only in this release. Do not create `.env` files or commit live credentials.
 
 ## CLI Commands
 
@@ -223,18 +221,18 @@ pnpm --filter moneysiren dev -- /report ko
 
 Home/help never creates `.env`, prints secret values, calls provider APIs, or enables telemetry.
 
-## NPM Alpha App Preview
+## NPM App Install
 
-For normal source-free installs, use the app package. During alpha, keep the `@alpha` dist-tag because the unqualified `latest` channel can lag behind prerelease builds:
+For normal source-free installs, use the app package from the `latest` npm channel:
 
 ```bash
-npm install -g @moneysiren/app@alpha
+npm install -g @moneysiren/app
 msiren --version
 msiren start
 msiren hud
 ```
 
-`@moneysiren/app` is the all-in-one package for the CLI, local web dashboard, and HUD. It creates the `moneysiren` and shorter `msiren` global command shims during postinstall, then runs `msiren install --all` during global npm installs so the matching GitHub Release web runtime and HUD artifact are downloaded immediately. The current app package no longer uses npm-managed `bin` aliases, which avoids npm's `EEXIST` bin conflict with older alpha installs.
+`@moneysiren/app` is the all-in-one package for the CLI, local web dashboard, and HUD. It creates the `moneysiren` and shorter `msiren` global command shims during postinstall, then runs `msiren install --all` during global npm installs so the matching GitHub Release web runtime and HUD artifact are downloaded immediately. The current app package no longer uses npm-managed `bin` aliases, which avoids npm's `EEXIST` bin conflict with older prerelease installs.
 
 If Web/HUD asset download cannot complete during postinstall, npm still leaves the command installed. Rerun the asset installer after network or release access is fixed:
 
@@ -247,28 +245,19 @@ If npm reports `EEXIST` for `moneysiren` or `msiren`, remove the older global Mo
 
 ```powershell
 npm uninstall -g @moneysiren/cli @moneysiren/app
-npm install -g @moneysiren/app@alpha --force
+npm install -g @moneysiren/app --force
 ```
 
-Maintainers can verify and publish the alpha npm packages from the repository root:
+Maintainers can verify and publish the public npm packages from the repository root:
 
 ```bash
 npm run publish:cli:dry-run
 npm run publish:app:dry-run
-npm run publish:cli:alpha
-npm run publish:app:alpha
+npm run publish:cli:latest
+npm run publish:app:latest
 ```
 
-The dry runs check the full secret scan, npm package metadata, registry version availability, and tarball contents. The publish commands require a local npm login and publish `apps/cli` plus the one-command `apps/app` installer with the `alpha` tag and public access.
-
-For the full guarded alpha release flow, use:
-
-```bash
-npm run release:alpha:dry-run
-npm run release:alpha
-```
-
-`release:alpha` bumps the next alpha version, runs secret scan/typecheck/tests/build plus npm publish dry-runs, commits the release, pushes `main`, pushes the `v*` tag, waits for GitHub Actions, and verifies npm plus GitHub Release assets. The working tree must be clean by default; use `npm run release:alpha:include-working-tree` only when you intentionally want current local changes included in the release commit. To force a specific version, run `node tools/scripts/release-alpha.mjs --target-version 0.1.0-alpha.45`.
+The dry runs check the full secret scan, npm package metadata, registry version availability, and tarball contents. The publish commands require a local npm login and publish `apps/cli` plus the one-command `apps/app` installer with the `latest` tag and public access. This repository change prepares the release; it does not run npm publish, create a GitHub Release, or create/push `v0.1.0`.
 
 During an interactive PowerShell, cmd, or shell install, the package asks which local surfaces to enable:
 
@@ -280,12 +269,12 @@ Press Enter to accept the recommended default, which selects all three. In CI or
 
 The same source tree supports Windows and macOS. Local config paths and native desktop artifacts are selected per OS. The shared runtime lock defaults to `%APPDATA%\MoneySiren\runtime.json` on Windows and `~/Library/Application Support/MoneySiren/runtime.json` on macOS so the npm CLI and native tray can discover the same local runtime.
 
-## Source-Free Desktop Alpha
+## Source-Free Desktop Release
 
 After a `desktop-release` GitHub Actions run publishes assets, users can review MoneySiren without cloning the repository:
 
 ```bash
-npm install -g @moneysiren/app@alpha
+npm install -g @moneysiren/app
 msiren install --status
 msiren sync --provider mock
 msiren start
@@ -299,7 +288,7 @@ msiren stop
 To install from a specific release tag or into a custom directory:
 
 ```bash
-msiren install --all --tag v0.1.0-alpha.45 --dir ./moneysiren-release
+msiren install --all --tag v0.1.0 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -308,25 +297,25 @@ If the desktop installer was installed to a non-default location, point the CLI 
 MONEYSIREN_DESKTOP_APP="<path-to-installed-MoneySiren-app>" msiren hud
 ```
 
-The desktop shell connects to `http://127.0.0.1:3000` for the dashboard and HUD. In this alpha, the native app still runs as a thin local shell, but the CLI now handles the web runtime startup path.
+The desktop shell connects to `http://127.0.0.1:3000` for the dashboard and HUD. In this initial public local release, the native app still runs as a thin local shell, but the CLI handles the web runtime startup path.
 
 Release maintainers should verify published assets before announcing a desktop build:
 
 ```bash
 npm run release:signing:encode-windows -- "<path-to-windows-code-signing.pfx>"
 npm run release:signing:check -- windows
-npm run release:check -- v0.1.0-alpha.45
+npm run release:check -- v0.1.0
 ```
 
 The encode helper writes the base64 certificate payload to `.tmp/codesign/windows-certificate.base64.txt` so maintainers can set the `WINDOWS_CERTIFICATE` repository secret without printing the private certificate to the terminal. Set `WINDOWS_CERTIFICATE_PASSWORD` to the PFX/P12 password in GitHub Secrets and in the local shell before running the signing readiness check. The signing check verifies local/CI signing inputs before a release run. The release check downloads the published assets, verifies SHA256 entries, requires Windows signature metadata, and validates Windows Authenticode signatures when run on Windows. If only one desktop signing identity is ready, run the `desktop-release` workflow with `desktop_targets=windows` or `desktop_targets=macos`; the publish step removes stale desktop assets for the skipped OS. Self-signed certificates are acceptable only for local smoke tests and do not fix public Windows publisher trust warnings.
 
-Alpha releases can publish unsigned HUD artifacts when signing secrets are not ready. Keep that path explicit in validation:
+Unsigned Windows HUD artifacts are allowed only for explicit prerelease or local smoke review paths. Keep that path out of the public `v0.1.0` release validation:
 
 ```bash
-npm run release:check -- v0.1.0-alpha.45 --allow-unsigned-prerelease-windows
+npm run release:check -- v0.1.0-rc.1 --allow-unsigned-prerelease-windows
 ```
 
-The CLI accepts unsigned HUD artifacts only for prerelease tags such as `alpha`; set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for alpha builds.
+The CLI accepts unsigned HUD artifacts only for prerelease tags such as `alpha`, `beta`, or `rc`; set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
 
 For local tarball review without publishing:
 

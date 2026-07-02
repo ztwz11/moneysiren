@@ -9,10 +9,11 @@ on:
       tag:
         description: "npm dist-tag"
         required: true
-        default: "alpha"
+        default: "latest"
         type: choice
         options:
-          - alpha
+          - latest
+          - next
 
 permissions:
   contents: read
@@ -24,7 +25,7 @@ jobs:
     env:
       NPM_CONFIG_CACHE: ${{ github.workspace }}/.tmp/npm-cache
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      NPM_DIST_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || 'alpha' }}
+      NPM_DIST_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || 'latest' }}
 
     steps:
       - uses: actions/checkout@v4

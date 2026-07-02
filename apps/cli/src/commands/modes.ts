@@ -27,7 +27,7 @@ export async function runModesCommand(args: readonly string[], context: CliExecu
   context.stdout("MoneySiren modes");
   context.stdout(`Platform: ${platformLabel()}`);
   context.stdout(`Install profile: ${formatInstallSurfaces(selectedSurfaces)}${profile === null ? " (recommended default)" : ""}`);
-  context.stdout("npm install: npm install -g @moneysiren/cli@alpha");
+  context.stdout("npm install: npm install -g @moneysiren/app");
   context.stdout("Short command: msiren");
   context.stdout(`Runtime lock: ${runtimeLockHint()}`);
   context.stdout("");

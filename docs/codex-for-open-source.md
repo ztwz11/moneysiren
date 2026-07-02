@@ -61,7 +61,7 @@ Codex support would be used for core open-source maintenance work.
 
 - Review GitHub Actions changes.
 - Validate release scripts.
-- Improve alpha release notes and package verification.
+- Improve public release notes and package verification.
 - Keep source-free install paths documented and testable.
 
 ### 4. Documentation and onboarding

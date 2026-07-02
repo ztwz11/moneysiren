@@ -77,7 +77,7 @@ try {
   writeFileSync(resolve(packageRoot, "README.md"), [
     "# MoneySiren Web Runtime",
     "",
-    "This archive contains the built MoneySiren Next.js dashboard runtime for local alpha review.",
+    "This archive contains the built MoneySiren Next.js dashboard runtime for local release review.",
     "",
     "## Run",
     "",

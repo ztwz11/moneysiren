@@ -20,7 +20,7 @@ A two-minute demo should show:
 ## Suggested script
 
 ```bash
-npm install -g @moneysiren/app@alpha
+npm install -g @moneysiren/app
 msiren --version
 msiren install --status
 msiren sync --provider mock

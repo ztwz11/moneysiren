@@ -50,7 +50,7 @@ Before writing to SQLite, connectors must normalize provider data into explicit 
 
 ## Local Storage
 
-MoneySiren stores alpha data in local SQLite. The default path is `.moneysiren/moneysiren.sqlite`; Docker Compose uses `/data/moneysiren.sqlite` in the `moneysiren_data` volume.
+MoneySiren stores local release data in local SQLite. The default path is `.moneysiren/moneysiren.sqlite`; Docker Compose uses `/data/moneysiren.sqlite` in the `moneysiren_data` volume.
 
 SQLite may contain normalized usage, cost, health, alert, risk, and report run records. Treat local database files as operator data:
 

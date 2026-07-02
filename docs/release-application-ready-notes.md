@@ -1,10 +1,10 @@
-# Application-Ready Alpha Release Notes
+# Application-Ready Release Notes Draft
 
-Use this as a draft for the release notes of an application-ready alpha release.
+Use this as a draft for the release notes of an application-ready public local release.
 
 ## MoneySiren application-readiness update
 
-This alpha improves MoneySiren's public open-source maintainer documentation and safety posture.
+This release improves MoneySiren's public open-source maintainer documentation and safety posture.
 
 ### Added
 
@@ -13,7 +13,7 @@ This alpha improves MoneySiren's public open-source maintainer documentation and
 - `docs/codex-for-open-source.md` explaining MoneySiren's Codex for OSS maintenance plan.
 - `docs/experimental-integrations.md` to separate optional local-only experiments from the core workflow.
 - `docs/provider-connector-test-harness.md` documenting fixture-backed provider connector testing expectations.
-- `docs/roadmap.md` for alpha/beta direction.
+- `docs/roadmap.md` for early project direction.
 - `docs/demo.md` for fake fixture-based demo guidance.
 - Issue templates that warn users not to share secrets or raw provider payloads.
 

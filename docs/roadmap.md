@@ -2,11 +2,11 @@
 
 MoneySiren is early and actively maintained. This roadmap describes intended direction, not a guarantee of dates or scope.
 
-## v0.1 alpha
+## v0.1 initial public local release
 
-Current alpha focus:
+Current v0.1 focus:
 
-- source-free local install through `@moneysiren/app@alpha`;
+- source-free local install through `@moneysiren/app`;
 - local SQLite snapshots;
 - local Next.js dashboard;
 - Tauri tray/HUD;
@@ -18,7 +18,7 @@ Current alpha focus:
 - optional Slack webhook delivery;
 - secret scanning and release validation.
 
-## v0.2 beta
+## v0.2
 
 Planned focus:
 

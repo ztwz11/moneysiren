@@ -1,18 +1,18 @@
 # Windows and macOS Install Guide
 
-MoneySiren is a local-first cloud, SaaS, and AI usage dashboard. The alpha has three local surfaces:
+MoneySiren is a local-first cloud, SaaS, and AI usage dashboard. The initial public local release has three local surfaces:
 
 - CLI automation through `moneysiren` or the shorter `msiren` alias.
 - Local web dashboard through Next.js.
 - Desktop tray/notifier and HUD through the native Tauri shell.
 
-The recommended npm app alpha installs all three surfaces without cloning this repository. It creates the command aliases and downloads source-free alpha artifacts for the built web dashboard runtime and native desktop tray/HUD shell from GitHub Releases.
+The recommended npm app package installs all three surfaces without cloning this repository. It creates the command aliases and downloads source-free local release artifacts for the built web dashboard runtime and native desktop tray/HUD shell from GitHub Releases.
 
 ## Requirements
 
 Use Node.js 20.11 or newer for source-free npm installs.
 
-Required for `npm install -g @moneysiren/app@alpha`:
+Required for `npm install -g @moneysiren/app`:
 
 - Node.js 20.11 or newer.
 
@@ -38,7 +38,7 @@ For normal source-free installs, install the app package with npm.
 Windows PowerShell:
 
 ```powershell
-npm install -g @moneysiren/app@alpha
+npm install -g @moneysiren/app
 msiren --version
 msiren install --status
 msiren modes
@@ -51,7 +51,7 @@ msiren hud
 macOS zsh:
 
 ```bash
-npm install -g @moneysiren/app@alpha
+npm install -g @moneysiren/app
 msiren --version
 msiren install --status
 msiren modes
@@ -66,11 +66,11 @@ During global npm installs, `@moneysiren/app` creates the command aliases and ru
 - `moneysiren`
 - `msiren`
 
-If npm reports `EEXIST` for `moneysiren` or `msiren`, an older alpha `@moneysiren/app` with npm-managed bin aliases may still be installed. Remove the old global packages and reinstall:
+If npm reports `EEXIST` for `moneysiren` or `msiren`, an older prerelease `@moneysiren/app` with npm-managed bin aliases may still be installed. Remove the old global packages and reinstall:
 
 ```powershell
 npm uninstall -g @moneysiren/cli @moneysiren/app
-npm install -g @moneysiren/app@alpha --force
+npm install -g @moneysiren/app --force
 ```
 
 If Web/HUD asset download fails during postinstall, npm still installs the command. Fix network or release access, then rerun:
@@ -80,11 +80,11 @@ msiren install --all
 msiren install --status
 ```
 
-For CLI-only automation, install `@moneysiren/cli@alpha` instead. Run `msiren install --all` only when Web/HUD assets are needed.
+For CLI-only automation, install `@moneysiren/cli` instead. Run `msiren install --all` only when Web/HUD assets are needed.
 
 `msiren modes` should show the selected install profile plus the CLI, local web dashboard/runtime, and desktop tray/notifier surfaces. The same source tree supports Windows and macOS; npm installs the cross-platform command surface, while native tray/HUD artifacts are built per OS.
 
-## Install Desktop Alpha Without Cloning Source
+## Install Desktop Release Without Cloning Source
 
 GitHub Releases publish three source-free artifact types:
 
@@ -95,7 +95,7 @@ GitHub Releases publish three source-free artifact types:
 Install the app package first:
 
 ```bash
-npm install -g @moneysiren/app@alpha
+npm install -g @moneysiren/app
 msiren sync --provider mock
 msiren start
 msiren hud
@@ -103,12 +103,12 @@ msiren hud
 
 `@moneysiren/app` bundles the CLI command and runs `msiren install --all` during global npm installs. That downloads the web runtime archive and the current OS desktop/HUD artifact from GitHub Releases. By default, the files are stored in the MoneySiren local application data directory. `msiren start` extracts and starts the installed web runtime, then opens the local dashboard. `msiren hud` ensures that runtime is running and launches the desktop HUD shell when a runnable desktop app is installed or configured.
 
-For CLI-only automation, install `@moneysiren/cli@alpha` instead and run `msiren install --all` later if Web/HUD assets are needed.
+For CLI-only automation, install `@moneysiren/cli` instead and run `msiren install --all` later if Web/HUD assets are needed.
 
 To pin a release tag or choose a directory:
 
 ```bash
-msiren install --all --tag v0.1.0-alpha.45 --dir ./moneysiren-release
+msiren install --all --tag v0.1.0 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -119,7 +119,7 @@ MONEYSIREN_DESKTOP_APP="<path-to-installed-MoneySiren-app>" msiren hud
 
 The web runtime listens at `http://127.0.0.1:3000` by default. The native shell opens the dashboard and HUD from that local address.
 
-This alpha desktop shell is still a thin local shell. The CLI owns the source-free startup path, while Windows and macOS may warn when using older unsigned alpha artifacts or local unsigned builds.
+This initial public local desktop shell is still a thin local shell. The CLI owns the source-free startup path, while Windows and macOS may warn when using local unsigned builds.
 
 MoneySiren is prepared to use the SignPath Foundation program for open-source Windows code signing. When a Windows Release artifact is signed through the SignPath Foundation, the GitHub Release notes and this install guide will identify that signature path so users can distinguish signed desktop artifacts from local unsigned builds.
 
@@ -278,11 +278,11 @@ npm run build:native
 open "apps/tray/src-tauri/target/release/bundle/macos/MoneySiren Tray.app"
 ```
 
-If macOS blocks the unsigned alpha app, use Finder, right-click the app, and choose Open. Do not use this unsigned build as a distribution artifact.
+If macOS blocks an unsigned local development app, use Finder, right-click the app, and choose Open. Do not use this unsigned build as a distribution artifact.
 
 ## Maintainer Desktop Release
 
-The `desktop-release` GitHub Actions workflow builds source-free alpha assets for GitHub Releases:
+The `desktop-release` GitHub Actions workflow builds source-free local release assets for GitHub Releases:
 
 - Windows NSIS installer from the Windows runner.
 - macOS `.app` archive from the macOS runner.
@@ -316,22 +316,22 @@ Bash/zsh:
 WINDOWS_CERTIFICATE_PASSWORD="<pfx-or-p12-password>" npm run release:signing:check -- windows
 ```
 
-Create or update a prerelease from a tag:
+Create or update the public release from a tag:
 
 ```bash
-git tag v0.1.0-alpha.45
-git push origin v0.1.0-alpha.45
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
 Or run the workflow manually from GitHub Actions with a release tag. If only one signing identity is ready, set `desktop_targets` to `windows` or `macos`; skipped desktop assets are removed from the updated GitHub Release so stale unsigned desktop artifacts do not remain published. The workflow uploads SHA256 checksum files and Windows signature metadata next to the release artifacts when signing is configured.
 
-Alpha releases can publish unsigned HUD artifacts when signing secrets are not ready. Keep unsigned validation explicit:
+Unsigned Windows HUD artifacts are allowed only for explicit prerelease or local smoke review paths. Keep unsigned validation explicit and out of the public `v0.1.0` release:
 
 ```bash
-npm run release:check -- v0.1.0-alpha.45 --allow-unsigned-prerelease-windows
+npm run release:check -- v0.1.0-rc.1 --allow-unsigned-prerelease-windows
 ```
 
-The CLI accepts unsigned HUD artifacts only for prerelease tags such as `alpha`; set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for alpha builds.
+The CLI accepts unsigned HUD artifacts only for prerelease tags such as `alpha`, `beta`, or `rc`; set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
 
 ## English Mock Screenshots
 

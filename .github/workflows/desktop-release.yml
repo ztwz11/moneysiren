@@ -9,7 +9,7 @@ on:
       tag:
         description: "Release tag to create or update"
         required: true
-        default: "v0.1.0-alpha.45"
+        default: "v0.1.0"
       create_release:
         description: "Create/update the GitHub Release and upload assets"
         required: true
@@ -19,7 +19,7 @@ on:
         description: "Mark the GitHub Release as a prerelease"
         required: true
         type: boolean
-        default: true
+        default: false
       desktop_targets:
         description: "Desktop targets to build"
         required: true
@@ -142,12 +142,12 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE)) {
             'WINDOWS_SIGNING_READY=false' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-            Write-Warning 'Missing WINDOWS_CERTIFICATE repository secret. Building unsigned alpha Windows artifact.'
+            Write-Warning 'Missing WINDOWS_CERTIFICATE repository secret. Building unsigned Windows artifact for local smoke review only.'
             exit 0
           }
           if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)) {
             'WINDOWS_SIGNING_READY=false' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-            Write-Warning 'Missing WINDOWS_CERTIFICATE_PASSWORD repository secret. Building unsigned alpha Windows artifact.'
+            Write-Warning 'Missing WINDOWS_CERTIFICATE_PASSWORD repository secret. Building unsigned Windows artifact for local smoke review only.'
             exit 0
           }
 
@@ -182,7 +182,7 @@ jobs:
           set -euo pipefail
           if [ -z "${APPLE_CERTIFICATE:-}" ] || [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ] || [ -z "${KEYCHAIN_PASSWORD:-}" ]; then
             echo "APPLE_SIGNING_READY=false" >> "$GITHUB_ENV"
-            echo "Missing Apple signing secret(s). Building unsigned alpha macOS artifact." >&2
+            echo "Missing Apple signing secret(s). Skipping public macOS release artifact." >&2
             exit 0
           fi
 
@@ -389,6 +389,6 @@ jobs:
             gh release create "$tag" dist/release-assets/* \
               --target "$GITHUB_SHA" \
               --title "MoneySiren ${tag}" \
-              --notes-file docs/release/desktop-alpha-notes.md \
+              --notes-file docs/release/desktop-v0.1.0-notes.md \
               $prerelease_flag
           fi

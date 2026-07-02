@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -42,7 +42,7 @@ if (args[0] === "--workspace-script") {
   }
 }
 
-const result = runCorepackPnpm(pnpmArgs, env);
+const result = runPnpm(pnpmArgs, env);
 
 if (result.error !== undefined) {
   console.error(result.error.message);
@@ -50,13 +50,23 @@ if (result.error !== undefined) {
 }
 
 if (result.signal !== null) {
-  console.error(`corepack pnpm exited from signal ${result.signal}`);
+  console.error(`pnpm exited from signal ${result.signal}`);
   process.exit(1);
 }
 
 process.exit(result.status ?? 1);
 
-function runCorepackPnpm(pnpmArgs, env) {
+function runPnpm(pnpmArgs, env) {
+  const pathPnpm = pnpmFromActionSetup(env);
+
+  if (pathPnpm !== null) {
+    return spawnSync(pathPnpm, pnpmArgs, {
+      cwd: repoRoot,
+      env,
+      stdio: "inherit",
+    });
+  }
+
   if (process.platform === "win32") {
     const commandLine = ["corepack", "pnpm", ...pnpmArgs].map(quoteWindowsArg).join(" ");
 
@@ -72,6 +82,22 @@ function runCorepackPnpm(pnpmArgs, env) {
     env,
     stdio: "inherit",
   });
+}
+
+function pnpmFromActionSetup(env) {
+  if (process.platform === "win32") {
+    return null;
+  }
+
+  const pnpmHome = env.PNPM_HOME?.trim();
+
+  if (pnpmHome === undefined || pnpmHome.length === 0) {
+    return null;
+  }
+
+  const candidate = resolve(pnpmHome, "pnpm");
+
+  return existsSync(candidate) ? candidate : null;
 }
 
 function usesRuntimeWorkspace(args) {

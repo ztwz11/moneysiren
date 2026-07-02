@@ -76,7 +76,7 @@ jobs:
           cd dist/release
           sha256sum moneysiren-web-runtime-*.tar.gz > moneysiren-web-runtime-SHA256SUMS.txt
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: moneysiren-web-runtime
           path: dist/release/*
@@ -332,7 +332,7 @@ jobs:
           xcrun stapler validate "$app_path"
           spctl -a -vv -t exec "$app_path"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name) && (runner.os != 'macOS' || env.APPLE_SIGNING_READY == 'true')
         with:
           name: moneysiren-desktop-${{ matrix.name }}

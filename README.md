@@ -134,7 +134,7 @@ See [docs/security-model.md](docs/security-model.md) and [SECURITY.md](SECURITY.
 
 ## Requirements
 
-- Node.js 20.11 or newer.
+- Node.js 20.19 or newer. The current test/build toolchain depends on Vite/Rolldown packages that require Node 20.19+ or newer LTS releases.
 - pnpm 11.5.0 through Corepack.
 - Git.
 - Node.js SQLite runtime, or `sqlite3` on `PATH` / `MONEYSIREN_SQLITE_BIN` as a fallback.

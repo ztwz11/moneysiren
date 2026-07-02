@@ -37,7 +37,7 @@ export {
   type ThresholdOperator,
 } from "../../../packages/view-model/src/notification-preferences-model";
 
-export function parseNonNegativeNumberInput(value: string): number | null {
+export function parseOptionalNonNegativeNumber(value: string): number | null {
   const trimmed = value.trim();
 
   if (trimmed.length === 0) {
@@ -49,8 +49,8 @@ export function parseNonNegativeNumberInput(value: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-export function parseNonNegativeIntegerInput(value: string): number | null {
-  const parsed = parseNonNegativeNumberInput(value);
+export function parseOptionalNonNegativeInteger(value: string): number | null {
+  const parsed = parseOptionalNonNegativeNumber(value);
 
   return parsed === null ? null : Math.round(parsed);
 }

@@ -24,8 +24,8 @@ import {
   NOTIFICATION_THRESHOLD_MODES,
   NOTIFICATION_WIDGET_KEYS,
   USAGE_NOTIFICATION_WIDGET_KEYS,
-  parseNonNegativeIntegerInput,
-  parseNonNegativeNumberInput,
+  parseOptionalNonNegativeInteger,
+  parseOptionalNonNegativeNumber,
   type DigestInterval,
   type DashboardBudgetPreferences,
   type DashboardWidgetLayoutPreferences,
@@ -802,7 +802,7 @@ function toggleRequiredWidgetSelection(
 }
 
 function updateNumberInput(value: string, onValidValue: (value: number) => void): void {
-  const parsed = parseNonNegativeNumberInput(value);
+  const parsed = parseOptionalNonNegativeNumber(value);
 
   if (parsed !== null) {
     onValidValue(parsed);
@@ -810,7 +810,7 @@ function updateNumberInput(value: string, onValidValue: (value: number) => void)
 }
 
 function updateIntegerInput(value: string, onValidValue: (value: number) => void): void {
-  const parsed = parseNonNegativeIntegerInput(value);
+  const parsed = parseOptionalNonNegativeInteger(value);
 
   if (parsed !== null) {
     onValidValue(parsed);

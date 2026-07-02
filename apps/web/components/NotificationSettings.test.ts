@@ -11,8 +11,8 @@ import {
   NOTIFICATION_THRESHOLD_MODES,
   NOTIFICATION_WIDGET_KEYS,
   USAGE_NOTIFICATION_WIDGET_KEYS,
-  parseNonNegativeIntegerInput,
-  parseNonNegativeNumberInput,
+  parseOptionalNonNegativeInteger,
+  parseOptionalNonNegativeNumber,
 } from "./NotificationSettingsModel";
 
 describe("notification settings defaults", () => {
@@ -73,15 +73,16 @@ describe("notification settings defaults", () => {
   });
 
   it("does not coerce invalid threshold input to zero", () => {
-    expect(parseNonNegativeNumberInput("")).toBeNull();
-    expect(parseNonNegativeNumberInput("   ")).toBeNull();
-    expect(parseNonNegativeNumberInput("not-a-number")).toBeNull();
-    expect(parseNonNegativeNumberInput("-1")).toBeNull();
-    expect(parseNonNegativeNumberInput("0")).toBe(0);
-    expect(parseNonNegativeNumberInput("12.5")).toBe(12.5);
+    expect(parseOptionalNonNegativeNumber("")).toBeNull();
+    expect(parseOptionalNonNegativeNumber("   ")).toBeNull();
+    expect(parseOptionalNonNegativeNumber("not-a-number")).toBeNull();
+    expect(parseOptionalNonNegativeNumber("-1")).toBeNull();
+    expect(parseOptionalNonNegativeNumber("0")).toBe(0);
+    expect(parseOptionalNonNegativeNumber("12.5")).toBe(12.5);
 
-    expect(parseNonNegativeIntegerInput("")).toBeNull();
-    expect(parseNonNegativeIntegerInput("-15")).toBeNull();
-    expect(parseNonNegativeIntegerInput("12.7")).toBe(13);
+    expect(parseOptionalNonNegativeInteger("")).toBeNull();
+    expect(parseOptionalNonNegativeInteger("-15")).toBeNull();
+    expect(parseOptionalNonNegativeInteger("0")).toBe(0);
+    expect(parseOptionalNonNegativeInteger("12.7")).toBe(13);
   });
 });

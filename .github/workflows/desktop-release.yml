@@ -365,15 +365,22 @@ jobs:
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
-          prerelease_flag="--prerelease"
+          release_prerelease="false"
           desktop_targets="all"
+
+          if [[ "$tag" =~ -(alpha|beta|rc)([.-][0-9A-Za-z.-]+)?$ ]]; then
+            release_prerelease="true"
+          fi
 
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
             tag="${DISPATCH_TAG}"
             desktop_targets="${DISPATCH_DESKTOP_TARGETS}"
-            if [ "${DISPATCH_PRERELEASE}" != "true" ]; then
-              prerelease_flag=""
-            fi
+            release_prerelease="${DISPATCH_PRERELEASE}"
+          fi
+
+          prerelease_flag=()
+          if [ "$release_prerelease" = "true" ]; then
+            prerelease_flag=(--prerelease)
           fi
 
           notes_file="docs/release/desktop-${tag}-notes.md"
@@ -382,6 +389,14 @@ jobs:
           fi
 
           if gh release view "$tag" >/dev/null 2>&1; then
+            release_id="$(gh release view "$tag" --json databaseId --jq '.databaseId')"
+            gh api \
+              --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/releases/${release_id}" \
+              -F "prerelease=${release_prerelease}"
+            gh release edit "$tag" \
+              --title "MoneySiren ${tag}" \
+              --notes-file "$notes_file"
             while IFS= read -r asset_name; do
               case "$asset_name" in
                 moneysiren-web-runtime-*.tar.gz|moneysiren-web-runtime-SHA256SUMS.txt|MoneySiren.Tray*.exe|MoneySiren.Tray*.msi|*macos*|moneysiren-tray-windows-SHA256SUMS.txt|moneysiren-tray-windows-SIGNATURE.json|moneysiren-tray-macos-SHA256SUMS.txt)
@@ -395,5 +410,5 @@ jobs:
               --target "$GITHUB_SHA" \
               --title "MoneySiren ${tag}" \
               --notes-file "$notes_file" \
-              $prerelease_flag
+              "${prerelease_flag[@]}"
           fi

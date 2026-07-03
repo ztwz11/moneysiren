@@ -794,7 +794,8 @@ async function resolveDesktopExecutable(context: CliExecutionContext): Promise<R
       status: "unavailable",
       reason: "No installed HUD desktop artifact was found.",
       guidance: [
-        "Install the desktop artifact first: `msiren install --hud` or `msiren install --all`.",
+        "Install the desktop artifact first: `msiren install --hud`.",
+        "Temporary unsigned Windows HUD smoke testing: `msiren install --hud --allow-unsigned-hud`.",
         "If MoneySiren is already installed, set MONEYSIREN_DESKTOP_APP to the app path.",
       ],
     };

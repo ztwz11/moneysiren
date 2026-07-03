@@ -61,7 +61,7 @@ msiren start
 msiren hud
 ```
 
-During global npm installs, `@moneysiren/app` creates the command aliases and downloads the matching GitHub Release web runtime. Until Windows HUD signing is ready, unsigned HUD artifact installation requires explicit `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` opt-in. The app package creates both command aliases during postinstall:
+During global npm installs, `@moneysiren/app` creates the command aliases and downloads the matching GitHub Release web runtime. Until Windows HUD signing is ready, unsigned HUD artifact installation requires explicit local opt-in with `msiren install --hud --allow-unsigned-hud`. The app package creates both command aliases during postinstall:
 
 - `moneysiren`
 - `msiren`
@@ -101,14 +101,14 @@ msiren start
 msiren hud
 ```
 
-`@moneysiren/app` bundles the CLI command and downloads the web runtime archive during global npm installs. HUD artifacts remain behind signed release metadata by default; before signing is ready, local testers can opt in with `MONEYSIREN_ALLOW_UNSIGNED_HUD=true`. By default, installed files are stored in the MoneySiren local application data directory. `msiren start` extracts and starts the installed web runtime, then opens the local dashboard. `msiren hud` ensures that runtime is running and launches the desktop HUD shell when a runnable desktop app is installed or configured.
+`@moneysiren/app` bundles the CLI command and downloads the web runtime archive during global npm installs. HUD artifacts remain behind signed release metadata by default; before signing is ready, local testers can opt in with `msiren install --hud --allow-unsigned-hud`. By default, installed files are stored in the MoneySiren local application data directory. `msiren start` extracts and starts the installed web runtime, then opens the local dashboard. `msiren hud` ensures that runtime is running and launches the desktop HUD shell when a runnable desktop app is installed or configured.
 
 For CLI-only automation, install `@moneysiren/cli` instead and run `msiren install --all` later if Web/HUD assets are needed.
 
 To pin a release tag or choose a directory for the web runtime:
 
 ```bash
-msiren install --web --tag v0.1.1 --dir ./moneysiren-release
+msiren install --web --tag v0.1.2 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -334,12 +334,11 @@ npm run release:check -- v0.1.0-rc.1 --allow-unsigned-prerelease-windows
 Before SignPath or another trusted Windows signing path is ready, local HUD smoke testers must opt in explicitly:
 
 ```powershell
-$env:MONEYSIREN_ALLOW_UNSIGNED_HUD = "true"
-msiren install --hud
+msiren install --hud --allow-unsigned-hud
 msiren hud
 ```
 
-This opt-in accepts an unsigned Windows HUD artifact only for the current shell. It does not change public release validation and does not remove Windows publisher warnings. Without the environment variable, public release HUD installs still require Windows signature metadata. For prerelease tags such as `alpha`, `beta`, or `rc`, set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
+This opt-in accepts an unsigned Windows HUD artifact only for that command. It does not change public release validation and does not remove Windows publisher warnings. Without the explicit flag, public release HUD installs still require Windows signature metadata. `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for advanced npm postinstall or CI smoke paths. For prerelease tags such as `alpha`, `beta`, or `rc`, set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
 
 ## English Mock Screenshots
 

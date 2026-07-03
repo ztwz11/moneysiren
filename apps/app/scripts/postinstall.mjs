@@ -28,7 +28,7 @@ if (isGlobal || isTruthy(process.env.MONEYSIREN_APP_INSTALL_GLOBAL_SHIMS)) {
 if (!shouldInstallReleaseAssets()) {
   console.log("MoneySiren app package installed.");
   console.log("Run `msiren install --web` to download the local web dashboard runtime.");
-  console.log("For temporary unsigned HUD smoke testing, set MONEYSIREN_ALLOW_UNSIGNED_HUD=true and run `msiren install --hud`.");
+  console.log("For temporary unsigned HUD smoke testing, run `msiren install --hud --allow-unsigned-hud`.");
   process.exit(0);
 }
 
@@ -38,7 +38,7 @@ if (isTruthy(process.env.MONEYSIREN_ALLOW_UNSIGNED_HUD)) {
   runCliInstall(["install", "--all"]);
 } else {
   console.log("Installing local web dashboard runtime...");
-  console.log("Unsigned Windows HUD artifacts require explicit MONEYSIREN_ALLOW_UNSIGNED_HUD=true opt-in.");
+  console.log("Unsigned Windows HUD artifacts require explicit opt-in after install: `msiren install --hud --allow-unsigned-hud`.");
   runCliInstall(["install", "--web"]);
   runCliInstall(["install", "--all", "--profile-only"]);
 }
@@ -158,7 +158,7 @@ function writeShimFile(filePath, content, executable) {
 function handleAssetInstallFailure(message) {
   console.warn(message);
   console.warn("MoneySiren commands were installed. Retry web asset installation with `msiren install --web` after npm finishes.");
-  console.warn("For temporary unsigned HUD smoke testing, set MONEYSIREN_ALLOW_UNSIGNED_HUD=true and run `msiren install --hud`.");
+  console.warn("For temporary unsigned HUD smoke testing, run `msiren install --hud --allow-unsigned-hud`.");
 
   if (isTruthy(process.env.MONEYSIREN_APP_STRICT_POSTINSTALL)) {
     process.exit(1);

@@ -421,8 +421,8 @@ describe("MoneySiren CLI", () => {
     const stdout = result.stdout.join("\n");
 
     expect(result.exitCode).toBe(0);
-    expect(CLI_VERSION).toBe("0.1.1");
-    expect(stdout).toContain("Release default: ztwz11/moneysiren@v0.1.1.");
+    expect(CLI_VERSION).toBe("0.1.2");
+    expect(stdout).toContain("Release default: ztwz11/moneysiren@v0.1.2.");
   });
 
   it("installs selected release assets from GitHub Releases without storing secrets", async () => {
@@ -555,6 +555,65 @@ describe("MoneySiren CLI", () => {
     expect(result.stderr.join("\n")).toContain("For now, use `moneysiren install --web` to install only the web runtime, or retry after a signed desktop release is published.");
     expect(result.stderr.join("\n")).toContain("Install profile was not changed.");
     await expect(readFile(profilePath, "utf8")).rejects.toThrow();
+  });
+
+  it("allows unsigned Windows HUD installation only through the explicit CLI flag", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
+    const installDir = join(cwd, "release-install");
+    const profilePath = join(cwd, "install-profile.json");
+    const hudAsset = "MoneySiren.Tray_0.1.2_x64-portable.exe";
+    const hudBytes = Buffer.from("fake unsigned hud executable");
+
+    const result = await runCli(
+      ["install", "--hud", "--allow-unsigned-hud", "--dir", installDir, "--tag", "v0.1.2"],
+      {
+        ...testContext(cwd, {
+          MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
+          MONEYSIREN_RELEASE_PLATFORM: "win32",
+        }),
+        fetch: async (input) => {
+          const url = String(input);
+
+          if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.2")) {
+            return Response.json({
+              html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.2",
+              assets: [
+                {
+                  name: hudAsset,
+                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.2/${hudAsset}`,
+                },
+                {
+                  name: "moneysiren-tray-windows-SHA256SUMS.txt",
+                  browser_download_url: "https://github.com/ztwz11/moneysiren/releases/download/v0.1.2/moneysiren-tray-windows-SHA256SUMS.txt",
+                },
+              ],
+            });
+          }
+
+          if (url.endsWith(hudAsset)) {
+            return new Response(hudBytes);
+          }
+
+          if (url.endsWith("SHA256SUMS.txt")) {
+            return new Response(`${testSha256(hudBytes)}  ${hudAsset}\n`);
+          }
+
+          return new Response("missing", {
+            status: 404,
+            statusText: "Not Found",
+          });
+        },
+      },
+    );
+    const profile = JSON.parse(await readFile(profilePath, "utf8")) as {
+      selectedSurfaces?: string[];
+    };
+
+    expect(result.exitCode).toBe(0);
+    expect(profile.selectedSurfaces).toEqual(["hud"]);
+    expect(result.stdout.join("\n")).toContain(`Downloaded hud: ${hudAsset}`);
+    expect(result.stdout.join("\n")).toContain("Signature status: unsigned local smoke opt-in accepted");
+    await expect(readFile(join(installDir, hudAsset), "utf8")).resolves.toBe(hudBytes.toString("utf8"));
   });
 
   it("checks the default dashboard API and accepts the safe empty state", async () => {

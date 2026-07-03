@@ -1,6 +1,6 @@
 [package]
 name = "moneysiren-tray"
-version = "0.1.1"
+version = "0.1.2"
 description = "MoneySiren local desktop tray notifier"
 authors = ["MoneySiren contributors"]
 license = "MIT"

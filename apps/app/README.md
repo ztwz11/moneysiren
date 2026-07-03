@@ -44,15 +44,14 @@ msiren install --status
 
 The Web/HUD artifacts are verified against published SHA256 checksums. Public release Windows HUD artifacts should include signature metadata; unsigned artifacts are for local smoke or prerelease review only.
 
-Temporary Windows HUD smoke testing before release signing is ready requires an explicit shell opt-in:
+Temporary Windows HUD smoke testing before release signing is ready requires an explicit command opt-in:
 
 ```powershell
-$env:MONEYSIREN_ALLOW_UNSIGNED_HUD = "true"
-msiren install --hud
+msiren install --hud --allow-unsigned-hud
 msiren hud
 ```
 
-This does not remove Windows publisher warnings and does not change public release validation.
+This does not remove Windows publisher warnings and does not change public release validation. `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for advanced npm postinstall or CI smoke paths.
 
 For CLI-only automation, install `@moneysiren/cli` instead.
 

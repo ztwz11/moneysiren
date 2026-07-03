@@ -22,16 +22,18 @@ import {
 } from "../release-installer.js";
 
 const INSTALL_USAGE = [
-  "Usage: moneysiren install [--status|--all|--cli|--web|--hud|--no-cli|--no-web|--no-hud] [--profile-only] [--tag <tag>] [--repo <owner/name>] [--dir <path>]",
+  "Usage: moneysiren install [--status|--all|--cli|--web|--hud|--no-cli|--no-web|--no-hud] [--profile-only] [--allow-unsigned-hud] [--tag <tag>] [--repo <owner/name>] [--dir <path>]",
   "",
   "Components:",
   installSelectionHelp(),
   "",
   "Default: all components selected (recommended).",
+  "Temporary Windows HUD smoke testing: pass --allow-unsigned-hud explicitly to accept an unsigned HUD artifact.",
   `Release default: ${DEFAULT_RELEASE_REPOSITORY}@${DEFAULT_RELEASE_TAG}.`,
 ].join("\n");
 
 interface ParsedInstallArgs {
+  allowUnsignedHud: boolean;
   installDir?: string;
   profileOnly: boolean;
   releaseRepository?: string;
@@ -112,6 +114,7 @@ async function selectedSurfacesFromPromptOrDefault(context: CliExecutionContext)
 function parseInstallArgs(args: readonly string[]): ParsedInstallArgs | null {
   if (args.length === 0) {
     return {
+      allowUnsignedHud: false,
       profileOnly: false,
     };
   }
@@ -121,6 +124,7 @@ function parseInstallArgs(args: readonly string[]): ParsedInstallArgs | null {
 
     if (selected !== null) {
       return {
+        allowUnsignedHud: false,
         profileOnly: false,
         selectedSurfaces: selected,
       };
@@ -128,6 +132,7 @@ function parseInstallArgs(args: readonly string[]): ParsedInstallArgs | null {
   }
 
   let explicitIncludes = false;
+  let allowUnsignedHud = false;
   let installDir: string | undefined;
   let profileOnly = false;
   let releaseRepository: string | undefined;
@@ -143,6 +148,11 @@ function parseInstallArgs(args: readonly string[]): ParsedInstallArgs | null {
 
     if (arg === "--profile-only") {
       profileOnly = true;
+      continue;
+    }
+
+    if (arg === "--allow-unsigned-hud") {
+      allowUnsignedHud = true;
       continue;
     }
 
@@ -233,6 +243,7 @@ function parseInstallArgs(args: readonly string[]): ParsedInstallArgs | null {
   }
 
   return {
+    allowUnsignedHud,
     ...(installDir === undefined ? {} : { installDir }),
     profileOnly,
     ...(releaseRepository === undefined ? {} : { releaseRepository }),
@@ -260,7 +271,7 @@ async function installReleaseAssetsForSelection(input: {
   }
 
   return installReleaseAssets({
-    env: input.context.env,
+    env: createReleaseInstallEnv(input.context.env, input.parsed),
     fetchImpl: input.context.fetch,
     ...(input.parsed.installDir === undefined ? {} : { installDir: input.parsed.installDir }),
     now: input.context.now,
@@ -268,6 +279,20 @@ async function installReleaseAssetsForSelection(input: {
     selectedSurfaces: input.selectedSurfaces,
     ...(input.parsed.releaseTag === undefined ? {} : { tag: input.parsed.releaseTag }),
   });
+}
+
+function createReleaseInstallEnv(
+  env: Record<string, string | undefined>,
+  parsed: ParsedInstallArgs,
+): Record<string, string | undefined> {
+  if (!parsed.allowUnsignedHud) {
+    return env;
+  }
+
+  return {
+    ...env,
+    MONEYSIREN_ALLOW_UNSIGNED_HUD: "true",
+  };
 }
 
 async function installReleaseAssetsForSelectionSafely(input: {
@@ -284,7 +309,7 @@ async function installReleaseAssetsForSelectionSafely(input: {
     if (input.selectedSurfaces.includes("hud")) {
       input.context.stderr("The selected HUD desktop artifact must be present, checksummed, and signed before MoneySiren will install it.");
       input.context.stderr("For now, use `moneysiren install --web` to install only the web runtime, or retry after a signed desktop release is published.");
-      input.context.stderr("Temporary local smoke only: set `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` and rerun `moneysiren install --hud` to accept an unsigned HUD artifact explicitly.");
+      input.context.stderr("Temporary local smoke only: rerun `moneysiren install --hud --allow-unsigned-hud` to accept an unsigned HUD artifact explicitly.");
     }
     input.context.stderr("Install profile was not changed.");
     return "failed";

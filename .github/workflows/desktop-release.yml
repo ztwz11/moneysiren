@@ -9,7 +9,7 @@ on:
       tag:
         description: "Release tag to create or update"
         required: true
-        default: "v0.1.0"
+        default: "v0.1.1"
       create_release:
         description: "Create/update the GitHub Release and upload assets"
         required: true
@@ -376,6 +376,11 @@ jobs:
             fi
           fi
 
+          notes_file="docs/release/desktop-${tag}-notes.md"
+          if [ ! -f "$notes_file" ]; then
+            notes_file="docs/release/desktop-v0.1.0-notes.md"
+          fi
+
           if gh release view "$tag" >/dev/null 2>&1; then
             while IFS= read -r asset_name; do
               case "$asset_name" in
@@ -389,6 +394,6 @@ jobs:
             gh release create "$tag" dist/release-assets/* \
               --target "$GITHUB_SHA" \
               --title "MoneySiren ${tag}" \
-              --notes-file docs/release/desktop-v0.1.0-notes.md \
+              --notes-file "$notes_file" \
               $prerelease_flag
           fi

@@ -2,7 +2,7 @@
 
 One-command installer for the MoneySiren initial public local release.
 
-This is the recommended npm package for users who want all three local MoneySiren surfaces: CLI, web dashboard, and HUD. It bundles the MoneySiren CLI entrypoints and, on global npm installs, runs `msiren install --all` to download the local web dashboard runtime and HUD desktop artifacts from the matching GitHub Release.
+This is the recommended npm package for users who want all three local MoneySiren surfaces: CLI, web dashboard, and HUD. It bundles the MoneySiren CLI entrypoints and, on global npm installs, downloads the local web dashboard runtime from the matching GitHub Release. HUD artifacts require signed release metadata by default; unsigned HUD smoke testing requires explicit local opt-in.
 
 ## Install
 
@@ -29,10 +29,10 @@ npm install -g @moneysiren/app --force
 
 Current app packages do not use npm's `bin` field for these aliases, so stale MoneySiren-owned command shims can be replaced during postinstall without tripping npm's bin conflict check.
 
-If Web/HUD asset download fails during postinstall, fix network or release access and rerun:
+If release asset download fails during postinstall, fix network or release access and rerun:
 
 ```bash
-msiren install --all
+msiren install --web
 msiren install --status
 ```
 
@@ -44,11 +44,21 @@ msiren install --status
 
 The Web/HUD artifacts are verified against published SHA256 checksums. Public release Windows HUD artifacts should include signature metadata; unsigned artifacts are for local smoke or prerelease review only.
 
+Temporary Windows HUD smoke testing before release signing is ready requires an explicit shell opt-in:
+
+```powershell
+$env:MONEYSIREN_ALLOW_UNSIGNED_HUD = "true"
+msiren install --hud
+msiren hud
+```
+
+This does not remove Windows publisher warnings and does not change public release validation.
+
 For CLI-only automation, install `@moneysiren/cli` instead.
 
 ## Opt Out
 
-To install only the package command and skip Web/HUD asset download:
+To install only the package command and skip release asset download:
 
 ```bash
 MONEYSIREN_SKIP_APP_POSTINSTALL=1 npm install -g @moneysiren/app

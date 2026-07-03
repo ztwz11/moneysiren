@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 
 export const DEFAULT_RELEASE_REPOSITORY = "ztwz11/moneysiren";
 // Keep the source-free installer pinned to the latest published desktop/web release tag.
-export const DEFAULT_RELEASE_TAG = "v0.1.0";
+export const DEFAULT_RELEASE_TAG = "v0.1.1";
 
 export interface ReleaseInstallOptions {
   env?: Record<string, string | undefined>;
@@ -456,11 +456,15 @@ const defaultReleaseAssetSignatureVerifier: ReleaseAssetSignatureVerifier = {
     }
 
     if (input.expectedSignerThumbprints === undefined || input.expectedSignerThumbprints.length === 0) {
-      if (isUnsignedPrereleaseHudAllowed(input.env, input.tag)) {
+      const unsignedHudAllowance = unsignedHudAllowanceStatus(input.env, input.tag);
+
+      if (unsignedHudAllowance !== null) {
         return {
           verified: true,
-          status: "unsigned-prerelease-accepted",
-          message: "Unsigned Windows HUD artifact accepted for prerelease review.",
+          status: unsignedHudAllowance,
+          message: unsignedHudAllowance === "unsigned-opt-in-accepted"
+            ? "Unsigned Windows HUD artifact accepted by explicit local smoke opt-in."
+            : "Unsigned Windows HUD artifact accepted for prerelease review.",
         };
       }
 
@@ -520,17 +524,19 @@ async function findExpectedSignerThumbprints(input: {
 }
 
 function isVerifiedSignatureStatus(status: string): boolean {
-  return status !== "not-required" && status !== "unsigned-prerelease-accepted";
+  return status !== "not-required" &&
+    status !== "unsigned-prerelease-accepted" &&
+    status !== "unsigned-opt-in-accepted";
 }
 
-function isUnsignedPrereleaseHudAllowed(env: Record<string, string | undefined>, tag: string): boolean {
+function unsignedHudAllowanceStatus(env: Record<string, string | undefined>, tag: string): string | null {
   const configured = env[ALLOW_UNSIGNED_HUD_ENV_KEY]?.trim().toLowerCase();
 
   if (configured !== undefined && configured.length > 0) {
-    return ["1", "true", "yes", "on"].includes(configured);
+    return ["1", "true", "yes", "on"].includes(configured) ? "unsigned-opt-in-accepted" : null;
   }
 
-  return /-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(tag);
+  return /-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(tag) ? "unsigned-prerelease-accepted" : null;
 }
 
 async function verifyWindowsAuthenticodeSignature(

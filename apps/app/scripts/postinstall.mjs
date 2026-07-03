@@ -17,7 +17,7 @@ if (isTruthy(process.env.MONEYSIREN_SKIP_APP_POSTINSTALL)) {
 
 if (!existsSync(cliEntry)) {
   console.warn("MoneySiren app package is missing its bundled CLI entrypoint.");
-  console.warn("Run `msiren install --all` after installation if the command is available.");
+  console.warn("Run `msiren install --web` after installation if the command is available.");
   process.exit(0);
 }
 
@@ -27,30 +27,41 @@ if (isGlobal || isTruthy(process.env.MONEYSIREN_APP_INSTALL_GLOBAL_SHIMS)) {
 
 if (!shouldInstallReleaseAssets()) {
   console.log("MoneySiren app package installed.");
-  console.log("Run `msiren install --all` to download the local web dashboard and HUD artifacts.");
+  console.log("Run `msiren install --web` to download the local web dashboard runtime.");
+  console.log("For temporary unsigned HUD smoke testing, set MONEYSIREN_ALLOW_UNSIGNED_HUD=true and run `msiren install --hud`.");
   process.exit(0);
 }
 
 console.log("MoneySiren app package installed.");
-console.log("Installing local web dashboard and HUD artifacts...");
-
-const result = spawnSync(process.execPath, [cliEntry, "install", "--all"], {
-  cwd: process.env.INIT_CWD || process.cwd(),
-  encoding: "utf8",
-  env: {
-    ...process.env,
-    MONEYSIREN_APP_POSTINSTALL: "1",
-  },
-  stdio: "inherit",
-  windowsHide: true,
-});
-
-if (result.error !== undefined) {
-  handleAssetInstallFailure(`MoneySiren app asset installation failed: ${result.error.message}`);
+if (isTruthy(process.env.MONEYSIREN_ALLOW_UNSIGNED_HUD)) {
+  console.log("Installing local web dashboard and HUD artifacts...");
+  runCliInstall(["install", "--all"]);
+} else {
+  console.log("Installing local web dashboard runtime...");
+  console.log("Unsigned Windows HUD artifacts require explicit MONEYSIREN_ALLOW_UNSIGNED_HUD=true opt-in.");
+  runCliInstall(["install", "--web"]);
+  runCliInstall(["install", "--all", "--profile-only"]);
 }
 
-if (result.status !== 0) {
-  handleAssetInstallFailure("MoneySiren app asset installation failed.");
+function runCliInstall(args) {
+  const result = spawnSync(process.execPath, [cliEntry, ...args], {
+    cwd: process.env.INIT_CWD || process.cwd(),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      MONEYSIREN_APP_POSTINSTALL: "1",
+    },
+    stdio: "inherit",
+    windowsHide: true,
+  });
+
+  if (result.error !== undefined) {
+    handleAssetInstallFailure(`MoneySiren app asset installation failed: ${result.error.message}`);
+  }
+
+  if (result.status !== 0) {
+    handleAssetInstallFailure("MoneySiren app asset installation failed.");
+  }
 }
 
 function installGlobalCommandShims(entrypoint) {
@@ -146,7 +157,8 @@ function writeShimFile(filePath, content, executable) {
 
 function handleAssetInstallFailure(message) {
   console.warn(message);
-  console.warn("MoneySiren commands were installed. Retry release asset installation with `msiren install --all` after npm finishes.");
+  console.warn("MoneySiren commands were installed. Retry web asset installation with `msiren install --web` after npm finishes.");
+  console.warn("For temporary unsigned HUD smoke testing, set MONEYSIREN_ALLOW_UNSIGNED_HUD=true and run `msiren install --hud`.");
 
   if (isTruthy(process.env.MONEYSIREN_APP_STRICT_POSTINSTALL)) {
     process.exit(1);

@@ -284,6 +284,7 @@ async function installReleaseAssetsForSelectionSafely(input: {
     if (input.selectedSurfaces.includes("hud")) {
       input.context.stderr("The selected HUD desktop artifact must be present, checksummed, and signed before MoneySiren will install it.");
       input.context.stderr("For now, use `moneysiren install --web` to install only the web runtime, or retry after a signed desktop release is published.");
+      input.context.stderr("Temporary local smoke only: set `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` and rerun `moneysiren install --hud` to accept an unsigned HUD artifact explicitly.");
     }
     input.context.stderr("Install profile was not changed.");
     return "failed";
@@ -326,6 +327,10 @@ function formatSignatureStatus(asset: ReleaseInstallResult["assets"][number]): s
 
   if (asset.signatureStatus === "unsigned-prerelease-accepted") {
     return "unsigned prerelease accepted";
+  }
+
+  if (asset.signatureStatus === "unsigned-opt-in-accepted") {
+    return "unsigned local smoke opt-in accepted";
   }
 
   return "not required";

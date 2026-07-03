@@ -6,7 +6,7 @@ MoneySiren is a local-first cloud, SaaS, and AI usage dashboard. The initial pub
 - Local web dashboard through Next.js.
 - Desktop tray/notifier and HUD through the native Tauri shell.
 
-The recommended npm app package installs all three surfaces without cloning this repository. It creates the command aliases and downloads source-free local release artifacts for the built web dashboard runtime and native desktop tray/HUD shell from GitHub Releases.
+The recommended npm app package installs the CLI command surface and source-free local web dashboard runtime without cloning this repository. Native desktop tray/HUD artifacts are installed from GitHub Releases when signed metadata is available, or when a local tester explicitly opts in to unsigned HUD smoke testing.
 
 ## Requirements
 
@@ -61,7 +61,7 @@ msiren start
 msiren hud
 ```
 
-During global npm installs, `@moneysiren/app` creates the command aliases and runs `msiren install --all` so the matching GitHub Release web runtime and HUD desktop shell are downloaded immediately. The app package creates both command aliases during postinstall:
+During global npm installs, `@moneysiren/app` creates the command aliases and downloads the matching GitHub Release web runtime. Until Windows HUD signing is ready, unsigned HUD artifact installation requires explicit `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` opt-in. The app package creates both command aliases during postinstall:
 
 - `moneysiren`
 - `msiren`
@@ -73,10 +73,10 @@ npm uninstall -g @moneysiren/cli @moneysiren/app
 npm install -g @moneysiren/app --force
 ```
 
-If Web/HUD asset download fails during postinstall, npm still installs the command. Fix network or release access, then rerun:
+If release asset download fails during postinstall, npm still installs the command. Fix network or release access, then rerun:
 
 ```bash
-msiren install --all
+msiren install --web
 msiren install --status
 ```
 
@@ -101,14 +101,14 @@ msiren start
 msiren hud
 ```
 
-`@moneysiren/app` bundles the CLI command and runs `msiren install --all` during global npm installs. That downloads the web runtime archive and the current OS desktop/HUD artifact from GitHub Releases. By default, the files are stored in the MoneySiren local application data directory. `msiren start` extracts and starts the installed web runtime, then opens the local dashboard. `msiren hud` ensures that runtime is running and launches the desktop HUD shell when a runnable desktop app is installed or configured.
+`@moneysiren/app` bundles the CLI command and downloads the web runtime archive during global npm installs. HUD artifacts remain behind signed release metadata by default; before signing is ready, local testers can opt in with `MONEYSIREN_ALLOW_UNSIGNED_HUD=true`. By default, installed files are stored in the MoneySiren local application data directory. `msiren start` extracts and starts the installed web runtime, then opens the local dashboard. `msiren hud` ensures that runtime is running and launches the desktop HUD shell when a runnable desktop app is installed or configured.
 
 For CLI-only automation, install `@moneysiren/cli` instead and run `msiren install --all` later if Web/HUD assets are needed.
 
-To pin a release tag or choose a directory:
+To pin a release tag or choose a directory for the web runtime:
 
 ```bash
-msiren install --all --tag v0.1.0 --dir ./moneysiren-release
+msiren install --web --tag v0.1.1 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -325,13 +325,21 @@ npm run release:public
 
 `release:public` creates and pushes the annotated `v*` tag after validation. It does not run `npm publish` locally; the tag-push GitHub Actions workflow owns npm publishing and GitHub Release asset creation. If only one signing identity is ready, run the workflow manually from GitHub Actions with `desktop_targets` set to `windows` or `macos`; skipped desktop assets are removed from the updated GitHub Release so stale unsigned desktop artifacts do not remain published. The workflow uploads SHA256 checksum files and Windows signature metadata next to the release artifacts when signing is configured.
 
-Unsigned Windows HUD artifacts are allowed only for explicit prerelease or local smoke review paths. Keep unsigned validation explicit and out of the public `v0.1.0` release:
+Unsigned Windows HUD artifacts are allowed only for explicit prerelease or local smoke review paths. Keep unsigned validation explicit and out of the public release check:
 
 ```bash
 npm run release:check -- v0.1.0-rc.1 --allow-unsigned-prerelease-windows
 ```
 
-The CLI accepts unsigned HUD artifacts only for prerelease tags such as `alpha`, `beta`, or `rc`; set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
+Before SignPath or another trusted Windows signing path is ready, local HUD smoke testers must opt in explicitly:
+
+```powershell
+$env:MONEYSIREN_ALLOW_UNSIGNED_HUD = "true"
+msiren install --hud
+msiren hud
+```
+
+This opt-in accepts an unsigned Windows HUD artifact only for the current shell. It does not change public release validation and does not remove Windows publisher warnings. Without the environment variable, public release HUD installs still require Windows signature metadata. For prerelease tags such as `alpha`, `beta`, or `rc`, set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
 
 ## English Mock Screenshots
 

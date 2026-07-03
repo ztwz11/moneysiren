@@ -301,6 +301,55 @@ describe("MoneySiren release installer", () => {
     await expect(readFile(join(installDir, hudAsset), "utf8")).resolves.toBe(hudBytes.toString("utf8"));
   });
 
+  it("accepts unsigned Windows HUD installers for public releases only with explicit local smoke opt-in", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(cwd, "installed");
+    const hudAsset = "MoneySiren_0.1.0_x64-portable.exe";
+    const hudBytes = Buffer.from("fake unsigned hud executable");
+    const checksum = `${sha256Hex(hudBytes)}  ${hudAsset}\n`;
+
+    const result = await installReleaseAssets({
+      env: {
+        MONEYSIREN_ALLOW_UNSIGNED_HUD: "true",
+      },
+      fetchImpl: async (input) => {
+        const url = String(input);
+
+        if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0")) {
+          return Response.json({
+            html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0",
+            assets: [
+              releaseAsset(hudAsset),
+              releaseAsset("moneysiren-tray-windows-SHA256SUMS.txt"),
+            ],
+          });
+        }
+
+        if (url.endsWith(hudAsset)) {
+          return new Response(hudBytes);
+        }
+
+        if (url.endsWith("SHA256SUMS.txt")) {
+          return new Response(checksum);
+        }
+
+        return new Response("missing", {
+          status: 404,
+          statusText: "Not Found",
+        });
+      },
+      installDir,
+      platform: "win32",
+      selectedSurfaces: ["hud"],
+      tag: "v0.1.0",
+    });
+
+    expect(result.assets).toHaveLength(1);
+    expect(result.assets[0]?.signatureVerified).toBe(false);
+    expect(result.assets[0]?.signatureStatus).toBe("unsigned-opt-in-accepted");
+    await expect(readFile(join(installDir, hudAsset), "utf8")).resolves.toBe(hudBytes.toString("utf8"));
+  });
+
   it("fails unsigned Windows HUD prerelease installs when explicitly disabled", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
     const installDir = join(cwd, "installed");

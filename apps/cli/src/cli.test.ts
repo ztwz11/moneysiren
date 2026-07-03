@@ -421,8 +421,8 @@ describe("MoneySiren CLI", () => {
     const stdout = result.stdout.join("\n");
 
     expect(result.exitCode).toBe(0);
-    expect(CLI_VERSION).toBe("0.1.0");
-    expect(stdout).toContain("Release default: ztwz11/moneysiren@v0.1.0.");
+    expect(CLI_VERSION).toBe("0.1.1");
+    expect(stdout).toContain("Release default: ztwz11/moneysiren@v0.1.1.");
   });
 
   it("installs selected release assets from GitHub Releases without storing secrets", async () => {

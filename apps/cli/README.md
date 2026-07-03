@@ -12,7 +12,7 @@ MoneySiren is local-first. The CLI reads configuration and secrets from the proc
 
 ## Published Usage
 
-For normal source-free installs, prefer the app package because it downloads the matching Web/HUD release assets during global npm install:
+For normal source-free installs, prefer the app package because it downloads the matching web runtime during global npm install. HUD artifacts require signed release metadata by default; before signing is ready, unsigned HUD smoke testing requires explicit local opt-in:
 
 ```bash
 npm install -g @moneysiren/app
@@ -75,7 +75,7 @@ Install the generated tarball into a temporary project:
 mkdir -p /tmp/moneysiren-release-review
 cd /tmp/moneysiren-release-review
 npm init -y
-npm install /path/to/moneysiren-cli-0.1.0.tgz
+npm install /path/to/moneysiren-cli-0.1.1.tgz
 npm exec moneysiren
 npm exec moneysiren -- --version
 npm exec moneysiren -- /version
@@ -91,7 +91,7 @@ PowerShell equivalent for the temporary project:
 New-Item -ItemType Directory -Force -Path $env:TEMP\moneysiren-release-review
 Set-Location $env:TEMP\moneysiren-release-review
 npm init -y
-npm install C:\path\to\moneysiren-cli-0.1.0.tgz
+npm install C:\path\to\moneysiren-cli-0.1.1.tgz
 npm exec moneysiren
 npm exec moneysiren -- --version
 npm exec moneysiren -- modes

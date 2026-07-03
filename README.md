@@ -35,7 +35,7 @@ See [docs/codex-for-open-source.md](docs/codex-for-open-source.md).
 
 ## Current Status
 
-MoneySiren `v0.1.0` is the initial public local release.
+MoneySiren `v0.1.1` is the current public local patch release over the initial `v0.1.0` public local release.
 
 It provides source-free local installation through `@moneysiren/app`, a CLI-first setup flow, local SQLite snapshots, a local Next.js dashboard, and a Tauri tray/HUD desktop surface. MoneySiren remains early and local-first: provider connectors are read-only, telemetry is off by default, and raw provider payloads or credential material must not be persisted.
 
@@ -52,7 +52,7 @@ The public local release supports:
 - Local Codex CLI and Claude CLI usage estimates from local logs.
 - Korean daily reports and optional Slack webhook delivery.
 
-The recommended source-free install is `@moneysiren/app`. It installs the CLI aliases (`moneysiren` and `msiren`) and downloads the matching GitHub Release web runtime plus HUD desktop artifact. Use `@moneysiren/cli` only for CLI-only automation.
+The recommended source-free install is `@moneysiren/app`. It installs the CLI aliases (`moneysiren` and `msiren`) and downloads the matching GitHub Release web runtime. Windows HUD artifacts require signed release metadata by default; before signing is ready, unsigned HUD testing requires explicit local opt-in. Use `@moneysiren/cli` only for CLI-only automation.
 
 ## Screenshots
 
@@ -232,12 +232,12 @@ msiren start
 msiren hud
 ```
 
-`@moneysiren/app` is the all-in-one package for the CLI, local web dashboard, and HUD. It creates the `moneysiren` and shorter `msiren` global command shims during postinstall, then runs `msiren install --all` during global npm installs so the matching GitHub Release web runtime and HUD artifact are downloaded immediately. The current app package no longer uses npm-managed `bin` aliases, which avoids npm's `EEXIST` bin conflict with older prerelease installs.
+`@moneysiren/app` is the all-in-one package for the CLI, local web dashboard, and HUD. It creates the `moneysiren` and shorter `msiren` global command shims during postinstall, then downloads the matching GitHub Release web runtime. Until Windows HUD signing is ready, the global postinstall keeps HUD artifact installation behind explicit `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` opt-in. The current app package no longer uses npm-managed `bin` aliases, which avoids npm's `EEXIST` bin conflict with older prerelease installs.
 
-If Web/HUD asset download cannot complete during postinstall, npm still leaves the command installed. Rerun the asset installer after network or release access is fixed:
+If release asset download cannot complete during postinstall, npm still leaves the command installed. Rerun the web asset installer after network or release access is fixed:
 
 ```bash
-msiren install --all
+msiren install --web
 msiren install --status
 ```
 
@@ -292,10 +292,10 @@ msiren stop
 
 `msiren install --all` stores the selected release assets under the MoneySiren local application data directory by default. `msiren start` extracts and starts the installed web runtime, then opens the local dashboard. `msiren hud` ensures the web runtime is running and opens the desktop HUD shell when a runnable desktop app is installed or configured. `msiren status` shows the managed web, HUD, and local API runtime state. `msiren stop` stops managed runtimes; use `msiren stop --web`, `msiren stop --hud`, or `msiren stop --api` when you only want to stop one surface. `msiren restart` stops the managed web/HUD pair and starts the dashboard again.
 
-To install from a specific release tag or into a custom directory:
+To install the web runtime from a specific release tag or into a custom directory:
 
 ```bash
-msiren install --all --tag v0.1.0 --dir ./moneysiren-release
+msiren install --web --tag v0.1.1 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -311,18 +311,26 @@ Release maintainers should verify published assets before announcing a desktop b
 ```bash
 npm run release:signing:encode-windows -- "<path-to-windows-code-signing.pfx>"
 npm run release:signing:check -- windows
-npm run release:check -- v0.1.0
+npm run release:check -- v0.1.1
 ```
 
 The encode helper writes the base64 certificate payload to `.tmp/codesign/windows-certificate.base64.txt` so maintainers can set the `WINDOWS_CERTIFICATE` repository secret without printing the private certificate to the terminal. Set `WINDOWS_CERTIFICATE_PASSWORD` to the PFX/P12 password in GitHub Secrets and in the local shell before running the signing readiness check. The signing check verifies local/CI signing inputs before a release run. The release check downloads the published assets, verifies SHA256 entries, requires Windows signature metadata, and validates Windows Authenticode signatures when run on Windows. If only one desktop signing identity is ready, run the `desktop-release` workflow with `desktop_targets=windows` or `desktop_targets=macos`; the publish step removes stale desktop assets for the skipped OS. Self-signed certificates are acceptable only for local smoke tests and do not fix public Windows publisher trust warnings.
 
-Unsigned Windows HUD artifacts are allowed only for explicit prerelease or local smoke review paths. Keep that path out of the public `v0.1.0` release validation:
+Unsigned Windows HUD artifacts are allowed only for explicit prerelease or local smoke review paths. Keep that path out of the public release validation:
 
 ```bash
 npm run release:check -- v0.1.0-rc.1 --allow-unsigned-prerelease-windows
 ```
 
-The CLI accepts unsigned HUD artifacts only for prerelease tags such as `alpha`, `beta`, or `rc`; set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
+For temporary local HUD smoke testing before SignPath or another trusted Windows signing path is ready, users must opt in explicitly:
+
+```powershell
+$env:MONEYSIREN_ALLOW_UNSIGNED_HUD = "true"
+msiren install --hud
+msiren hud
+```
+
+This does not change public release validation and does not remove Windows publisher warnings. Without the environment variable, public release HUD installs still require Windows signature metadata. For prerelease tags such as `alpha`, `beta`, or `rc`, set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
 
 For local tarball review without publishing:
 

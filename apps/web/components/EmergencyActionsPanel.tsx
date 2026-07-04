@@ -5,6 +5,10 @@ import {
   type EmergencyActionCandidate,
   type EmergencySafeCommand,
 } from "../lib/emergency-actions";
+import {
+  officialLinksForEmergencyCandidate,
+  type EmergencyOfficialLink,
+} from "../lib/emergency-official-links";
 import type { Locale, Messages } from "../lib/i18n";
 import type { OperationsProvider } from "../lib/operations-data";
 
@@ -22,6 +26,7 @@ export function EmergencyActionsPanel({
   return (
     <div className="stack">
       <p className="muted">{messages.services.emergencyPlanned}</p>
+      <p className="metric-meta">{emergencySafetyCopy(locale)}</p>
       <div className="badge-row">
         <StatusBadge messages={messages} state={plan.emergencyAccessState} />
         <StatusBadge messages={messages} state={plan.emergencyCredentialState} />
@@ -46,7 +51,9 @@ export function EmergencyActionsPanel({
             <EmergencyCandidateCard
               candidate={candidate}
               key={candidate.id}
+              locale={locale}
               messages={messages}
+              provider={provider}
             />
           ))}
         </div>
@@ -60,12 +67,16 @@ export function EmergencyActionsPanel({
 
 function EmergencyCandidateCard({
   candidate,
+  locale,
   messages,
+  provider,
 }: {
   candidate: EmergencyActionCandidate;
+  locale: Locale;
   messages: Messages;
+  provider: OperationsProvider;
 }) {
-  const providerConsoleHref = safeProviderConsoleHref(candidate.providerConsoleHref);
+  const officialLinks = officialLinksForEmergencyCandidate(provider, candidate);
 
   return (
     <article className={`service-remediation-item service-remediation-item-${candidate.severity}`}>
@@ -94,13 +105,30 @@ function EmergencyCandidateCard({
           ))}
         </div>
       </div>
-      {providerConsoleHref === undefined ? null : (
-        <a className="ghost-button" href={providerConsoleHref} rel="noreferrer" target="_blank">
-          <span>{safeCommandLabel(messages, "open_provider_console")}</span>
-          <ExternalLink aria-hidden="true" size={14} />
-        </a>
+      {officialLinks.length === 0 ? null : (
+        <OfficialLinksList links={officialLinks} locale={locale} />
       )}
     </article>
+  );
+}
+
+function OfficialLinksList({ links, locale }: { links: readonly EmergencyOfficialLink[]; locale: Locale }) {
+  return (
+    <div>
+      <div className="metric-label">{officialLinksHeading(locale)}</div>
+      <p className="metric-meta">{officialLinksSafetyCopy(locale)}</p>
+      <div className="setup-link-list">
+        {links.map((link) => (
+          <a className="inline-link" href={link.href} key={link.href} rel="noreferrer" target="_blank">
+            <span>
+              {link.label}
+              <ExternalLink aria-hidden="true" size={12} strokeWidth={1.9} />
+            </span>
+            <span className="metric-meta">{link.description}</span>
+          </a>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -128,12 +156,40 @@ function safeCommandLabel(messages: Messages, command: EmergencySafeCommand): st
   return messages.services.emergencyCommandCopyManualChecklist;
 }
 
-function safeProviderConsoleHref(value: string | undefined): string | undefined {
-  if (value === undefined || !value.startsWith("https://") || value.includes("[REDACTED:")) {
-    return undefined;
+function emergencySafetyCopy(locale: Locale): string {
+  if (locale === "ko") {
+    return "긴급조치 준비도는 사용자를 공식 provider 화면으로 안내할 뿐, MoneySiren이 클라우드 리소스나 키를 직접 변경하지 않습니다.";
   }
 
-  return value;
+  if (locale === "ja") {
+    return "緊急対応の準備状況は公式プロバイダー画面への案内のみを行い、MoneySiren がクラウドリソースやキーを直接変更することはありません。";
+  }
+
+  return "Emergency readiness links only guide you to official provider pages. MoneySiren does not directly change cloud resources or keys.";
+}
+
+function officialLinksHeading(locale: Locale): string {
+  if (locale === "ko") {
+    return "공식 provider 링크";
+  }
+
+  if (locale === "ja") {
+    return "公式プロバイダーリンク";
+  }
+
+  return "Official provider links";
+}
+
+function officialLinksSafetyCopy(locale: Locale): string {
+  if (locale === "ko") {
+    return "링크는 새 브라우저 탭에서 공식 콘솔이나 문서를 엽니다. 실제 변경은 해당 provider 화면에서 사용자가 직접 확인해야 합니다.";
+  }
+
+  if (locale === "ja") {
+    return "リンクは新しいブラウザータブで公式コンソールまたはドキュメントを開きます。実際の変更は各プロバイダー画面でユーザーが確認して行います。";
+  }
+
+  return "Links open official consoles or documentation in a new browser tab. Any real change must be reviewed and performed on the provider site.";
 }
 
 function badgeClassFor(state: string): string {

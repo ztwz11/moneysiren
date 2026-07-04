@@ -88,6 +88,26 @@ export interface LocalReportRunRecord {
   metadataJson: Record<string, never>;
 }
 
+export interface LocalEmergencyActionRunRecord {
+  id: string;
+  providerKey: string;
+  actionKey: string;
+  mode: "requirements_only" | "manual" | "dry_run" | "execute";
+  readiness: string;
+  requestedAt: string;
+  confirmedAt?: string;
+  executedAt?: string;
+  status: "viewed" | "dry_run" | "blocked" | "executed" | "error";
+  reasonCode: string;
+  targetLabelRedacted?: string;
+  targetHash?: string;
+  resultSummary: string;
+  errorCode?: string;
+  localOnly: true;
+  secretsReturned: false;
+  metadataJson: Record<string, never>;
+}
+
 export interface LocalStore {
   appliedMigrationIds: string[];
   providers: LocalProviderRecord[];
@@ -97,6 +117,7 @@ export interface LocalStore {
   costEstimates: LocalCostEstimateRecord[];
   alerts: LocalAlertRecord[];
   reportRuns: LocalReportRunRecord[];
+  emergencyActionRuns: LocalEmergencyActionRunRecord[];
 }
 
 export interface LocalStoreOptions {
@@ -180,6 +201,25 @@ export interface LocalReportRunInput {
   status: "rendered" | "sent" | "error";
 }
 
+export interface LocalEmergencyActionRunInput {
+  dbPath: string;
+  providerKey: string;
+  actionKey: string;
+  mode: "requirements_only" | "manual" | "dry_run" | "execute";
+  readiness: string;
+  requestedAt: string;
+  confirmedAt?: string;
+  executedAt?: string;
+  status: "viewed" | "dry_run" | "blocked" | "executed" | "error";
+  reasonCode: string;
+  targetLabelRedacted?: string;
+  targetHash?: string;
+  resultSummary: string;
+  errorCode?: string;
+  localOnly: true;
+  secretsReturned: false;
+}
+
 const FORBIDDEN_KEY_PATTERN = /^(raw|rawPayload|rawResponse|providerPayload|providerResponse|billingProfile)$/i;
 const FORBIDDEN_STRING_PATTERN = /acct_|project_|invoice_|sk-|hooks\.slack|@/i;
 
@@ -215,6 +255,7 @@ export async function readLocalStore(options: LocalStoreOptions): Promise<LocalS
     costEstimates: readCostEstimates(dbPath),
     alerts: readAlerts(dbPath),
     reportRuns: readReportRuns(dbPath),
+    emergencyActionRuns: readEmergencyActionRuns(dbPath),
   };
 }
 
@@ -283,6 +324,24 @@ export async function recordLocalReportRun(input: LocalReportRunInput): Promise<
       ${sqlString(EMPTY_METADATA_JSON)}
     );
     `,
+  ]);
+}
+
+export async function recordEmergencyActionRun(input: LocalEmergencyActionRunInput): Promise<void> {
+  assertSafeForPersistence(input);
+
+  if (input.localOnly !== true || input.secretsReturned !== false) {
+    throw new Error("Emergency action audit records must be local-only and secret-free.");
+  }
+
+  if (input.mode === "execute" || input.status === "executed" || input.executedAt !== undefined) {
+    throw new Error("Emergency provider write execution is disabled in this build.");
+  }
+
+  await initializeLocalStore({ dbPath: input.dbPath });
+
+  executeSqliteTransaction(normalizeDbPath(input.dbPath), [
+    insertEmergencyActionRunSql(input),
   ]);
 }
 
@@ -534,6 +593,62 @@ function readReportRuns(dbPath: string): LocalReportRunRecord[] {
   }));
 }
 
+function readEmergencyActionRuns(dbPath: string): LocalEmergencyActionRunRecord[] {
+  if (!tableExists(dbPath, "emergency_action_runs")) {
+    return [];
+  }
+
+  return querySqliteRowsSync<EmergencyActionRunRow>(
+    dbPath,
+    `
+    SELECT
+      id,
+      provider_key AS providerKey,
+      action_key AS actionKey,
+      mode,
+      readiness,
+      requested_at AS requestedAt,
+      confirmed_at AS confirmedAt,
+      executed_at AS executedAt,
+      status,
+      reason_code AS reasonCode,
+      target_label_redacted AS targetLabelRedacted,
+      target_hash AS targetHash,
+      result_summary AS resultSummary,
+      error_code AS errorCode,
+      local_only AS localOnly,
+      secrets_returned AS secretsReturned,
+      metadata_json AS metadataJson
+    FROM emergency_action_runs
+    ORDER BY requested_at, id;
+    `,
+  ).map((row) => {
+    if (row.localOnly !== 1 || row.secretsReturned !== 0) {
+      throw new Error("Emergency action audit record flags are invalid.");
+    }
+
+    return {
+      id: row.id,
+      providerKey: row.providerKey,
+      actionKey: row.actionKey,
+      mode: row.mode,
+      readiness: row.readiness,
+      requestedAt: row.requestedAt,
+      status: row.status,
+      reasonCode: row.reasonCode,
+      resultSummary: row.resultSummary,
+      localOnly: true,
+      secretsReturned: false,
+      metadataJson: emptyMetadata(row.metadataJson),
+      ...(row.confirmedAt === null ? {} : { confirmedAt: row.confirmedAt }),
+      ...(row.executedAt === null ? {} : { executedAt: row.executedAt }),
+      ...(row.targetLabelRedacted === null ? {} : { targetLabelRedacted: row.targetLabelRedacted }),
+      ...(row.targetHash === null ? {} : { targetHash: row.targetHash }),
+      ...(row.errorCode === null ? {} : { errorCode: row.errorCode }),
+    };
+  });
+}
+
 function upsertProviderSql(input: {
   id: string;
   key: string;
@@ -674,6 +789,35 @@ function insertAlertSql(alert: LocalAlertInput): string {
   `;
 }
 
+function insertEmergencyActionRunSql(input: LocalEmergencyActionRunInput): string {
+  return `
+  INSERT INTO emergency_action_runs (
+    id, provider_key, action_key, mode, readiness, requested_at, confirmed_at, executed_at, status,
+    reason_code, target_label_redacted, target_hash, result_summary, error_code, local_only, secrets_returned,
+    metadata_json
+  )
+  VALUES (
+    ${sqlString(randomUUID())},
+    ${sqlString(input.providerKey)},
+    ${sqlString(input.actionKey)},
+    ${sqlString(input.mode)},
+    ${sqlString(input.readiness)},
+    ${sqlString(input.requestedAt)},
+    ${sqlNullableString(input.confirmedAt)},
+    ${sqlNullableString(input.executedAt)},
+    ${sqlString(input.status)},
+    ${sqlString(input.reasonCode)},
+    ${sqlNullableString(input.targetLabelRedacted)},
+    ${sqlNullableString(input.targetHash)},
+    ${sqlString(input.resultSummary)},
+    ${sqlNullableString(input.errorCode)},
+    ${sqlBoolean(input.localOnly)},
+    ${sqlBoolean(input.secretsReturned)},
+    ${sqlString(EMPTY_METADATA_JSON)}
+  );
+  `;
+}
+
 function deleteProviderSyncAlertsSql(providerId: string): string {
   return `
   DELETE FROM alerts
@@ -803,6 +947,15 @@ function createNodeSqliteDatabase(dbPath: string): NodeSqliteDatabase {
   }
 }
 
+function tableExists(dbPath: string, tableName: string): boolean {
+  const rows = querySqliteRowsSync<{ name: string }>(
+    dbPath,
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${sqlString(tableName)};`,
+  );
+
+  return rows.length > 0;
+}
+
 function parseSqliteJsonRows<T>(output: string): T[] {
   if (output.length === 0) {
     return [];
@@ -878,6 +1031,10 @@ function sqlInteger(value: number): string {
   }
 
   return String(value);
+}
+
+function sqlBoolean(value: boolean): string {
+  return value ? "1" : "0";
 }
 
 function emptyMetadata(metadataJson: string): Record<string, never> {
@@ -992,6 +1149,26 @@ interface ReportRunRow {
   language: "ko" | "en";
   deliveryTarget: "stdout" | "local-file" | "slack";
   status: "rendered" | "sent" | "error";
+  metadataJson: string;
+}
+
+interface EmergencyActionRunRow {
+  id: string;
+  providerKey: string;
+  actionKey: string;
+  mode: "requirements_only" | "manual" | "dry_run" | "execute";
+  readiness: string;
+  requestedAt: string;
+  confirmedAt: string | null;
+  executedAt: string | null;
+  status: "viewed" | "dry_run" | "blocked" | "executed" | "error";
+  reasonCode: string;
+  targetLabelRedacted: string | null;
+  targetHash: string | null;
+  resultSummary: string;
+  errorCode: string | null;
+  localOnly: 0 | 1;
+  secretsReturned: 0 | 1;
   metadataJson: string;
 }
 

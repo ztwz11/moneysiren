@@ -140,6 +140,7 @@ describe("dashboard data adapter", () => {
           },
         ],
         reportRuns: [],
+        emergencyActionRuns: [],
       },
       {
         generatedAt: GENERATED_AT,
@@ -302,6 +303,7 @@ describe("dashboard data adapter", () => {
         costEstimates: [],
         alerts: [],
         reportRuns: [],
+        emergencyActionRuns: [],
       },
       {
         generatedAt: GENERATED_AT,

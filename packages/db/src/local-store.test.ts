@@ -5,12 +5,13 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   initializeLocalStore,
+  recordEmergencyActionRun,
   recordLocalReportRun,
   readLocalStore,
   saveLocalProviderCollection,
 } from "./local-store.js";
 import type { LocalBillingSnapshotInput, LocalCostEstimateInput } from "./local-store.js";
-import { REQUIRED_TABLES } from "./schema.js";
+import { INITIAL_SCHEMA_SQL, READ_MODEL_INDEX_SQL, REQUIRED_TABLES } from "./schema.js";
 import { resolveSqliteBin, SQLITE_BIN_ENV_KEY } from "./sqlite-bin.js";
 
 const FIXED_NOW = "2026-06-02T09:00:00.000Z";
@@ -32,12 +33,33 @@ describe("local SQLite store", () => {
     ).map((row) => row.name);
     const migrations = querySqlite<{ id: string }>(dbPath, "SELECT id FROM schema_migrations ORDER BY id;");
 
-    expect(result.appliedMigrationIds).toEqual(["0001_init", "0002_read_model_indexes"]);
+    expect(result.appliedMigrationIds).toEqual(["0001_init", "0002_read_model_indexes", "0003_emergency_action_runs"]);
     expect(result.skippedMigrationIds).toEqual([]);
     expect(await fileExists(dbPath)).toBe(true);
     expect(tables).toEqual(expect.arrayContaining(["schema_migrations", ...REQUIRED_TABLES]));
-    expect(migrations).toEqual([{ id: "0001_init" }, { id: "0002_read_model_indexes" }]);
+    expect(migrations).toEqual([
+      { id: "0001_init" },
+      { id: "0002_read_model_indexes" },
+      { id: "0003_emergency_action_runs" },
+    ]);
     expect(await fileExists(join(rootDir, ".env"))).toBe(false);
+  });
+
+  it("reads legacy local stores without emergency audit storage as empty audit runs", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
+    const dbPath = join(rootDir, "legacy.sqlite");
+
+    executeSqlite(dbPath, INITIAL_SCHEMA_SQL);
+    executeSqlite(dbPath, READ_MODEL_INDEX_SQL);
+    executeSqlite(
+      dbPath,
+      "INSERT INTO schema_migrations (id) VALUES ('0001_init'), ('0002_read_model_indexes');",
+    );
+
+    const store = await readLocalStore({ dbPath });
+
+    expect(store.appliedMigrationIds).toEqual(["0001_init", "0002_read_model_indexes"]);
+    expect(store.emergencyActionRuns).toEqual([]);
   });
 
   it("persists normalized mock snapshots and report_runs without raw payload fields", async () => {
@@ -181,6 +203,74 @@ describe("local SQLite store", () => {
     });
 
     expect((await readLocalStore({ dbPath })).alerts).toEqual([]);
+  });
+
+  it("persists sanitized emergency action audit runs only", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
+    const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
+
+    await recordEmergencyActionRun({
+      dbPath,
+      providerKey: "aws",
+      actionKey: "future_write_requirements",
+      mode: "dry_run",
+      readiness: "missing_emergency_credential",
+      requestedAt: FIXED_NOW,
+      status: "dry_run",
+      reasonCode: "provider_write_disabled",
+      targetLabelRedacted: "redacted-target",
+      targetHash: "sha256:abc123",
+      resultSummary: "Dry-run blocked until emergency credential requirements are met.",
+      localOnly: true,
+      secretsReturned: false,
+    });
+
+    const store = await readLocalStore({ dbPath });
+
+    expect(store.emergencyActionRuns).toEqual([
+      expect.objectContaining({
+        providerKey: "aws",
+        actionKey: "future_write_requirements",
+        mode: "dry_run",
+        readiness: "missing_emergency_credential",
+        status: "dry_run",
+        targetLabelRedacted: "redacted-target",
+        targetHash: "sha256:abc123",
+        localOnly: true,
+        secretsReturned: false,
+      }),
+    ]);
+    expect(dumpPersistedProviderDataText(dbPath)).not.toMatch(/rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@/i);
+
+    await expect(recordEmergencyActionRun({
+      dbPath,
+      providerKey: "aws",
+      actionKey: "future_write_requirements",
+      mode: "dry_run",
+      readiness: "missing_emergency_credential",
+      requestedAt: FIXED_NOW,
+      status: "blocked",
+      reasonCode: "unsafe_target",
+      targetLabelRedacted: "acct_fake_emergency_test",
+      resultSummary: "Rejected unsafe target label.",
+      localOnly: true,
+      secretsReturned: false,
+    })).rejects.toThrow("Sensitive provider value");
+
+    await expect(recordEmergencyActionRun({
+      dbPath,
+      providerKey: "aws",
+      actionKey: "future_write_requirements",
+      mode: "execute",
+      readiness: "requires_confirmation",
+      requestedAt: FIXED_NOW,
+      executedAt: FIXED_NOW,
+      status: "executed",
+      reasonCode: "unsafe_execute",
+      resultSummary: "Rejected provider write execution.",
+      localOnly: true,
+      secretsReturned: false,
+    })).rejects.toThrow("disabled in this build");
   });
 
   it("does not inflate the read model when the same cost estimate is collected twice", async () => {
@@ -347,6 +437,19 @@ function querySqlite<T>(dbPath: string, sql: string): T[] {
   }
 }
 
+function executeSqlite(dbPath: string, sql: string): void {
+  const nodeSqlite = requireNodeModule("node:sqlite") as {
+    DatabaseSync: new (path: string) => NodeSqliteDatabase;
+  };
+  const database = new nodeSqlite.DatabaseSync(dbPath);
+
+  try {
+    database.exec(sql);
+  } finally {
+    database.close();
+  }
+}
+
 function dumpPersistedProviderDataText(dbPath: string): string {
   const rows: SqliteValueRow[] = [
     ...querySqlite<SqliteValueRow>(
@@ -381,6 +484,10 @@ function dumpPersistedProviderDataText(dbPath: string): string {
       dbPath,
       "SELECT language, delivery_target, status, metadata_json FROM report_runs ORDER BY language, delivery_target, status;",
     ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT provider_key, action_key, mode, readiness, status, reason_code, target_label_redacted, target_hash, result_summary, metadata_json FROM emergency_action_runs ORDER BY requested_at, id;",
+    ),
   ];
 
   return rows
@@ -398,6 +505,7 @@ async function fileExists(path: string): Promise<boolean> {
 }
 
 interface NodeSqliteDatabase {
+  exec(sql: string): void;
   prepare(sql: string): {
     all(): unknown[];
   };

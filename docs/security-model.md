@@ -39,6 +39,21 @@ Codex CLI and Claude CLI logs may include prompt text, tool input, shell command
 - timestamps
 - confidence/freshness labels
 
+## Emergency Actions Policy
+
+Emergency actions are staged and local-first. The preparedness implementation may show requirements, manual runbooks, local dry-run readiness, and sanitized audit records.
+
+Provider write execution remains disabled until a separate provider-specific spec defines:
+
+- emergency credential scope;
+- minimum write permission;
+- local dry-run behavior;
+- two-step confirmation;
+- sanitized audit record fields;
+- recovery guidance.
+
+Read-only credentials must not be used for emergency actions, and emergency credentials must not be used for dashboard sync.
+
 ## Telemetry
 
 Telemetry is off by default. Any future telemetry must be opt-in only.

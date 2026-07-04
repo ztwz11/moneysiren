@@ -92,12 +92,11 @@ export interface LocalEmergencyActionRunRecord {
   id: string;
   providerKey: string;
   actionKey: string;
-  mode: "requirements_only" | "manual" | "dry_run" | "execute";
+  mode: "requirements_only" | "manual" | "dry_run";
   readiness: string;
   requestedAt: string;
   confirmedAt?: string;
-  executedAt?: string;
-  status: "viewed" | "dry_run" | "blocked" | "executed" | "error";
+  status: "viewed" | "dry_run" | "blocked" | "error";
   reasonCode: string;
   targetLabelRedacted?: string;
   targetHash?: string;
@@ -205,12 +204,11 @@ export interface LocalEmergencyActionRunInput {
   dbPath: string;
   providerKey: string;
   actionKey: string;
-  mode: "requirements_only" | "manual" | "dry_run" | "execute";
+  mode: "requirements_only" | "manual" | "dry_run";
   readiness: string;
   requestedAt: string;
   confirmedAt?: string;
-  executedAt?: string;
-  status: "viewed" | "dry_run" | "blocked" | "executed" | "error";
+  status: "viewed" | "dry_run" | "blocked" | "error";
   reasonCode: string;
   targetLabelRedacted?: string;
   targetHash?: string;
@@ -329,12 +327,13 @@ export async function recordLocalReportRun(input: LocalReportRunInput): Promise<
 
 export async function recordEmergencyActionRun(input: LocalEmergencyActionRunInput): Promise<void> {
   assertSafeForPersistence(input);
+  const rawInput = input as { mode?: unknown; status?: unknown; executedAt?: unknown };
 
   if (input.localOnly !== true || input.secretsReturned !== false) {
     throw new Error("Emergency action audit records must be local-only and secret-free.");
   }
 
-  if (input.mode === "execute" || input.status === "executed" || input.executedAt !== undefined) {
+  if (rawInput.mode === "execute" || rawInput.status === "executed" || rawInput.executedAt !== undefined) {
     throw new Error("Emergency provider write execution is disabled in this build.");
   }
 
@@ -641,7 +640,6 @@ function readEmergencyActionRuns(dbPath: string): LocalEmergencyActionRunRecord[
       secretsReturned: false,
       metadataJson: emptyMetadata(row.metadataJson),
       ...(row.confirmedAt === null ? {} : { confirmedAt: row.confirmedAt }),
-      ...(row.executedAt === null ? {} : { executedAt: row.executedAt }),
       ...(row.targetLabelRedacted === null ? {} : { targetLabelRedacted: row.targetLabelRedacted }),
       ...(row.targetHash === null ? {} : { targetHash: row.targetHash }),
       ...(row.errorCode === null ? {} : { errorCode: row.errorCode }),
@@ -804,7 +802,7 @@ function insertEmergencyActionRunSql(input: LocalEmergencyActionRunInput): strin
     ${sqlString(input.readiness)},
     ${sqlString(input.requestedAt)},
     ${sqlNullableString(input.confirmedAt)},
-    ${sqlNullableString(input.executedAt)},
+    NULL,
     ${sqlString(input.status)},
     ${sqlString(input.reasonCode)},
     ${sqlNullableString(input.targetLabelRedacted)},
@@ -1156,12 +1154,12 @@ interface EmergencyActionRunRow {
   id: string;
   providerKey: string;
   actionKey: string;
-  mode: "requirements_only" | "manual" | "dry_run" | "execute";
+  mode: "requirements_only" | "manual" | "dry_run";
   readiness: string;
   requestedAt: string;
   confirmedAt: string | null;
   executedAt: string | null;
-  status: "viewed" | "dry_run" | "blocked" | "executed" | "error";
+  status: "viewed" | "dry_run" | "blocked" | "error";
   reasonCode: string;
   targetLabelRedacted: string | null;
   targetHash: string | null;

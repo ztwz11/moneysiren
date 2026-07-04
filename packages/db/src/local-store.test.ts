@@ -10,7 +10,7 @@ import {
   readLocalStore,
   saveLocalProviderCollection,
 } from "./local-store.js";
-import type { LocalBillingSnapshotInput, LocalCostEstimateInput } from "./local-store.js";
+import type { LocalBillingSnapshotInput, LocalCostEstimateInput, LocalEmergencyActionRunInput } from "./local-store.js";
 import { INITIAL_SCHEMA_SQL, READ_MODEL_INDEX_SQL, REQUIRED_TABLES } from "./schema.js";
 import { resolveSqliteBin, SQLITE_BIN_ENV_KEY } from "./sqlite-bin.js";
 
@@ -270,7 +270,50 @@ describe("local SQLite store", () => {
       resultSummary: "Rejected provider write execution.",
       localOnly: true,
       secretsReturned: false,
-    })).rejects.toThrow("disabled in this build");
+    } as unknown as LocalEmergencyActionRunInput)).rejects.toThrow("disabled in this build");
+  });
+
+  it("enforces current-release emergency action storage constraints in SQLite", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
+    const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
+
+    await initializeLocalStore({ dbPath });
+
+    expect(() => executeSqlite(dbPath, emergencyActionInsertSql({
+      executedAt: FIXED_NOW,
+      localOnly: 1,
+      mode: "dry_run",
+      secretsReturned: 0,
+      status: "dry_run",
+    }))).toThrow();
+    expect(() => executeSqlite(dbPath, emergencyActionInsertSql({
+      executedAt: null,
+      localOnly: 1,
+      mode: "execute",
+      secretsReturned: 0,
+      status: "dry_run",
+    }))).toThrow();
+    expect(() => executeSqlite(dbPath, emergencyActionInsertSql({
+      executedAt: null,
+      localOnly: 1,
+      mode: "dry_run",
+      secretsReturned: 0,
+      status: "executed",
+    }))).toThrow();
+    expect(() => executeSqlite(dbPath, emergencyActionInsertSql({
+      executedAt: null,
+      localOnly: 0,
+      mode: "dry_run",
+      secretsReturned: 0,
+      status: "dry_run",
+    }))).toThrow();
+    expect(() => executeSqlite(dbPath, emergencyActionInsertSql({
+      executedAt: null,
+      localOnly: 1,
+      mode: "dry_run",
+      secretsReturned: 1,
+      status: "dry_run",
+    }))).toThrow();
   });
 
   it("does not inflate the read model when the same cost estimate is collected twice", async () => {
@@ -448,6 +491,41 @@ function executeSqlite(dbPath: string, sql: string): void {
   } finally {
     database.close();
   }
+}
+
+function emergencyActionInsertSql(input: {
+  executedAt: string | null;
+  localOnly: 0 | 1;
+  mode: string;
+  secretsReturned: 0 | 1;
+  status: string;
+}): string {
+  return `
+    INSERT INTO emergency_action_runs (
+      id, provider_key, action_key, mode, readiness, requested_at, confirmed_at, executed_at, status,
+      reason_code, target_label_redacted, target_hash, result_summary, error_code, local_only, secrets_returned,
+      metadata_json
+    )
+    VALUES (
+      'test-${input.mode}-${input.status}-${input.localOnly}-${input.secretsReturned}-${input.executedAt === null ? "null" : "executed"}',
+      'aws',
+      'future_write_requirements',
+      '${input.mode}',
+      'missing_emergency_credential',
+      '${FIXED_NOW}',
+      NULL,
+      ${input.executedAt === null ? "NULL" : `'${input.executedAt}'`},
+      '${input.status}',
+      'constraint_test',
+      'redacted-target',
+      NULL,
+      'Constraint test.',
+      NULL,
+      ${input.localOnly},
+      ${input.secretsReturned},
+      '{}'
+    );
+  `;
 }
 
 function dumpPersistedProviderDataText(dbPath: string): string {

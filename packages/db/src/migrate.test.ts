@@ -20,7 +20,12 @@ describe("initial SQLite schema", () => {
 
   it("declares sanitized emergency action audit storage separately", () => {
     expect(EMERGENCY_ACTION_RUNS_SQL).toContain("CREATE TABLE IF NOT EXISTS emergency_action_runs");
+    expect(EMERGENCY_ACTION_RUNS_SQL).toContain("mode TEXT NOT NULL CHECK (mode IN ('requirements_only', 'manual', 'dry_run'))");
+    expect(EMERGENCY_ACTION_RUNS_SQL).toContain("executed_at TEXT CHECK (executed_at IS NULL)");
+    expect(EMERGENCY_ACTION_RUNS_SQL).toContain("status TEXT NOT NULL CHECK (status IN ('viewed', 'dry_run', 'blocked', 'error'))");
+    expect(EMERGENCY_ACTION_RUNS_SQL).toContain("local_only INTEGER NOT NULL DEFAULT 1 CHECK (local_only = 1)");
     expect(EMERGENCY_ACTION_RUNS_SQL).toContain("secrets_returned INTEGER NOT NULL DEFAULT 0");
+    expect(EMERGENCY_ACTION_RUNS_SQL).toContain("secrets_returned INTEGER NOT NULL DEFAULT 0 CHECK (secrets_returned = 0)");
     expect(EMERGENCY_ACTION_RUNS_SQL).not.toMatch(/\braw_?payload\b/i);
     expect(EMERGENCY_ACTION_RUNS_SQL).not.toMatch(/\braw_?response\b/i);
   });

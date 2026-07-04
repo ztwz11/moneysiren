@@ -59,6 +59,7 @@ describe("POST /api/emergency/actions/dry-run", () => {
       localOnly: true,
       secretsReturned: false,
       providerWriteActionsEnabled: false,
+      source: "client_supplied_preview",
       mode: "dry_run",
       executeEnabled: false,
       providerKey: "aws",
@@ -74,6 +75,7 @@ describe("POST /api/emergency/actions/dry-run", () => {
           providerKey: "aws",
           mode: "dry_run",
           status: "dry_run",
+          resultSummary: "Emergency dry-run readiness computed from client-supplied preview state without provider write calls.",
           localOnly: true,
           secretsReturned: false,
         }),
@@ -95,6 +97,57 @@ describe("POST /api/emergency/actions/dry-run", () => {
       secretsReturned: false,
       providerWriteActionsEnabled: false,
     });
+    expect(payload.error).toBe("Unsupported provider.");
+  });
+
+  it.each([
+    ["origin", { origin: "https://example.com" }],
+    ["referer", { referer: "https://example.com/review", origin: "http://127.0.0.1:3000" }],
+  ])("rejects non-local %s even with a valid local session", async (_label, headers) => {
+    const response = await POST(localRequest({
+      body: JSON.stringify({ providerKey: "aws" }),
+      headers: {
+        ...await createLocalSessionHeaders(),
+        ...headers,
+      },
+      method: "POST",
+    }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(payload).toMatchObject({
+      error: "Local session and CSRF token are required.",
+      localOnly: true,
+      secretsReturned: false,
+      providerWriteActionsEnabled: false,
+    });
+  });
+
+  it("does not expose internal storage errors in browser JSON", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-emergency-route-"));
+    const unsafeDbPath = join(rootDir, "acct_fake_internal_path.sqlite");
+    process.env.MONEYSIREN_DB_PATH = unsafeDbPath;
+
+    const response = await POST(localRequest({
+      body: JSON.stringify({
+        providerKey: "aws",
+        riskLevel: "critical",
+      }),
+      headers: await createLocalSessionHeaders(),
+      method: "POST",
+    }));
+    const payload = await response.json();
+    const serialized = JSON.stringify(payload);
+
+    expect(response.status).toBe(400);
+    expect(payload).toMatchObject({
+      error: "Emergency dry-run failed.",
+      localOnly: true,
+      secretsReturned: false,
+      providerWriteActionsEnabled: false,
+    });
+    expect(serialized).not.toContain(unsafeDbPath);
+    expect(serialized).not.toMatch(/SQLite|SQL|stack|local-store|route\.ts|packages[\\/]|Sensitive provider value/i);
   });
 });
 

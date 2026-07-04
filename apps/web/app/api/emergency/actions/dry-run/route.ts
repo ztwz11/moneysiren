@@ -15,6 +15,16 @@ const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate, private",
   Pragma: "no-cache",
 };
+const DRY_RUN_STATE_SOURCE = "client_supplied_preview";
+
+class SafeDryRunRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status = 400,
+  ) {
+    super(message);
+  }
+}
 
 export async function POST(request: Request): Promise<Response> {
   try {
@@ -56,6 +66,7 @@ export async function POST(request: Request): Promise<Response> {
       localOnly: true,
       secretsReturned: false,
       providerWriteActionsEnabled: false,
+      source: DRY_RUN_STATE_SOURCE,
       mode: "dry_run",
       executeEnabled: false,
       providerKey: plan.providerKey,
@@ -78,13 +89,15 @@ export async function POST(request: Request): Promise<Response> {
       headers: NO_STORE_HEADERS,
     });
   } catch (error) {
+    const safeError = safeDryRunError(error);
+
     return Response.json({
-      error: error instanceof Error ? error.message : "Emergency dry-run failed.",
+      error: safeError.message,
       localOnly: true,
       secretsReturned: false,
       providerWriteActionsEnabled: false,
     }, {
-      status: 400,
+      status: safeError.status,
       headers: NO_STORE_HEADERS,
     });
   }
@@ -97,10 +110,16 @@ async function readBody(request: Request): Promise<Record<string, unknown>> {
     return {};
   }
 
-  const parsed = JSON.parse(text) as unknown;
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(text) as unknown;
+  } catch {
+    throw new SafeDryRunRequestError("Emergency dry-run body must be valid JSON.");
+  }
 
   if (!isRecord(parsed)) {
-    throw new Error("Emergency dry-run body must be a JSON object.");
+    throw new SafeDryRunRequestError("Emergency dry-run body must be a JSON object.");
   }
 
   return parsed;
@@ -112,7 +131,7 @@ function readProvider(body: Record<string, unknown>): EmergencyActionProvider {
   const providerKey = readRequiredString(recordAt(source, "providerKey"), "providerKey");
 
   if (!isProviderKey(providerKey)) {
-    throw new Error("Unsupported provider.");
+    throw new SafeDryRunRequestError("Unsupported provider.");
   }
 
   const catalog = findAvailableProvider(providerKey);
@@ -156,7 +175,7 @@ async function recordEmergencyDryRunAudit(input: {
     status: "dry_run",
     reasonCode: input.reasonCode,
     targetLabelRedacted: input.targetLabelRedacted,
-    resultSummary: "Emergency dry-run readiness computed without provider write calls.",
+    resultSummary: "Emergency dry-run readiness computed from client-supplied preview state without provider write calls.",
     localOnly: true,
     secretsReturned: false,
   });
@@ -178,7 +197,7 @@ function readRequiredString(value: unknown, label: string): string {
   const parsed = readOptionalString(value);
 
   if (parsed === undefined) {
-    throw new Error(`${label} is required.`);
+    throw new SafeDryRunRequestError(`${label} is required.`);
   }
 
   return parsed;
@@ -208,4 +227,18 @@ function readStringArray(value: unknown): string[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function safeDryRunError(error: unknown): { message: string; status: number } {
+  if (error instanceof SafeDryRunRequestError) {
+    return {
+      message: error.message,
+      status: error.status,
+    };
+  }
+
+  return {
+    message: "Emergency dry-run failed.",
+    status: 400,
+  };
 }

@@ -4,6 +4,7 @@ import { ChevronUp, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import type { Locale, Messages } from "../lib/i18n";
 import type { OperationsProvider } from "../lib/operations-data";
+import { ConnectionDiagnosticsToggle } from "./ConnectionDiagnosticsToggle";
 import { CredentialControls } from "./CredentialControls";
 import { ProviderIcon } from "./ProviderIcon";
 import { ServiceRemediationPanel } from "./ServiceRemediation";
@@ -135,6 +136,7 @@ export function ConnectionCard({
             }}
           />
         </div>
+        <ConnectionDiagnosticsToggle locale={locale} provider={provider} />
         <div className="connection-requirements">
           <span className="metric-label">{messages.settings.requiredEnv}</span>
           <RequirementLinks provider={provider} messages={messages} />

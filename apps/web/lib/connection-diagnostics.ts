@@ -160,14 +160,18 @@ function detailItems(input: ConnectionDiagnosticInput): ConnectionDiagnosticDeta
 
 function requiredEnvAction(input: ConnectionDiagnosticInput): string {
   if (input.missingEnvKeys.length > 0) {
-    return `Set required environment values by name: ${input.missingEnvKeys.map(safeText).join(", ")}.`;
+    return `Set ${formatEnvKeyCount(input.missingEnvKeys.length)} in local Connections by name only.`;
   }
 
   if (input.requiredEnvKeys.length > 0) {
-    return `Confirm required environment values by name: ${input.requiredEnvKeys.map(safeText).join(", ")}.`;
+    return `Confirm ${formatEnvKeyCount(input.requiredEnvKeys.length)} in local Connections by name only.`;
   }
 
   return "Open Connections and configure a local read-only credential.";
+}
+
+function formatEnvKeyCount(count: number): string {
+  return count === 1 ? "1 required environment value" : `${count} required environment values`;
 }
 
 function detail(input: ConnectionDiagnosticDetail): ConnectionDiagnosticDetail {

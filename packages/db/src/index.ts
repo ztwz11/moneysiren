@@ -11,10 +11,11 @@ export {
   type MigrationExecutor,
   type MigrationRunResult,
 } from "./migrate.js";
-export { INITIAL_SCHEMA_SQL, REQUIRED_TABLES, type RequiredTable } from "./schema.js";
+export { EMERGENCY_ACTION_RUNS_SQL, INITIAL_SCHEMA_SQL, REQUIRED_TABLES, type RequiredTable } from "./schema.js";
 export { resolveSqliteBin, SQLITE_BIN_ENV_KEY } from "./sqlite-bin.js";
 export {
   initializeLocalStore,
+  recordEmergencyActionRun,
   readLocalStore,
   recordLocalReportRun,
   saveLocalProviderCollection,
@@ -24,6 +25,8 @@ export {
   type LocalBillingSnapshotRecord,
   type LocalCostEstimateInput,
   type LocalCostEstimateRecord,
+  type LocalEmergencyActionRunInput,
+  type LocalEmergencyActionRunRecord,
   type LocalStore,
   type LocalStoreOptions,
   type LocalProviderCollectionInput,

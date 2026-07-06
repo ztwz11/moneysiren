@@ -334,7 +334,11 @@ describe("MoneySiren CLI", () => {
     const persistedText = dumpPersistedProviderDataText(dbPath);
 
     expect(await fileExists(dbPath)).toBe(true);
-    expect(migrations).toEqual([{ id: "0001_init" }, { id: "0002_read_model_indexes" }]);
+    expect(migrations).toEqual([
+      { id: "0001_init" },
+      { id: "0002_read_model_indexes" },
+      { id: "0003_emergency_action_runs" },
+    ]);
     expect(persistedText).not.toContain("sqlite-placeholder-v1");
     expect(persistedText).not.toMatch(/sk-|hooks\.slack|@/i);
   });

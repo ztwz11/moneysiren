@@ -48,6 +48,7 @@ import { readLocalAiCliStatus, type LocalAiCliStatusPayload } from "./local-tool
 
 export type CanonicalFreshness = "fresh" | "stale" | "missing";
 export type LiveFreshness = "live" | "stale" | "error" | "unavailable" | "not_configured" | "locked";
+type OperationsCredentialStore = ProviderConnectionStatus["credentialStore"];
 
 const CODEX_APP_PROVIDER_KEY: ProviderKey = "codex-app";
 const CODEX_CLI_PROVIDER_KEY: ProviderKey = "codex-cli";
@@ -117,6 +118,7 @@ export interface OperationsProvider {
   credentialSource: ProviderConnectionStatus["credentialSource"];
   readOnlyTestState: ConnectionState;
   emergencyAccessState: EmergencyAccessState;
+  credentialStore: OperationsCredentialStore;
   authMethod: string;
   credentialRequirements: readonly string[];
   requiredEnvKeys: readonly string[];
@@ -285,7 +287,8 @@ export function buildOperationsDashboard(
       connectionState,
       credentialSource: connection?.credentialSource ?? (connectionState === "env_configured" ? "env" : "none"),
       readOnlyTestState: connection?.readOnlyTestState ?? connectionState,
-      emergencyAccessState: "emergency_planned",
+      emergencyAccessState: connection?.emergencyAccessState ?? "emergency_planned",
+      credentialStore: connection?.credentialStore ?? defaultCredentialStoreStatus(),
       authMethod: connection?.authMethod ?? catalog?.authMethods.join(" / ") ?? "Unknown",
       credentialRequirements: connection?.credentialRequirements ?? [],
       requiredEnvKeys: connection?.requiredEnvKeys ?? providerConfig.requiredEnvKeys,
@@ -445,6 +448,7 @@ function mergeCodexProviderRows(primary: OperationsProvider, secondary: Operatio
     connectionState: summarizeConnectionStates([primary.connectionState, secondary.connectionState]),
     credentialSource: credentialSourceForState(summarizeConnectionStates([primary.connectionState, secondary.connectionState])),
     readOnlyTestState: summarizeConnectionStates([primary.readOnlyTestState, secondary.readOnlyTestState]),
+    credentialStore: summarizeCredentialStores(primary.credentialStore, secondary.credentialStore),
     authMethod: uniqueTexts([primary.authMethod, secondary.authMethod]).join(" / "),
     credentialRequirements: uniqueTexts([...primary.credentialRequirements, ...secondary.credentialRequirements]),
     requiredEnvKeys: uniqueTexts([...primary.requiredEnvKeys, ...secondary.requiredEnvKeys]),
@@ -541,6 +545,52 @@ function credentialSourceForState(state: ConnectionState): OperationsProvider["c
   }
 
   return "none";
+}
+
+function defaultCredentialStoreStatus(): OperationsCredentialStore {
+  return {
+    backend: "memory",
+    storeState: "ready",
+    readOnlyState: "not_configured",
+    emergencyState: "not_configured",
+  };
+}
+
+function summarizeCredentialStores(
+  primary: OperationsCredentialStore,
+  secondary: OperationsCredentialStore,
+): OperationsCredentialStore {
+  return {
+    backend: primary.backend,
+    storeState: summarizeCredentialStoreStates([primary.storeState, secondary.storeState]),
+    readOnlyState: summarizeCredentialConnectionStates([primary.readOnlyState, secondary.readOnlyState]),
+    emergencyState: summarizeCredentialConnectionStates([primary.emergencyState, secondary.emergencyState]),
+  };
+}
+
+function summarizeCredentialStoreStates(
+  values: readonly OperationsCredentialStore["storeState"][],
+): OperationsCredentialStore["storeState"] {
+  if (values.includes("ready")) {
+    return "ready";
+  }
+
+  return values.includes("locked") ? "locked" : "unavailable";
+}
+
+function summarizeCredentialConnectionStates(
+  values: readonly OperationsCredentialStore["readOnlyState"][],
+): OperationsCredentialStore["readOnlyState"] {
+  const order: readonly OperationsCredentialStore["readOnlyState"][] = [
+    "oauth_connected",
+    "credential_store_configured",
+    "locked",
+    "expired",
+    "invalid",
+    "not_configured",
+  ];
+
+  return order.find((value) => values.includes(value)) ?? "not_configured";
 }
 
 function summarizeCanonicalFreshnessValues(values: readonly CanonicalFreshness[]): CanonicalFreshness {
@@ -1011,6 +1061,7 @@ function buildProviderConnectionRows(
       credentialSource: connection.credentialSource,
       readOnlyTestState: connection.readOnlyTestState,
       emergencyAccessState: provider.emergencyAccessState,
+      credentialStore: provider.credentialStore,
       authMethod: connection.authMethod ?? provider.authMethod,
       credentialRequirements: provider.credentialRequirements,
       requiredEnvKeys: provider.requiredEnvKeys,

@@ -10,6 +10,7 @@ import type { Messages, Locale } from "../lib/i18n";
 import { BudgetSettings } from "./BudgetSettings";
 import { ConnectionCard } from "./ConnectionCard";
 import { DashboardDisplaySettings } from "./DashboardDisplaySettings";
+import { EmergencyActionsPanel } from "./EmergencyActionsPanel";
 import { LiveRefreshButton } from "./LiveRefreshButton";
 import { ProviderIcon } from "./ProviderIcon";
 import { RefreshPageButton } from "./RefreshPageButton";
@@ -512,13 +513,7 @@ export function ServiceDetail({
           <KeyValue label={messages.settings.readOnlyTest} value={labelFor(messages, provider.readOnlyTestState)} />
         </InfoPanel>
         <InfoPanel title={messages.services.emergencyActions}>
-          <p className="muted">{messages.services.emergencyPlanned}</p>
-          <div className="badge-row">
-            <StatusBadge messages={messages} state={provider.emergencyAccessState} />
-          </div>
-          <Link className="ghost-button" href={`/${locale}/settings/connections#${provider.providerKey}`}>
-            {messages.services.viewRequirements}
-          </Link>
+          <EmergencyActionsPanel locale={locale} messages={messages} provider={provider} />
         </InfoPanel>
       </div>
     </div>
@@ -647,6 +642,9 @@ function LocalAiCliServiceDetail({
           <KeyValue label={messages.table.status} value={`${provider.alertCount}`} />
         </InfoPanel>
       </div>
+      <InfoPanel title={messages.services.emergencyActions}>
+        <EmergencyActionsPanel locale={locale} messages={messages} provider={provider} />
+      </InfoPanel>
     </div>
   );
 }

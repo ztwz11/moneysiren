@@ -103,3 +103,11 @@ Decision: default provider connections are read-only, and future emergency actio
 Reason: destructive provider operations such as key revocation, instance stops, and worker disablement require stronger auth, confirmation, audit, and recovery controls.
 
 Status: accepted.
+
+## D014 - Staged emergency action preparedness
+
+Decision: emergency actions are implemented in stages. The first implementation is requirements-only, manual runbook, and local dry-run readiness. Provider write execution remains disabled until provider-specific specs, a permission matrix, emergency credential validation, audit logging, dry-run behavior, two-step confirmation, and recovery guidance are complete.
+
+Reason: critical spend and credential states need operator guidance, but MoneySiren's default provider connectors must remain read-only and local-first until destructive operations have stronger controls.
+
+Status: accepted.

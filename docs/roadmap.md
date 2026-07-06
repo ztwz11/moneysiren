@@ -27,6 +27,7 @@ Planned focus:
 - add provider connector test harness documentation;
 - add local subscription-cost model for flat-plan SaaS spend;
 - improve dashboard risk scoring;
+- add emergency action preparedness with requirements, manual runbooks, local dry-run readiness, and sanitized audit records;
 - improve local AI CLI usage estimate docs;
 - publish maintainer-oriented Codex workflow examples;
 - add more redaction tests around provider payloads and notification output.
@@ -50,6 +51,7 @@ MoneySiren does not plan to add:
 - hosted SaaS telemetry by default;
 - storage of provider credentials in SQLite;
 - persistence of raw provider payloads;
+- provider write actions without separate emergency credentials, dry-run, confirmation, audit, and recovery controls;
 - upload of local AI CLI logs to a remote service;
 - public demos using real account data;
 - screenshots containing live billing details or organization identifiers.

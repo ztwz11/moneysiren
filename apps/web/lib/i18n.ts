@@ -106,6 +106,16 @@ export interface Messages {
     securityPermissions: string;
     emergencyActions: string;
     emergencyPlanned: string;
+    emergencyNoCandidates: string;
+    emergencyCandidateCount: string;
+    emergencyCredentialState: string;
+    emergencyChecklist: string;
+    emergencySafeCommands: string;
+    emergencyCommandViewRequirements: string;
+    emergencyCommandOpenRunbook: string;
+    emergencyCommandOpenProviderConsole: string;
+    emergencyCommandCopyManualChecklist: string;
+    emergencyManualOnly: string;
     viewRequirements: string;
     readOnly: string;
     currentUsage: string;
@@ -463,6 +473,16 @@ const baseMessages = {
       securityPermissions: "Security and permissions",
       emergencyActions: "Emergency actions",
       emergencyPlanned: "Planned only. Write actions are not available in this build.",
+      emergencyNoCandidates: "No emergency runbook is needed for the current state.",
+      emergencyCandidateCount: "Preparedness items",
+      emergencyCredentialState: "Emergency credential",
+      emergencyChecklist: "Checklist",
+      emergencySafeCommands: "Safe commands",
+      emergencyCommandViewRequirements: "View requirements",
+      emergencyCommandOpenRunbook: "Open runbook",
+      emergencyCommandOpenProviderConsole: "Open provider console",
+      emergencyCommandCopyManualChecklist: "Copy manual checklist",
+      emergencyManualOnly: "Manual only. Execution is disabled.",
       viewRequirements: "View requirements",
       readOnly: "read-only",
       currentUsage: "Current usage",
@@ -736,6 +756,11 @@ const baseMessages = {
       read_only_ready: "Read-only ready",
       emergency_not_configured: "Not configured",
       emergency_planned: "Planned",
+      manual_ready: "Manual ready",
+      missing_emergency_credential: "Missing emergency credential",
+      requires_confirmation: "Requires confirmation",
+      dry_run_ready: "Dry-run ready",
+      not_supported: "Not supported",
       available: "Available",
       planned: "Planned",
       research: "Research",
@@ -850,6 +875,16 @@ const baseMessages = {
       securityPermissions: "보안과 권한",
       emergencyActions: "긴급조치",
       emergencyPlanned: "계획된 기능입니다. 이 빌드에서는 write action을 실행할 수 없습니다.",
+      emergencyNoCandidates: "현재 상태에서는 긴급 runbook이 필요하지 않습니다.",
+      emergencyCandidateCount: "준비도 항목",
+      emergencyCredentialState: "긴급 자격 증명",
+      emergencyChecklist: "체크리스트",
+      emergencySafeCommands: "안전한 명령",
+      emergencyCommandViewRequirements: "요구사항 보기",
+      emergencyCommandOpenRunbook: "런북 열기",
+      emergencyCommandOpenProviderConsole: "제공자 콘솔 열기",
+      emergencyCommandCopyManualChecklist: "수동 체크리스트 복사",
+      emergencyManualOnly: "수동 조치만 가능합니다. 실행은 비활성화되어 있습니다.",
       viewRequirements: "요구사항 보기",
       readOnly: "읽기 전용",
       currentUsage: "현재 사용량",
@@ -1123,6 +1158,11 @@ const baseMessages = {
       read_only_ready: "읽기 전용 준비됨",
       emergency_not_configured: "미설정",
       emergency_planned: "예정",
+      manual_ready: "수동 준비됨",
+      missing_emergency_credential: "긴급 자격 증명 없음",
+      requires_confirmation: "확인 필요",
+      dry_run_ready: "Dry-run 준비됨",
+      not_supported: "지원 안 함",
       available: "사용 가능",
       planned: "예정",
       research: "검토",
@@ -1237,6 +1277,16 @@ const baseMessages = {
       securityPermissions: "セキュリティと権限",
       emergencyActions: "緊急操作",
       emergencyPlanned: "計画中の機能です。このビルドでは write action は実行できません。",
+      emergencyNoCandidates: "現在の状態では緊急 runbook は不要です。",
+      emergencyCandidateCount: "準備項目",
+      emergencyCredentialState: "緊急認証情報",
+      emergencyChecklist: "チェックリスト",
+      emergencySafeCommands: "安全なコマンド",
+      emergencyCommandViewRequirements: "要件を見る",
+      emergencyCommandOpenRunbook: "Runbook を開く",
+      emergencyCommandOpenProviderConsole: "Provider console を開く",
+      emergencyCommandCopyManualChecklist: "手動チェックリストをコピー",
+      emergencyManualOnly: "手動のみです。実行は無効です。",
       viewRequirements: "要件を見る",
       readOnly: "読み取り専用",
       currentUsage: "現在の使用量",
@@ -1510,6 +1560,11 @@ const baseMessages = {
       read_only_ready: "読み取り専用準備済み",
       emergency_not_configured: "未設定",
       emergency_planned: "予定",
+      manual_ready: "手動準備済み",
+      missing_emergency_credential: "緊急認証情報なし",
+      requires_confirmation: "確認が必要",
+      dry_run_ready: "Dry-run 準備済み",
+      not_supported: "未対応",
       available: "利用可能",
       planned: "予定",
       research: "調査",

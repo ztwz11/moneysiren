@@ -1,5 +1,8 @@
 import { redactSensitiveString } from "../../../packages/security/src/index";
 
+const OPENAI_PROVIDER_KEY = "openai";
+const OPENAI_ADMIN_ENV_KEY = "OPENAI_ADMIN_KEY";
+
 export type ConnectionDiagnosticSeverity = "info" | "warning" | "critical";
 
 export interface ConnectionDiagnosticInput {
@@ -159,6 +162,10 @@ function detailItems(input: ConnectionDiagnosticInput): ConnectionDiagnosticDeta
 }
 
 function requiredEnvAction(input: ConnectionDiagnosticInput): string {
+  if (isMissingOpenAiAdminKey(input)) {
+    return "MoneySiren server process cannot see OPENAI_ADMIN_KEY. PowerShell environment variables set after server start are not reflected into the running server. Restart MoneySiren from a shell where the key is visible, or save it from Connections as a read-only credential.";
+  }
+
   if (input.missingEnvKeys.length > 0) {
     return `Set ${formatEnvKeyCount(input.missingEnvKeys.length)} in local Connections by name only.`;
   }
@@ -168,6 +175,10 @@ function requiredEnvAction(input: ConnectionDiagnosticInput): string {
   }
 
   return "Open Connections and configure a local read-only credential.";
+}
+
+function isMissingOpenAiAdminKey(input: ConnectionDiagnosticInput): boolean {
+  return input.providerKey === OPENAI_PROVIDER_KEY && input.missingEnvKeys.includes(OPENAI_ADMIN_ENV_KEY);
 }
 
 function formatEnvKeyCount(count: number): string {

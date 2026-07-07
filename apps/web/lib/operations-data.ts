@@ -401,15 +401,28 @@ function mergeCodexDisplayProviders(providers: OperationsProvider[]): Operations
   const appProvider = providers[appIndex];
   const cliProvider = providers[cliIndex];
 
-  if (appProvider === undefined || cliProvider === undefined || !isVisibleProvider(appProvider) || !isVisibleProvider(cliProvider)) {
+  if (appProvider === undefined || cliProvider === undefined) {
     return providers;
   }
 
-  const primary = pickCodexPrimaryProvider(appProvider, cliProvider);
+  const appVisible = isVisibleProvider(appProvider);
+  const cliVisible = isVisibleProvider(cliProvider);
+
+  if (!appVisible && !cliVisible) {
+    return providers;
+  }
+
+  const primary = appVisible && !cliVisible
+    ? appProvider
+    : cliVisible && !appVisible
+      ? cliProvider
+      : pickCodexPrimaryProvider(appProvider, cliProvider);
   const secondary = primary === appProvider ? cliProvider : appProvider;
   const primaryIndex = primary === appProvider ? appIndex : cliIndex;
   const secondaryIndex = secondary === appProvider ? appIndex : cliIndex;
-  const merged = mergeCodexProviderRows(primary, secondary);
+  const merged = appVisible && cliVisible
+    ? mergeCodexProviderRows(primary, secondary)
+    : promoteSingleCodexProviderRow(primary, secondary);
 
   return providers.flatMap((provider, index) => {
     if (index === secondaryIndex) {
@@ -430,6 +443,21 @@ function pickCodexPrimaryProvider(appProvider: OperationsProvider, cliProvider: 
   }
 
   return appProvider.latestLiveCheck !== null ? appProvider : cliProvider;
+}
+
+function promoteSingleCodexProviderRow(
+  primary: OperationsProvider,
+  secondary: OperationsProvider,
+): OperationsProvider {
+  return {
+    ...primary,
+    displayName: CODEX_DISPLAY_NAME,
+    authMethod: uniqueTexts([primary.authMethod, secondary.authMethod]).join(" / "),
+    credentialRequirements: uniqueTexts([...primary.credentialRequirements, ...secondary.credentialRequirements]),
+    requiredEnvKeys: uniqueTexts([...primary.requiredEnvKeys, ...secondary.requiredEnvKeys]),
+    configuredEnvKeys: uniqueTexts([...primary.configuredEnvKeys, ...secondary.configuredEnvKeys]),
+    setupLinks: uniqueSetupLinks([...primary.setupLinks, ...secondary.setupLinks]),
+  };
 }
 
 function mergeCodexProviderRows(primary: OperationsProvider, secondary: OperationsProvider): OperationsProvider {

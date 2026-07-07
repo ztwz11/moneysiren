@@ -41,6 +41,23 @@ describe("connection diagnostics", () => {
     ]));
   });
 
+  it("explains that OpenAI admin env must be visible to the running server", () => {
+    const diagnostics = buildConnectionDiagnostics({
+      ...provider(),
+      connectionState: "not_configured",
+      missingEnvKeys: ["OPENAI_ADMIN_KEY"],
+    });
+
+    expect(diagnostics.details).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: "connection_not_configured",
+        nextAction: expect.stringContaining("MoneySiren server process cannot see OPENAI_ADMIN_KEY"),
+      }),
+    ]));
+    expect(diagnostics.nextAction).toContain("PowerShell environment variables set after server start");
+    expect(diagnostics.nextAction).toContain("read-only credential");
+  });
+
   it("redacts sensitive-looking values from diagnostics", () => {
     const diagnostics = buildConnectionDiagnostics({
       ...provider(),

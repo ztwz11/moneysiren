@@ -1864,7 +1864,7 @@ function DashboardWidgetLayout({
 }
 
 function dashboardWidgetClassName(item: DashboardWidgetLayoutItem): string {
-  return `dashboard-widget dashboard-widget-${item.size}`;
+  return `dashboard-widget dashboard-widget-${item.size} dashboard-widget-${item.widgetKey}`;
 }
 
 function serviceRowsFor(

@@ -15,16 +15,20 @@ if (args.help) {
 const packageJsonPath = resolve(repoRoot, "package.json");
 const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 const currentVersion = packageJson.version;
-const targetVersion = args.version ?? currentVersion;
+const requestedVersion = args.version ?? currentVersion;
+const targetVersion = args.version === null && args.autoPatch
+  ? resolveAutoPatchVersion(requestedVersion)
+  : requestedVersion;
 const releaseTag = `v${targetVersion}`;
 const releaseMessage = args.message ?? `Release ${releaseTag}`;
 const branch = capture("git", ["branch", "--show-current"]).trim();
 const repository = args.repo ?? parseGitHubRepository(capture("git", ["remote", "get-url", "origin"]).trim());
 const statusBefore = capture("git", ["status", "--porcelain"]).trim();
 const hasWorkingTreeChanges = statusBefore.length > 0;
+const autoPatched = targetVersion !== requestedVersion;
 
-if (!isPublicReleaseVersion(targetVersion)) {
-  fail(`Expected a public release version such as 0.1.0, received: ${targetVersion}`);
+if (!isPublicReleaseVersion(requestedVersion)) {
+  fail(`Expected a public release version such as 0.1.0, received: ${requestedVersion}`);
 }
 
 if (branch !== args.branch) {
@@ -43,7 +47,9 @@ if (args.dryRun) {
   console.log([
     "Public release dry run plan",
     `- current package version: ${currentVersion}`,
+    `- requested version: ${requestedVersion}`,
     `- target version: ${targetVersion}`,
+    `- auto patch bump: ${autoPatched ? "yes" : "no"}`,
     `- release tag: ${releaseTag}`,
     `- branch: ${branch}`,
     `- repository: ${repository ?? "unknown"}`,
@@ -127,6 +133,7 @@ console.log(`MoneySiren ${targetVersion} public release complete.`);
 
 function parseArgs(rawArgs) {
   const options = {
+    autoPatch: !envFlag("no_auto_patch"),
     branch: envValue("branch") ?? "main",
     dryRun: envFlag("dry_run"),
     help: false,
@@ -149,6 +156,8 @@ function parseArgs(rawArgs) {
       options.help = true;
     } else if (arg === "--dry-run") {
       options.dryRun = true;
+    } else if (arg === "--no-auto-patch") {
+      options.autoPatch = false;
     } else if (arg === "--include-working-tree") {
       options.includeWorkingTree = true;
     } else if (arg === "--skip-validation") {
@@ -227,6 +236,44 @@ function parsePositiveInteger(value, name) {
 
 function isPublicReleaseVersion(value) {
   return /^\d+\.\d+\.\d+$/.test(value);
+}
+
+function resolveAutoPatchVersion(version) {
+  let candidate = version;
+
+  for (let attempts = 0; attempts < 1000; attempts += 1) {
+    const tag = `v${candidate}`;
+
+    if (!releaseTagExists(tag)) {
+      if (candidate !== version) {
+        console.log(`Auto-selected next public release version ${candidate}; ${version} is already tagged.`);
+      }
+
+      return candidate;
+    }
+
+    candidate = incrementPatchVersion(candidate);
+  }
+
+  fail(`Could not find an unused patch version after ${version}.`);
+}
+
+function releaseTagExists(tag) {
+  return tagExistsLocally(tag) || (!args.skipRemoteChecks && tagExistsRemotely(tag));
+}
+
+function incrementPatchVersion(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+
+  if (match === null) {
+    fail(`Expected a public release version such as 0.1.0, received: ${version}`);
+  }
+
+  const major = Number.parseInt(match[1], 10);
+  const minor = Number.parseInt(match[2], 10);
+  const patch = Number.parseInt(match[3], 10);
+
+  return `${major}.${minor}.${patch + 1}`;
 }
 
 function assertPackageManifestVersions(version) {
@@ -436,18 +483,22 @@ Usage:
   npm run release:public:dry-run
   npm run release:public
   npm run release:public -- --version 0.1.1
+  npm run release:public -- --no-auto-patch
   npm run release:public:include-working-tree
 
 What it does:
   1. Requires a non-prerelease semver such as 0.1.0.
-  2. Verifies package manifest versions match the target release.
-  3. Runs diff check, secret scans, typecheck, tests, build, tray native check, and npm publish dry-runs.
-  4. Commits included release changes when needed, creates the annotated v* tag, pushes main, and pushes the tag.
-  5. Waits for GitHub Actions and verifies npm packages plus GitHub Release assets.
+  2. Defaults to package.json version, then auto-selects the next patch version when the matching v* tag already exists.
+  3. Verifies package manifest versions match the target release.
+  4. Runs diff check, secret scans, typecheck, tests, build, tray native check, and npm publish dry-runs.
+  5. Commits included release changes when needed, creates the annotated v* tag, pushes main, and pushes the tag.
+  6. Waits for GitHub Actions and verifies npm packages plus GitHub Release assets.
 
 Safety:
   The working tree must be clean by default. Use --include-working-tree only when
   you intentionally want current local changes included in the release commit.
+  Pass --version for an explicit release, or --no-auto-patch to fail instead of
+  selecting the next patch version when the current tag already exists.
   This script never runs npm publish locally; tag-push workflows own publishing.
 `);
 }

@@ -108,7 +108,7 @@ For CLI-only automation, install `@moneysiren/cli` instead and run `msiren insta
 To pin a release tag or choose a directory for the web runtime:
 
 ```bash
-msiren install --web --tag v0.1.2 --dir ./moneysiren-release
+msiren install --web --tag v0.1.3 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:

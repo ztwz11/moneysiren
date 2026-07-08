@@ -1,6 +1,6 @@
-# MoneySiren v0.1.3
+# MoneySiren v0.1.4
 
-MoneySiren v0.1.3 is a public local patch release.
+MoneySiren v0.1.4 is a public local patch release.
 
 This release keeps the local-first v0.1 workflow and improves the temporary unsigned Windows HUD smoke path while open-source code signing is pending.
 

@@ -39,7 +39,10 @@ Do not share the following in public issues or pull requests:
 - billing profile data
 - email addresses
 - local prompt text
+- shell command bodies
+- raw JSONL log lines
 - raw provider responses
+- local AI auth files
 
 ## Public Repository Safeguards
 

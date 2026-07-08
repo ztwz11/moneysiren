@@ -18,6 +18,8 @@ Good first contributions include:
 - improving release notes;
 - adding troubleshooting notes for Windows or macOS.
 
+See [docs/good-first-issues.md](docs/good-first-issues.md) for a maintained list of safe starter areas.
+
 ## Development Principles
 
 - Keep changes small and reviewable.
@@ -44,6 +46,8 @@ Do not include any of the following in issues, pull requests, fixtures, screensh
 - Billing profile data.
 - Email addresses.
 - Local prompt text.
+- Shell command bodies.
+- Raw JSONL log lines.
 - Shell history.
 - Raw provider responses.
 - Codex or Claude auth files.
@@ -71,10 +75,10 @@ npm run dev:web
 Run these before opening a pull request:
 
 ```bash
-pnpm typecheck
-pnpm test
-pnpm build
 git diff --check
+npm run typecheck
+npm run test
+npm run build
 npm run secret:scan
 ```
 

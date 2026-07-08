@@ -1,0 +1,40 @@
+name: Question
+description: Ask a MoneySiren usage or setup question with safe, redacted context.
+title: "question: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste API keys, OAuth tokens, webhook URLs, account IDs, project IDs, invoice IDs, emails, raw provider responses, local AI prompt text, shell command bodies, raw JSONL lines, or auth file contents.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What are you trying to understand or set up?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Safe context
+      description: Share OS, MoneySiren version, install method, and fake/redacted examples only.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Install
+        - Demo
+        - OpenAI
+        - Codex or Claude local usage
+        - AWS
+        - Supabase
+        - Cloudflare
+        - Emergency readiness
+        - Other
+    validations:
+      required: true

@@ -7,7 +7,7 @@ labels: provider
 
 ## Safety reminder
 
-Do not include API keys, OAuth tokens, webhook URLs, AWS account IDs, OpenAI organization IDs, Supabase project refs, Cloudflare account IDs, invoice IDs, emails, raw provider responses, screenshots containing real billing data, local prompt text, or local AI auth files.
+Do not include API keys, OAuth tokens, webhook URLs, AWS account IDs, OpenAI organization IDs, Supabase project refs, Cloudflare account IDs, invoice IDs, emails, raw provider responses, screenshots containing real billing data, local prompt text, shell command bodies, raw JSONL lines, or local AI auth files.
 
 Use fake, synthetic, or heavily redacted data only.
 

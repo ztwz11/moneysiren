@@ -4,6 +4,22 @@ MoneySiren is an MIT-licensed local-first observability dashboard for AI coding 
 
 MoneySiren is not a hosted SaaS. Provider connectors are read-only, normalized snapshots stay in local SQLite, and telemetry is off by default.
 
+## 5-Minute Quickstart
+
+Use the source-free app package when you want to try MoneySiren without cloning this repository:
+
+```bash
+npm install -g @moneysiren/app
+msiren --version
+msiren install --status
+msiren sync --provider mock
+msiren start
+```
+
+Open the local dashboard that `msiren start` launches. The `mock` provider uses fake local review data and does not require OpenAI, AWS, Supabase, Cloudflare, Codex, or Claude credentials.
+
+For source development, use [Quickstart From Source](#quickstart-from-source).
+
 ## Why MoneySiren Exists
 
 AI coding agents make open-source maintenance faster, but they also create new operational risks:
@@ -14,6 +30,18 @@ AI coding agents make open-source maintenance faster, but they also create new o
 - maintainers need visibility without uploading secrets to another SaaS.
 
 MoneySiren provides a local-first dashboard for those risks.
+
+## What Stays Local
+
+MoneySiren is built for local review, not hosted billing collection:
+
+- provider credentials stay in the local process environment or optional local credential store;
+- raw provider payloads, raw billing profiles, local AI prompt text, shell command bodies, raw JSONL lines, and auth file contents must not be stored;
+- normalized usage, billing, health, and audit snapshots stay in local SQLite;
+- local Codex/Claude surfaces expose sanitized usage metadata only;
+- telemetry is off by default.
+
+See [docs/data-we-never-store.md](docs/data-we-never-store.md), [docs/security-model.md](docs/security-model.md), and [SECURITY.md](SECURITY.md).
 
 ## What It Supports Today
 
@@ -53,6 +81,66 @@ The public local release supports:
 - Korean daily reports and optional Slack webhook delivery.
 
 The recommended source-free install is `@moneysiren/app`. It installs the CLI aliases (`moneysiren` and `msiren`) and downloads the matching GitHub Release web runtime. Windows HUD artifacts require signed release metadata by default; before signing is ready, unsigned HUD testing requires explicit local opt-in. Use `@moneysiren/cli` only for CLI-only automation.
+
+## Try It Without Credentials
+
+The fastest safe demo path is fixture-backed:
+
+```bash
+msiren sync --provider mock
+msiren start
+```
+
+This path creates local fake review snapshots only. It should never require API keys, provider account IDs, webhook URLs, local AI auth files, local prompt text, or raw provider payloads.
+
+For guided scenarios, see [docs/demo.md](docs/demo.md) and [docs/demo-scenarios.md](docs/demo-scenarios.md).
+
+## Connect Your First Provider
+
+Pick one provider first and keep the credential visible to the MoneySiren process that runs the sync or dashboard:
+
+| Provider | Minimal local setup | Read-only boundary |
+|---|---|---|
+| OpenAI | `OPENAI_ADMIN_KEY` visible to the MoneySiren process or saved as a local read-only credential | Reads usage/cost surfaces only |
+| Codex App/CLI | Local Codex app or CLI metadata/log location | Reads sanitized usage/quota metadata only; prompt/log contents are not exposed |
+| AWS | `AWS_PROFILE` or SDK credential chain visible to the MoneySiren process | Reads Cost Explorer data only |
+
+More providers and permission notes are in [docs/provider-support-matrix.md](docs/provider-support-matrix.md) and [docs/provider-permissions.md](docs/provider-permissions.md).
+
+## Emergency Readiness Is Not Provider Execution
+
+MoneySiren emergency readiness is a local planning and audit surface. It does not call provider write APIs, stop cloud resources, revoke keys, pause projects, disable workers, or add execution buttons. Official provider links and manual checklists are used so the user stays in control.
+
+See [docs/product/emergency-actions-spec.md](docs/product/emergency-actions-spec.md), [docs/product/emergency-actions-permission-matrix.md](docs/product/emergency-actions-permission-matrix.md), and [docs/product/emergency-actions-threat-model.md](docs/product/emergency-actions-threat-model.md).
+
+## Troubleshooting
+
+Common first-run issues are covered in [docs/troubleshooting.md](docs/troubleshooting.md), including:
+
+- OpenAI Admin API key set in PowerShell after the server started;
+- Codex App connected while Codex CLI shows a warning;
+- `AWS_PROFILE` or AWS SSO not visible to the MoneySiren process;
+- stale live data versus canonical sync;
+- emergency readiness being manual-only.
+
+## Docs
+
+- [Install and source setup](docs/install.md)
+- [Demo without credentials](docs/demo.md)
+- [Demo scenarios](docs/demo-scenarios.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Security model](docs/security-model.md)
+- [Data we never store](docs/data-we-never-store.md)
+- [Provider permissions](docs/provider-permissions.md)
+- [Provider support matrix](docs/provider-support-matrix.md)
+- [Local-first architecture](docs/local-first-architecture.md)
+- [Good first issues](docs/good-first-issues.md)
+- [Roadmap](docs/roadmap.md)
+- [Codex for Open Source](docs/codex-for-open-source.md)
+
+## Contributing
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/good-first-issues.md](docs/good-first-issues.md). Safe first contributions are docs, fake fixture scenarios, redaction tests, connection diagnostics tests, provider official-link updates, and UI copy improvements. Do not include credentials, raw provider payloads, real account identifiers, local AI prompt text, shell command bodies, raw JSONL lines, or auth file contents in issues or pull requests.
 
 ## Screenshots
 

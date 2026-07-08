@@ -2,6 +2,13 @@
 
 MoneySiren is a local-first dashboard for cloud, SaaS, and AI usage visibility. The security model is built around read-only provider access, local storage, and sanitized outputs.
 
+Related docs:
+
+- [Data we never store](data-we-never-store.md)
+- [Provider permissions](provider-permissions.md)
+- [Local-first architecture](local-first-architecture.md)
+- [Troubleshooting](troubleshooting.md)
+
 ## Secret Sources
 
 MoneySiren may read secrets from:

@@ -1,8 +1,32 @@
 {
   "name": "moneysiren-workspace",
   "version": "0.1.3",
+  "description": "Local-first AI/cloud/SaaS usage and cost observability dashboard for open-source maintainers.",
   "private": true,
+  "license": "MIT",
   "type": "module",
+  "homepage": "https://github.com/ztwz11/moneysiren#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ztwz11/moneysiren.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ztwz11/moneysiren/issues"
+  },
+  "keywords": [
+    "openai",
+    "codex",
+    "aws",
+    "cloud-cost",
+    "usage-dashboard",
+    "cost-observability",
+    "local-first",
+    "developer-tools",
+    "saas",
+    "billing",
+    "ai-agents",
+    "sqlite"
+  ],
   "packageManager": "pnpm@11.5.0",
   "scripts": {
     "dev": "node tools/scripts/run-web-with-tray.mjs",

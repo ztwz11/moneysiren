@@ -248,12 +248,14 @@ describe("MoneySiren CLI", () => {
     expect(version.stdout.join("\n").trim()).toBe(CLI_VERSION);
 
     const doctor = await runCli(["/doctor"], testContext(cwd, {
+      APPDATA: join(cwd, "appdata"),
       OPENAI_ADMIN_KEY: "sk-fake-openai-admin-key",
+      USERPROFILE: join(cwd, "home"),
     }));
     const doctorOutput = doctor.stdout.join("\n");
     expect(doctor.exitCode).toBe(0);
     expect(doctorOutput).toContain("MoneySiren doctor");
-    expect(doctorOutput).toContain("openai: configured");
+    expect(doctorOutput).toContain("openai: configured via local process environment");
     expect(doctorOutput).not.toContain("sk-fake-openai-admin-key");
 
     const modes = await runCli(["/modes"], testContext(cwd));
@@ -346,17 +348,58 @@ describe("MoneySiren CLI", () => {
   it("reports local readiness with doctor without exposing secret values", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["doctor"], testContext(cwd, {
+      APPDATA: join(cwd, "appdata"),
       OPENAI_ADMIN_KEY: "sk-fake-openai-admin-key",
+      USERPROFILE: join(cwd, "home"),
     }));
     const stdout = result.stdout.join("\n");
 
     expect(result.exitCode).toBe(0);
     expect(stdout).toContain("MoneySiren doctor");
+    expect(stdout).toContain("CLI version:");
+    expect(stdout).toContain("Node version:");
+    expect(stdout).toContain("Package install: OK");
     expect(stdout).toContain("DB path: .moneysiren/moneysiren.sqlite");
-    expect(stdout).toContain("telemetry: disabled");
-    expect(stdout).toContain("mock provider: available");
-    expect(stdout).toContain("openai: configured");
+    expect(stdout).toContain("SQLite: ready for local snapshots");
+    expect(stdout).toContain("Telemetry: disabled");
+    expect(stdout).toContain("Install profile: not configured; using recommended default");
+    expect(stdout).toContain("Selected components: CLI, Web dashboard, HUD");
+    expect(stdout).toContain("Web runtime: missing");
+    expect(stdout).toContain("Dashboard port 3000:");
+    expect(stdout).toContain("Mock provider: ready");
+    expect(stdout).toContain("openai: configured via local process environment");
+    expect(stdout).toContain("Secrets returned: false");
+    expect(stdout).toContain("Next step: run `msiren install --web`");
     expect(stdout).not.toContain("sk-fake-openai-admin-key");
+  });
+
+  it("reports an installed web runtime when the release manifest has a web asset", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
+    const releaseDir = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const webAssetPath = join(releaseDir, "moneysiren-web-runtime-v0.1.3.tar.gz");
+    await writeFile(webAssetPath, "fake web runtime", "utf8");
+    await writeFile(join(releaseDir, "install-manifest.json"), `${JSON.stringify({
+      version: 1,
+      repository: "ztwz11/moneysiren",
+      tag: "v0.1.3",
+      assets: [
+        {
+          surface: "web",
+          path: webAssetPath,
+        },
+      ],
+    }, null, 2)}\n`, "utf8");
+
+    const result = await runCli(["doctor"], testContext(cwd, {
+      APPDATA: join(cwd, "appdata"),
+      MONEYSIREN_RELEASE_INSTALL_DIR: releaseDir,
+      USERPROFILE: join(cwd, "home"),
+    }));
+    const stdout = result.stdout.join("\n");
+
+    expect(result.exitCode).toBe(0);
+    expect(stdout).toContain("Web runtime: installed");
+    expect(stdout).not.toContain("Next step: run `msiren install --web`");
   });
 
   it("prints npm-installable three-mode guidance with macOS-safe runtime lock hints", async () => {

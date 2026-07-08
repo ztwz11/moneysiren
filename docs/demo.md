@@ -10,6 +10,8 @@ Do not use live credentials, provider account IDs, OpenAI organization IDs, proj
 npm install -g @moneysiren/app
 msiren --version
 msiren install --status
+msiren doctor
+msiren install --web
 msiren sync --provider mock
 msiren start
 ```
@@ -61,12 +63,14 @@ Fixture and mock data is synthetic. It is useful for reviewing layout, local SQL
 ## Two-Minute Demo Narrative
 
 1. Install: `npm install -g @moneysiren/app`.
-2. Run fake data: `msiren sync --provider mock`.
-3. Open local dashboard: `msiren start`.
-4. Show AI/cloud/SaaS usage risk areas.
-5. Show Codex/Claude local usage surfaces without prompt text.
-6. Show emergency readiness as manual links and readiness state, not execution.
-7. Show local-first security docs and contribution paths.
+2. Check first-run readiness: `msiren doctor`.
+3. Install the local web runtime: `msiren install --web`.
+4. Run fake data: `msiren sync --provider mock`.
+5. Open local dashboard: `msiren start`.
+6. Show AI/cloud/SaaS usage risk areas.
+7. Show Codex/Claude local usage surfaces without prompt text.
+8. Show emergency readiness as manual links and readiness state, not execution.
+9. Show local-first security docs and contribution paths.
 
 Use this narrative:
 

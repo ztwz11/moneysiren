@@ -43,6 +43,7 @@ msiren --version
 msiren install --status
 msiren modes
 msiren doctor
+msiren install --web
 msiren sync --provider mock
 msiren start
 msiren hud
@@ -56,6 +57,7 @@ msiren --version
 msiren install --status
 msiren modes
 msiren doctor
+msiren install --web
 msiren sync --provider mock
 msiren start
 msiren hud
@@ -78,7 +80,10 @@ If release asset download fails during postinstall, npm still installs the comma
 ```bash
 msiren install --web
 msiren install --status
+msiren doctor
 ```
+
+If `msiren install --web` reports `404 Not Found` for the configured `ztwz11/moneysiren@v*` release tag, the source-free web dashboard runtime has not been published for that tag. The CLI is still installed, and `msiren sync --provider mock` can create local fake snapshots, but `msiren start` needs the matching GitHub Release web runtime. Use the source install path below until the release asset is published.
 
 For CLI-only automation, install `@moneysiren/cli` instead. Run `msiren install --all` only when Web/HUD assets are needed.
 
@@ -96,6 +101,8 @@ Install the app package first:
 
 ```bash
 npm install -g @moneysiren/app
+msiren install --web
+msiren doctor
 msiren sync --provider mock
 msiren start
 msiren hud

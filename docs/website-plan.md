@@ -28,6 +28,22 @@ Create a static landing and documentation site only. The site should explain Mon
 - Roadmap
 - Changelog
 
+## Quickstart Content
+
+The first quickstart should mirror the README and stay executable:
+
+```bash
+npm install -g @moneysiren/app
+msiren --version
+msiren install --status
+msiren doctor
+msiren install --web
+msiren sync --provider mock
+msiren start
+```
+
+If the GitHub Release web runtime is unavailable for the current npm package tag, the site should say that the CLI installed successfully but the source-free dashboard runtime is not published for that tag yet. Link to the source install guide instead of implying that credentials or a hosted account are needed.
+
 ## Home Page Messages
 
 - Local-first AI/cloud/SaaS usage and cost visibility.

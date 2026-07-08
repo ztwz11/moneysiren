@@ -15,6 +15,7 @@ Show:
 ```bash
 npm install -g @moneysiren/app
 msiren --version
+msiren doctor
 ```
 
 Say: MoneySiren is a local-first CLI, dashboard, and HUD.
@@ -24,6 +25,7 @@ Say: MoneySiren is a local-first CLI, dashboard, and HUD.
 Show:
 
 ```bash
+msiren install --web
 msiren sync --provider mock
 msiren start
 ```

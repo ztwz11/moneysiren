@@ -2,6 +2,14 @@
 
 These are safe contribution areas for new contributors. They should not require real credentials, real billing payloads, provider account IDs, project IDs, invoice IDs, webhook URLs, local AI prompt text, shell command bodies, raw JSONL lines, or auth file contents.
 
+## Open Good First Issue Examples
+
+- [#13 docs: improve Windows OPENAI_ADMIN_KEY troubleshooting](https://github.com/ztwz11/moneysiren/issues/13)
+- [#14 docs: add AWS_PROFILE setup screenshots](https://github.com/ztwz11/moneysiren/issues/14)
+- [#15 docs: add Codex App/CLI troubleshooting screenshots](https://github.com/ztwz11/moneysiren/issues/15)
+- [#16 test: add connection diagnostics regression cases](https://github.com/ztwz11/moneysiren/issues/16)
+- [#17 demo: add mock scenario for emergency readiness](https://github.com/ztwz11/moneysiren/issues/17)
+
 ## Docs
 
 - Improve Windows environment variable troubleshooting.

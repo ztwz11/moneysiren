@@ -18,6 +18,23 @@ msiren restart
 
 Do not paste the key into GitHub issues, screenshots, logs, fixtures, or docs.
 
+## `msiren start` Says No Web Runtime Is Installed
+
+`@moneysiren/app` installs the `moneysiren` and `msiren` commands first. The local web dashboard runtime is a matching GitHub Release asset and must also be installed.
+
+Run:
+
+```bash
+msiren install --web
+msiren doctor
+msiren sync --provider mock
+msiren start
+```
+
+If `msiren install --web` reports `404 Not Found` for a release such as `ztwz11/moneysiren@v0.1.3`, the npm command package is installed but the matching source-free dashboard runtime asset is not available on GitHub Releases for that tag. Use the source setup in `docs/install.md` until the release asset is published.
+
+Do not work around this by pasting provider credentials into issue reports. Include only the MoneySiren version, OS, command names, and sanitized error summary.
+
 ## Codex App Is Connected But Codex CLI Warning Appears
 
 MoneySiren models Codex App and Codex CLI as local usage surfaces. In the operations dashboard, they should be merged into one visible `Codex` row when either surface has healthy local usage data.

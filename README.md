@@ -12,11 +12,15 @@ Use the source-free app package when you want to try MoneySiren without cloning 
 npm install -g @moneysiren/app
 msiren --version
 msiren install --status
+msiren doctor
+msiren install --web
 msiren sync --provider mock
 msiren start
 ```
 
 Open the local dashboard that `msiren start` launches. The `mock` provider uses fake local review data and does not require OpenAI, AWS, Supabase, Cloudflare, Codex, or Claude credentials.
+
+If `msiren install --web` reports that the matching GitHub Release asset is unavailable, the npm CLI is installed but the source-free dashboard runtime is not published for that tag yet. Use [Quickstart From Source](#quickstart-from-source) until the release asset is available.
 
 For source development, use [Quickstart From Source](#quickstart-from-source).
 
@@ -79,6 +83,8 @@ The recommended source-free install is `@moneysiren/app`. It installs the CLI al
 The fastest safe demo path is fixture-backed:
 
 ```bash
+msiren install --web
+msiren doctor
 msiren sync --provider mock
 msiren start
 ```

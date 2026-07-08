@@ -376,12 +376,12 @@ describe("MoneySiren CLI", () => {
   it("reports an installed web runtime when the release manifest has a web asset", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const releaseDir = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
-    const webAssetPath = join(releaseDir, "moneysiren-web-runtime-v0.1.4.tar.gz");
+    const webAssetPath = join(releaseDir, "moneysiren-web-runtime-v0.1.5.tar.gz");
     await writeFile(webAssetPath, "fake web runtime", "utf8");
     await writeFile(join(releaseDir, "install-manifest.json"), `${JSON.stringify({
       version: 1,
       repository: "ztwz11/moneysiren",
-      tag: "v0.1.4",
+      tag: "v0.1.5",
       assets: [
         {
           surface: "web",
@@ -468,8 +468,8 @@ describe("MoneySiren CLI", () => {
     const stdout = result.stdout.join("\n");
 
     expect(result.exitCode).toBe(0);
-    expect(CLI_VERSION).toBe("0.1.4");
-    expect(stdout).toContain("Release default: ztwz11/moneysiren@v0.1.4.");
+    expect(CLI_VERSION).toBe("0.1.5");
+    expect(stdout).toContain("Release default: ztwz11/moneysiren@v0.1.5.");
   });
 
   it("installs selected release assets from GitHub Releases without storing secrets", async () => {
@@ -608,11 +608,11 @@ describe("MoneySiren CLI", () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const installDir = join(cwd, "release-install");
     const profilePath = join(cwd, "install-profile.json");
-    const hudAsset = "MoneySiren.Tray_0.1.4_x64-portable.exe";
+    const hudAsset = "MoneySiren.Tray_0.1.5_x64-portable.exe";
     const hudBytes = Buffer.from("fake unsigned hud executable");
 
     const result = await runCli(
-      ["install", "--hud", "--allow-unsigned-hud", "--dir", installDir, "--tag", "v0.1.4"],
+      ["install", "--hud", "--allow-unsigned-hud", "--dir", installDir, "--tag", "v0.1.5"],
       {
         ...testContext(cwd, {
           MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
@@ -621,17 +621,17 @@ describe("MoneySiren CLI", () => {
         fetch: async (input) => {
           const url = String(input);
 
-          if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.4")) {
+          if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.5")) {
             return Response.json({
-              html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.4",
+              html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.5",
               assets: [
                 {
                   name: hudAsset,
-                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.4/${hudAsset}`,
+                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.5/${hudAsset}`,
                 },
                 {
                   name: "moneysiren-tray-windows-SHA256SUMS.txt",
-                  browser_download_url: "https://github.com/ztwz11/moneysiren/releases/download/v0.1.4/moneysiren-tray-windows-SHA256SUMS.txt",
+                  browser_download_url: "https://github.com/ztwz11/moneysiren/releases/download/v0.1.5/moneysiren-tray-windows-SHA256SUMS.txt",
                 },
               ],
             });

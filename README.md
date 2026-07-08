@@ -59,7 +59,7 @@ See [docs/data-we-never-store.md](docs/data-we-never-store.md), [docs/security-m
 
 ## Current Status
 
-MoneySiren `v0.1.4` is the current public local patch release over the initial `v0.1.0` public local release.
+MoneySiren `v0.1.5` is the current public local patch release over the initial `v0.1.0` public local release.
 
 It provides source-free local installation through `@moneysiren/app`, a CLI-first setup flow, local SQLite snapshots, a local Next.js dashboard, and a Tauri tray/HUD desktop surface. MoneySiren remains early and local-first: provider connectors are read-only, telemetry is off by default, and raw provider payloads or credential material must not be persisted.
 
@@ -381,7 +381,7 @@ msiren stop
 To install the web runtime from a specific release tag or into a custom directory:
 
 ```bash
-msiren install --web --tag v0.1.4 --dir ./moneysiren-release
+msiren install --web --tag v0.1.5 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -397,7 +397,7 @@ Release maintainers should verify published assets before announcing a desktop b
 ```bash
 npm run release:signing:encode-windows -- "<path-to-windows-code-signing.pfx>"
 npm run release:signing:check -- windows
-npm run release:check -- v0.1.4
+npm run release:check -- v0.1.5
 ```
 
 The encode helper writes the base64 certificate payload to `.tmp/codesign/windows-certificate.base64.txt` so maintainers can set the `WINDOWS_CERTIFICATE` repository secret without printing the private certificate to the terminal. Set `WINDOWS_CERTIFICATE_PASSWORD` to the PFX/P12 password in GitHub Secrets and in the local shell before running the signing readiness check. The signing check verifies local/CI signing inputs before a release run. The release check downloads the published assets, verifies SHA256 entries, requires Windows signature metadata, and validates Windows Authenticode signatures when run on Windows. If only one desktop signing identity is ready, run the `desktop-release` workflow with `desktop_targets=windows` or `desktop_targets=macos`; the publish step removes stale desktop assets for the skipped OS. Self-signed certificates are acceptable only for local smoke tests and do not fix public Windows publisher trust warnings.

@@ -19,4 +19,4 @@ Describe the improvement.
 
 ## Safety reminder
 
-Do not include real credentials, provider account identifiers, billing data, webhook URLs, local prompt text, shell command bodies, raw JSONL lines, auth file contents, raw provider responses, or screenshots with real account data.
+Do not include API keys, OAuth tokens, webhook URLs, account IDs, project IDs, invoice IDs, emails, billing profile data, raw provider responses, local AI prompt text, shell command bodies, raw JSONL lines, auth file contents, or screenshots with real account data.

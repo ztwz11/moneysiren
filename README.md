@@ -53,14 +53,6 @@ See [docs/data-we-never-store.md](docs/data-we-never-store.md), [docs/security-m
 | Local surfaces | CLI, Next.js dashboard, Tauri tray/HUD |
 | Notifications | Desktop HUD, Korean daily report, optional Slack webhook |
 
-## Codex for Open Source
-
-MoneySiren is designed to help open-source maintainers and indie developers adopt AI coding agents safely by making OpenAI/Codex, local AI CLI, cloud, and SaaS usage visible without uploading secrets or raw provider data to a hosted service.
-
-The project includes a Codex-oriented maintainer plan covering provider connector tests, PR review, release workflow hardening, documentation, and secret-safety checks.
-
-See [docs/codex-for-open-source.md](docs/codex-for-open-source.md).
-
 ## Current Status
 
 MoneySiren `v0.1.3` is the current public local patch release over the initial `v0.1.0` public local release.

@@ -18,6 +18,11 @@
 
 ## Security Impact
 
+- [ ] No secrets
+- [ ] No raw provider payloads
+- [ ] No provider write APIs
+- [ ] No telemetry added
+- [ ] Tests updated where needed
 - [ ] Does not expose API keys/tokens/webhook URLs
 - [ ] Does not persist raw provider payloads
 - [ ] Does not expose browser-side secrets

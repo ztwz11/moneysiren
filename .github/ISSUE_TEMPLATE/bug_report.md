@@ -7,7 +7,7 @@ labels: bug
 
 ## Safety reminder
 
-Do not include API keys, OAuth tokens, webhook URLs, account IDs, organization IDs, project refs, invoice IDs, emails, billing profile data, raw provider responses, screenshots with real billing data, local prompt text, shell command bodies, raw JSONL lines, shell history, or local AI auth files.
+Do not include API keys, OAuth tokens, webhook URLs, account IDs, project IDs, invoice IDs, emails, billing profile data, raw provider responses, screenshots with real billing data, local AI prompt text, shell command bodies, raw JSONL lines, shell history, or auth file contents.
 
 Use fake or redacted examples only.
 

@@ -1,6 +1,6 @@
 # Social Post Drafts
 
-Do not add fake adoption metrics, user counts, download counts, star counts, or production-ready claims.
+Do not add fake adoption metrics, public usage numbers, or unsupported readiness claims.
 
 ## Short
 

@@ -9,8 +9,8 @@ This matrix reflects the current local product model. Do not upgrade a provider'
 | Codex App/CLI | available, local-only | local usage/quota metadata | local app/CLI metadata | Prompt text, shell command bodies, raw JSONL lines, and auth file contents are not exposed. |
 | Claude CLI | available, local-only | local usage/status metadata | local CLI/status metadata | Usage-only surface; not API billing. |
 | AWS | available | Cost Explorer cost, usage, forecast | `AWS_PROFILE` or SDK credential chain | Read-only Cost Explorer access. |
-| Supabase | available, usage/health | usage and health | access token or OAuth read scopes | Not modeled as provider billing in v0.1. |
-| Cloudflare | available, account-dependent | billing, usage, health | API token and account IDs | Billing usage surfaces can be unavailable for some accounts; no write actions. |
+| Supabase | available for fixture/read-only usage-health review | usage and health | access token or OAuth read scopes | Usage/health model, not provider billing in v0.1; no write actions. |
+| Cloudflare | available for fixture/account-dependent billing-usage review | billing, usage, health | API token and account IDs | Billing surfaces depend on account/API availability; no write actions. |
 | GCP | planned/local setup only | connection readiness | gcloud/ADC setup | Not a v0.1 sync connector. |
 | Vercel, GitHub Actions, Anthropic API, Railway, Fly.io and other catalog entries | planned or research | connection readiness only | provider-specific | Do not describe as available sync connectors yet. |
 

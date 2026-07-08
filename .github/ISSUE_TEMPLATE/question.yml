@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Do not paste API keys, OAuth tokens, webhook URLs, account IDs, project IDs, invoice IDs, emails, raw provider responses, local AI prompt text, shell command bodies, raw JSONL lines, or auth file contents.
+        Do not paste API keys, OAuth tokens, webhook URLs, account IDs, project IDs, invoice IDs, emails, billing profile data, raw provider responses, local AI prompt text, shell command bodies, raw JSONL lines, or auth file contents.
   - type: textarea
     id: question
     attributes:

@@ -345,7 +345,7 @@ jobs:
       - web-runtime
       - desktop
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || inputs.create_release
+    if: always() && needs.web-runtime.result == 'success' && (github.event_name == 'push' || inputs.create_release)
 
     steps:
       - uses: actions/checkout@v4
@@ -354,6 +354,27 @@ jobs:
         with:
           path: dist/release-assets
           merge-multiple: true
+
+      - name: Verify web runtime release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          web_assets=(dist/release-assets/moneysiren-web-runtime-*.tar.gz)
+          if [ "${#web_assets[@]}" -eq 0 ]; then
+            echo "No web runtime release asset was downloaded." >&2
+            exit 1
+          fi
+
+      - name: Report desktop artifact status
+        shell: bash
+        env:
+          DESKTOP_RESULT: ${{ needs.desktop.result }}
+        run: |
+          set -euo pipefail
+          if [ "$DESKTOP_RESULT" != "success" ]; then
+            echo "Desktop artifact job result: $DESKTOP_RESULT. Publishing available web runtime assets so source-free dashboard installs are not blocked."
+          fi
 
       - name: Create or update GitHub Release
         shell: bash

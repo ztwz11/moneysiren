@@ -38,9 +38,9 @@ Notes:
 ## Verification
 
 - [ ] `git diff --check`
-- [ ] `pnpm typecheck`
-- [ ] `pnpm test`
-- [ ] `pnpm build`
+- [ ] `npm run typecheck`
+- [ ] `npm run test`
+- [ ] `npm run build`
 - [ ] `npm run secret:scan`
 
 ## Remaining Risks

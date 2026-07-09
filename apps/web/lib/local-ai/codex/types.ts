@@ -6,14 +6,57 @@ export type CodexMeasurementAccuracy =
   | "bounded"
   | "unavailable";
 
-export type CodexOfficialSource =
-  | "codex-app-server"
-  | "stale-cache"
-  | "unavailable";
+export type CodexMeasurementSource =
+  | "codex-app-server-rate-limits"
+  | "codex-app-server-account-usage"
+  | "codex-local-session-metadata";
 
-export type CodexModelBreakdownSource =
-  | "sanitized-session-metadata"
-  | "unavailable";
+export type CodexUnavailableReason =
+  | "not-installed"
+  | "not-authenticated"
+  | "unsupported-auth-mode"
+  | "unsupported-method"
+  | "timeout"
+  | "malformed-response"
+  | "oversized-response"
+  | "no-data"
+  | "unknown";
+
+type CodexAvailableAccuracy = Exclude<CodexMeasurementAccuracy, "unavailable">;
+
+export interface CodexAvailableMeasurement<
+  T,
+  S extends CodexMeasurementSource,
+  A extends CodexAvailableAccuracy,
+> {
+  schemaVersion: typeof CODEX_MEASUREMENT_SCHEMA_VERSION;
+  availability: "available";
+  source: S;
+  accuracy: A;
+  fetchedAt: string;
+  data: T;
+}
+
+export interface CodexUnavailableMeasurement<
+  S extends CodexMeasurementSource,
+> {
+  schemaVersion: typeof CODEX_MEASUREMENT_SCHEMA_VERSION;
+  availability: "unavailable";
+  source: S;
+  accuracy: "unavailable";
+  fetchedAt: string;
+  reason: CodexUnavailableReason;
+  message: string;
+  data: null;
+}
+
+export type CodexMeasurement<
+  T,
+  S extends CodexMeasurementSource,
+  A extends CodexAvailableAccuracy,
+> =
+  | CodexAvailableMeasurement<T, S, A>
+  | CodexUnavailableMeasurement<S>;
 
 export interface CodexRateLimitWindow {
   usedPercent: number | null;
@@ -21,19 +64,9 @@ export interface CodexRateLimitWindow {
   resetsAt: string | null;
 }
 
-export interface CodexRateLimitSummary {
-  limitId: string;
-  limitName: string | null;
-  primary: CodexRateLimitWindow | null;
-  secondary: CodexRateLimitWindow | null;
-  rateLimitReachedType: string | null;
-  accuracy: "official";
-}
-
 export interface CodexResetCreditDetail {
-  id: string;
-  resetType: string;
-  status: string;
+  resetType: "codexRateLimits" | "unknown";
+  status: "available" | "unknown";
   grantedAt: string | null;
   expiresAt: string | null;
   title: string | null;
@@ -41,12 +74,16 @@ export interface CodexResetCreditDetail {
 }
 
 export interface CodexResetCreditSummary {
-  source: "codex-app-server";
   availableCount: number;
   details: readonly CodexResetCreditDetail[];
   detailsComplete: boolean;
-  fetchedAt: string;
-  accuracy: "official";
+}
+
+export interface CodexRateLimitSummary {
+  primary: CodexRateLimitWindow | null;
+  secondary: CodexRateLimitWindow | null;
+  reachedType: string | null;
+  resetCredits: CodexResetCreditSummary | null;
 }
 
 export interface CodexAccountUsageSummary {
@@ -64,24 +101,39 @@ export interface CodexDailyUsageBucket {
 
 export interface CodexAccountUsage {
   summary: CodexAccountUsageSummary;
-  dailyUsageBuckets: readonly CodexDailyUsageBucket[];
-  accuracy: "official";
+  dailyUsageBuckets: readonly CodexDailyUsageBucket[] | null;
 }
 
+export type CodexKnownModelId =
+  | "gpt-5.6-sol"
+  | "gpt-5.6-terra"
+  | "gpt-5.6-luna";
+
+declare const safeModelIdBrand: unique symbol;
+
+export type CodexSafeModelId = string & {
+  readonly [safeModelIdBrand]: true;
+};
+
+export type CodexTotalTokensBasis = "explicit" | "derived" | "mixed";
+
 export interface CodexModelUsage {
-  canonicalModelId: string;
-  rawModelIds: readonly string[];
+  canonicalModelId: CodexSafeModelId;
+  knownModelId: CodexKnownModelId | null;
+  observedModelIds: readonly CodexSafeModelId[];
   inputTokens: number;
   cachedInputTokens: number;
   cacheWriteTokens: number | null;
   outputTokens: number;
   reasoningTokens: number;
   totalTokens: number;
+  totalTokensBasis: CodexTotalTokensBasis;
   requestCount: number;
-  accuracy: "estimated" | "bounded";
 }
 
 export interface LocalUsageCoverage {
+  periodStart: string;
+  periodEnd: string;
   eligibleFileCount: number;
   scannedFileCount: number;
   parsedRecordCount: number;
@@ -91,31 +143,49 @@ export interface LocalUsageCoverage {
   truncated: boolean;
 }
 
-export interface CodexMeasurementSources {
-  rateLimits: CodexOfficialSource;
-  accountUsage: Exclude<CodexOfficialSource, "stale-cache">;
-  modelBreakdown: CodexModelBreakdownSource;
-}
-
-export interface CodexMeasurementSummary {
-  schemaVersion: typeof CODEX_MEASUREMENT_SCHEMA_VERSION;
-  observedAt: string;
-  sources: CodexMeasurementSources;
-  rateLimits: CodexRateLimitSummary | null;
-  resetCredits: CodexResetCreditSummary | null;
-  accountUsage: CodexAccountUsage | null;
+export interface CodexLocalModelUsage {
   models: readonly CodexModelUsage[];
   coverage: LocalUsageCoverage;
 }
 
-export function emptyLocalUsageCoverage(): LocalUsageCoverage {
-  return {
-    eligibleFileCount: 0,
-    scannedFileCount: 0,
-    parsedRecordCount: 0,
-    duplicateRecordCount: 0,
-    malformedRecordCount: 0,
-    unknownSchemaCount: 0,
-    truncated: false,
-  };
+export type CodexRateLimitsMeasurement = CodexMeasurement<
+  CodexRateLimitSummary,
+  "codex-app-server-rate-limits",
+  "official"
+>;
+
+export type CodexAccountUsageMeasurement = CodexMeasurement<
+  CodexAccountUsage,
+  "codex-app-server-account-usage",
+  "official"
+>;
+
+export type CodexLocalUsageMeasurement = CodexMeasurement<
+  CodexLocalModelUsage,
+  "codex-local-session-metadata",
+  "estimated" | "bounded"
+>;
+
+export interface CodexMeasurementV2 {
+  schemaVersion: typeof CODEX_MEASUREMENT_SCHEMA_VERSION;
+  generatedAt: string;
+  rateLimits: CodexRateLimitsMeasurement;
+  accountUsage: CodexAccountUsageMeasurement;
+  localModelUsage: CodexLocalUsageMeasurement;
+}
+
+export interface CodexSanitizedUsageRecord {
+  schemaVersion: 1;
+  eventKey: string;
+  seriesKey: string | null;
+  occurredAt: string;
+  observedModelId: string;
+  semantics: "incremental" | "cumulative";
+  inputTokens: number;
+  cachedInputTokens: number;
+  cacheWriteTokens: number | null;
+  outputTokens: number;
+  reasoningTokens: number;
+  explicitTotalTokens: number | null;
+  requestCount: number;
 }

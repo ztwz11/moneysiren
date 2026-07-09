@@ -1,0 +1,72 @@
+name: Provider request
+description: Propose a read-only provider connector or data surface
+title: "provider: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Provider connectors must use official read-only APIs, normalize before persistence, and use synthetic fixtures. Never post real keys, tokens, account or project IDs, invoice data, emails, raw responses, screenshots with billing data, or auth files.
+  - type: input
+    id: provider
+    attributes:
+      label: Provider name
+    validations:
+      required: true
+  - type: input
+    id: docs
+    attributes:
+      label: Official API documentation
+      description: Link to the official read-only usage, billing, quota, or health API.
+    validations:
+      required: true
+  - type: dropdown
+    id: data_surface
+    attributes:
+      label: Requested data surface
+      options:
+        - Usage
+        - Cost or billing
+        - Quota or rate limit
+        - Service health
+        - Multiple read-only surfaces
+    validations:
+      required: true
+  - type: textarea
+    id: auth
+    attributes:
+      label: Authentication and minimum scope
+      description: Name the auth mechanism and the smallest documented read-only permission. Do not include a credential.
+    validations:
+      required: true
+  - type: textarea
+    id: normalized
+    attributes:
+      label: Proposed normalized output
+      description: List safe metrics, units, timestamps, freshness, and confidence. Do not paste a raw response.
+    validations:
+      required: true
+  - type: textarea
+    id: redaction
+    attributes:
+      label: Redaction and persistence boundary
+      description: Identify sensitive fields that must be discarded or hashed before local SQLite persistence.
+    validations:
+      required: true
+  - type: textarea
+    id: fixtures
+    attributes:
+      label: Synthetic fixture source
+      description: Explain how fake payloads can be authored from public documentation without copying real account data.
+    validations:
+      required: true
+  - type: checkboxes
+    id: guarantees
+    attributes:
+      label: Connector guarantees
+      options:
+        - label: The proposed connector can be implemented with official read-only access.
+          required: true
+        - label: The proposal does not require storing raw provider responses or credentials.
+          required: true
+        - label: All examples and tests will use clearly fake or synthetic data.
+          required: true

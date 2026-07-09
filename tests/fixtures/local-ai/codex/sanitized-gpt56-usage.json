@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "schemaVersion": 1,
+      "eventKey": "fixture-event-sol-alias",
+      "seriesKey": null,
+      "occurredAt": "2030-01-02T00:01:00.000Z",
+      "observedModelId": "gpt-5.6",
+      "semantics": "incremental",
+      "inputTokens": 100,
+      "cachedInputTokens": 40,
+      "cacheWriteTokens": null,
+      "outputTokens": 20,
+      "reasoningTokens": 5,
+      "explicitTotalTokens": 120,
+      "requestCount": 1
+    },
+    {
+      "schemaVersion": 1,
+      "eventKey": "fixture-event-sol-canonical",
+      "seriesKey": null,
+      "occurredAt": "2030-01-02T00:02:00.000Z",
+      "observedModelId": "gpt-5.6-sol",
+      "semantics": "incremental",
+      "inputTokens": 50,
+      "cachedInputTokens": 10,
+      "cacheWriteTokens": null,
+      "outputTokens": 10,
+      "reasoningTokens": 0,
+      "explicitTotalTokens": 60,
+      "requestCount": 1
+    },
+    {
+      "schemaVersion": 1,
+      "eventKey": "fixture-event-terra",
+      "seriesKey": null,
+      "occurredAt": "2030-01-02T00:03:00.000Z",
+      "observedModelId": "gpt-5.6-terra",
+      "semantics": "incremental",
+      "inputTokens": 200,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 50,
+      "outputTokens": 30,
+      "reasoningTokens": 0,
+      "explicitTotalTokens": 230,
+      "requestCount": 1
+    },
+    {
+      "schemaVersion": 1,
+      "eventKey": "fixture-event-luna",
+      "seriesKey": null,
+      "occurredAt": "2030-01-02T00:04:00.000Z",
+      "observedModelId": "gpt-5.6-luna",
+      "semantics": "incremental",
+      "inputTokens": 75,
+      "cachedInputTokens": 25,
+      "cacheWriteTokens": null,
+      "outputTokens": 5,
+      "reasoningTokens": 0,
+      "explicitTotalTokens": 80,
+      "requestCount": 1
+    },
+    {
+      "schemaVersion": 1,
+      "eventKey": "fixture-event-future-model",
+      "seriesKey": null,
+      "occurredAt": "2030-01-02T00:05:00.000Z",
+      "observedModelId": "fixture-future-model",
+      "semantics": "incremental",
+      "inputTokens": 10,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": null,
+      "outputTokens": 2,
+      "reasoningTokens": 0,
+      "explicitTotalTokens": null,
+      "requestCount": 1
+    }
+  ],
+  "expected": {
+    "modelBucketCount": 4,
+    "sol": {
+      "canonicalModelId": "gpt-5.6-sol",
+      "inputTokens": 150,
+      "cachedInputTokens": 50,
+      "outputTokens": 30,
+      "reasoningTokens": 5,
+      "totalTokens": 180,
+      "requestCount": 2
+    },
+    "terraTotalTokens": 230,
+    "lunaTotalTokens": 80,
+    "unknownHasCreditRate": false
+  }
+}

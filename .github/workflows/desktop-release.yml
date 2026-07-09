@@ -9,7 +9,6 @@ on:
       tag:
         description: "Release tag to create or update"
         required: true
-        default: "v0.1.5"
       create_release:
         description: "Create/update the GitHub Release and upload assets"
         required: true
@@ -406,7 +405,8 @@ jobs:
 
           notes_file="docs/release/desktop-${tag}-notes.md"
           if [ ! -f "$notes_file" ]; then
-            notes_file="docs/release/desktop-v0.1.0-notes.md"
+            echo "::error file=${notes_file}::Missing release notes for ${tag}."
+            exit 1
           fi
 
           if gh release view "$tag" >/dev/null 2>&1; then

@@ -1,228 +1,248 @@
-# Codex Measurement v2
+# Codex Measurement v2 Contract
 
-Status: APPROVED CONTRACT FOR v0.1.6 IMPLEMENTATION  
-Security review required for transport, local-session parsing, and route changes  
-Verified against official Codex App Server documentation: 2026-07-10
+Status: APPROVED CONTRACT FOR COD-002 THROUGH COD-005  
+Schema version: 2  
+Last reviewed: 2026-07-10  
+Official reference: https://learn.chatgpt.com/docs/app-server
 
 ## Purpose
 
-This contract separates official ChatGPT/Codex account signals from local,
-sanitized model-usage estimates. It replaces the undocumented reset-credit HTTP
-integration and direct Codex auth-file access.
+Codex Measurement v2 separates provider-reported ChatGPT/Codex account
+measurements from locally estimated model usage.
 
-It does not turn Codex subscription activity into OpenAI Platform billing, and
-it does not authorize persistence or exposure of raw local AI logs.
+It answers independently:
 
-## Source precedence
+1. What quota windows and reset credits does Codex App Server report?
+2. What aggregate account token activity does Codex App Server report?
+3. What model/token breakdown can MoneySiren estimate from sanitized local
+   session metadata?
+4. How complete was the local scan?
 
-### Rate limits and reset credits
+Official account values and local estimates are never summed into a synthetic
+billing or credit total.
 
-1. Codex App Server account/rateLimits/read.
-2. Last known safe normalized App Server snapshot, marked stale.
-3. Unavailable.
+## Non-goals
 
-MoneySiren must not fall back to chatgpt.com backend-api endpoints, direct
-auth.json parsing, browser tokens, or user-entered account IDs.
+- Calculating OpenAI Platform API dollars.
+- Calculating Codex subscription credits from tokens.
+- Consuming reset credits.
+- Reading Codex auth files.
+- Calling undocumented ChatGPT HTTP endpoints.
+- Persisting raw App Server envelopes or raw JSONL.
+- Reconstructing prompts, responses, commands, tool inputs, or account identity.
 
-The App Server availableCount field is authoritative. The credits detail array
-may be null or capped. MoneySiren must not replace the count with detail length,
-fabricate missing rows, or estimate an expiry for an unavailable detail row.
+## Sources and precedence
 
-### Account token activity
+| Domain | Source | Accuracy | Fallback |
+|---|---|---|---|
+| Quota windows | account/rateLimits/read | official | unavailable |
+| Reset-credit count/details | account/rateLimits/read | official | unavailable |
+| Account token summary/daily buckets | account/usage/read | official | unavailable |
+| Model/token breakdown | sanitized local session metadata | estimated or bounded | unavailable |
+| Codex subscription credit estimate | none | unavailable | none |
 
-1. Codex App Server account/usage/read.
-2. Unavailable.
+Within account/rateLimits/read, rateLimitsByLimitId.codex takes precedence over
+the backward-compatible rateLimits field. The latter is used only when the
+codex bucket is absent.
 
-The official response provides account summary and daily buckets. It is not a
-model, input/output, or billing breakdown.
+Provider values always outrank local estimates. A failed official read does not
+promote local token counts into an official quota value.
 
-### Model and token breakdown
+## Availability and accuracy
 
-1. Sanitized numeric metadata from supported local Codex session schemas.
-2. Unavailable.
+Each domain is a discriminated available or unavailable measurement.
 
-This is always a local estimate. If eligible files are not all scanned or an
-unknown schema is skipped, accuracy is bounded.
+- official: allowlisted values normalized from Codex App Server.
+- estimated: a supported local metadata corpus was scanned without a known
+  coverage bound, but the result is still not provider billing.
+- bounded: file caps, skipped files, unknown schemas, or ambiguous cumulative
+  records make the local result incomplete.
+- unavailable: no trustworthy safe source exists.
 
-### OpenAI Platform usage and costs
+An unavailable result contains a stable reason code and a sanitized message. It
+contains no stderr, stdout, JSON-RPC envelope, path, auth data, or upstream body.
 
-OpenAI organization Usage and Costs APIs remain separate provider sources.
-Provider-reported cost is authoritative. Codex subscription credits and API
-dollars must never be summed or presented as the same unit.
+Stable unavailable reasons:
 
-## Accuracy values
+- not-installed
+- not-authenticated
+- unsupported-auth-mode
+- unsupported-method
+- timeout
+- malformed-response
+- oversized-response
+- no-data
+- unknown
 
-| Value | Meaning |
-|---|---|
-| official | Returned by a documented provider interface and normalized without estimation |
-| estimated | Derived from a complete supported local metadata corpus |
-| bounded | Derived from a truncated or partly unsupported local metadata corpus |
-| unavailable | No safe supported source is available |
+## Rate limits
 
-Every displayed non-official number includes source, collected time, and
-accuracy.
+A normalized window contains used percent, duration minutes, and an ISO-8601
+reset time. MoneySiren does not infer a token limit.
 
-## GPT-5.6 model identity
+Non-finite values are rejected. A valid percentage is bounded to 0 through 100.
+Missing primary or secondary windows remain null.
 
-Canonical IDs:
+## Reset credits
 
-- gpt-5.6-sol
-- gpt-5.6-terra
-- gpt-5.6-luna
+availableCount is authoritative.
 
-Alias rule:
+The upstream credits field means:
 
-- gpt-5.6 normalizes to gpt-5.6-sol.
+- null: only the count is known;
+- empty array: detail retrieval completed with no returned rows;
+- shorter array than availableCount: details are partial or capped.
 
-The safe original model label may be retained for diagnostics when it matches a
-strict model-label character and length policy. Unknown models remain unknown
-and never receive a guessed rate.
+MoneySiren derives:
 
-## Token semantics
+    detailsComplete =
+      credits is not null and credits.length >= availableCount
 
-The normalized model bucket keeps:
+It does not invent rows, expiry dates, titles, or descriptions.
 
-- input tokens;
-- cached input/read tokens;
-- cache creation/write tokens when independently available;
-- output tokens;
-- reasoning tokens when independently available;
-- explicit total tokens;
+The upstream credit id is opaque and is omitted from normalized, persisted, API,
+and browser output. Consuming a reset credit is outside this read-only contract.
+
+grantedAt and expiresAt become ISO-8601 or null. Unsupported status and reset
+types become unknown rather than echoing arbitrary strings.
+
+## Account token activity
+
+account/usage/read is an official aggregate domain. It can provide summary
+metrics and optional daily buckets.
+
+It does not provide model, input, cache, output, or reasoning splits. It remains
+separate from local model estimates. Null summary fields remain null. Missing
+daily buckets remain null; MoneySiren does not manufacture zero days.
+
+## Local model usage
+
+A supported local record is reduced to a sanitized intermediate event before
+aggregation. It may contain only:
+
+- a synthetic deduplication key;
+- timestamp;
+- safe model identifier;
+- incremental or cumulative semantics;
+- numeric token components;
 - request count.
 
-Rules:
+It contains no raw session/request ID, path, prompt, response, command, tool
+input, account identifier, or original record.
 
-1. An explicit total is a total or validation value, not an additional
-   component.
-2. Cached input is not added again if it is already included in input.
-3. Reasoning is not added again if it is already included in output.
-4. A cumulative session total is not treated as a new incremental event.
-5. Duplicate supported records count once.
-6. Unknown relationships remain null or bounded rather than guessed.
+## Token arithmetic
 
-## Credit estimates
+- Input includes cached input when upstream defines cache as an input subset.
+- Cached input is never added again.
+- Cache write remains separate only when explicitly observable; otherwise null.
+- Reasoning is never added again when it is an output subset.
+- Explicit total is the total or validation value, not another component.
+- Without an explicit total, total is input plus output.
+- Cumulative snapshots are differenced or replaced by a stable sanitized series
+  key. Repeated snapshots are not added as new deltas.
 
-The official OpenAI Help Center and Codex pricing pages showed conflicting
-GPT-5.6 credit values at the contract verification time. Therefore v0.1.6 must
-not hard-code or display a calculated Codex credit amount unless a maintainer
-records:
+Example:
 
-- the authoritative source URL;
-- verification timestamp;
-- effective workspace/plan scope;
-- a versioned rate-card identifier;
-- fixtures and tests for the selected values.
+    input=100, cachedInput=40, output=20, reasoning=5, total=120
 
-Official quota percentages and provider-reported reset-credit counts continue to
-display even while calculated credit estimates are unavailable.
+The total remains 120, not 185.
 
-Fast mode, plan-specific pools, and long-context API multipliers must not be
-applied to Codex subscription usage unless the provider source explicitly
-returns the required semantics.
+## Model normalization
 
-## Proposed response model
+Exact mappings:
 
-    interface CodexMeasurementSummary {
-      schemaVersion: 2;
-      observedAt: string;
-      sources: {
-        rateLimits: "codex-app-server" | "stale-cache" | "unavailable";
-        accountUsage: "codex-app-server" | "unavailable";
-        modelBreakdown: "sanitized-session-metadata" | "unavailable";
-      };
-      rateLimits: CodexRateLimitSummary | null;
-      resetCredits: CodexResetCreditSummary | null;
-      accountUsage: CodexAccountUsage | null;
-      models: readonly CodexModelUsage[];
-      coverage: LocalUsageCoverage;
-    }
+| Observed safe ID | Canonical ID |
+|---|---|
+| gpt-5.6 | gpt-5.6-sol |
+| gpt-5.6-sol | gpt-5.6-sol |
+| gpt-5.6-terra | gpt-5.6-terra |
+| gpt-5.6-luna | gpt-5.6-luna |
 
-Existing aggregate and top-model fields may be derived from this model for one
-compatibility release. New consumers use schemaVersion 2 fields.
+No fuzzy or prefix match is allowed. A safe model ID matches:
+
+    ^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$
+
+A future safe model stays an unknown model until approved. An invalid value
+becomes unknown without echoing the original.
+
+No model receives a Codex credit rate in schema v2. The official rate pages
+conflicted at contract review time, and raw tokens are not subscription credits.
 
 ## Coverage
 
-Local model estimates expose:
+Local coverage exposes counts only:
 
-- eligible file count;
-- scanned file count;
-- parsed record count;
-- duplicate record count;
-- malformed record count;
-- unknown schema count;
-- truncated state.
+- period start and end;
+- eligible and scanned files;
+- parsed, duplicate, malformed, and unknown-schema records;
+- truncation.
 
-Coverage must not expose session identifiers, complete paths, file names, raw
-lines, prompts, responses, tool input, or commands.
+It exposes no filenames or paths.
 
-## Failure behavior
+The result is bounded if eligible files exceed scanned files, truncation is true,
+unknown schemas exist, or a cumulative series cannot be safely differenced.
 
-- App Server missing: official fields unavailable; safe local model estimate may
-  remain available.
-- App Server timeout or malformed response: retain last normalized official
-  snapshot as stale when available.
-- Unsupported usage method: account usage unavailable; rate limits may remain.
-- Local schema drift: skip unsafe records, increment coverage counters, and mark
-  bounded.
-- All errors are normalized codes with short remediation. Raw stdout, stderr,
-  JSON-RPC envelopes, auth data, and local log content are not returned or
-  logged.
+## Freshness and failure
 
-## Persistence
+Each domain records fetchedAt or observedAt in ISO-8601 UTC.
 
-Allowed:
+A failed attempt returns unavailable. Later freshness work may retain the last
+normalized snapshot, but it must mark that snapshot stale and preserve the
+failed-attempt time separately.
 
-- normalized quota percentages and reset timestamps;
-- authoritative reset-credit count;
-- allowlisted reset-credit detail timestamps/status;
-- numeric daily/account token summaries;
-- numeric per-model estimates;
-- coverage counts, accuracy, source, and freshness;
-- sanitized error codes.
+App Server failure does not erase a safe local model estimate. Local parser
+failure does not change an official quota into an estimate.
 
-Forbidden:
+## Privacy boundary
 
-- App Server raw responses;
-- raw JSONL or raw lines;
-- prompt or assistant content;
-- tool input or shell commands;
-- auth files and token fields;
-- account IDs and session IDs;
-- full local paths.
+Forbidden in normalized output, persistence, fixtures, logs, screenshots, and
+errors:
 
-## UI contract
+- prompt, response, content, text, or message bodies;
+- command, command line, shell input, or tool input;
+- raw JSONL or JSON-RPC envelopes;
+- full paths, home directories, or cwd;
+- access/refresh tokens and Authorization headers;
+- account, organization, workspace, project, invoice, session, or opaque credit
+  IDs;
+- emails and auth-file fields.
 
-Service detail:
+Input fixtures that exercise upstream normalization may contain only clearly
+FAKE opaque IDs, which must disappear from normalized output. Fixtures are
+synthetic and never captured from a real installation.
 
-- official rate-limit and reset-credit sections;
-- official account token activity;
+## Compatibility
+
+Schema v2 is additive beside LocalCliUsageSummary while COD-002 and COD-004 are
+implemented.
+
+The compatibility facade derives legacy quota fields from official rate limits
+and legacy token totals/top models from local estimates. It never relabels an
+estimate as official.
+
+## UI
+
+Service detail shows:
+
+- official rate limits and reset-credit count/details;
+- official aggregate account token activity;
 - separately labeled local model estimates;
 - Sol, Terra, and Luna token components;
 - coverage and freshness warnings.
 
-HUD:
+HUD remains compact. It keeps quota/reset values inline and moves source, model,
+and coverage detail to a popover or service page. Credit estimates remain hidden
+while unavailable.
 
-- keep compact quota/reset values;
-- place model, source, and coverage details in a popover or service detail;
-- never add a credit estimate while source status is unavailable.
+## Acceptance
 
-## Fixture policy
-
-Fixtures are minimal synthetic records authored from public field descriptions.
-They must not be copied from a real account. Fake opaque IDs are clearly marked
-FAKE. Tests must assert the absence of prompt, response, command, token, account,
-path, and raw-payload fields.
-
-## Acceptance tests
-
-- availableCount greater than detail length is preserved;
-- null details and empty details have distinct supported meanings;
-- exact detail is not overwritten by an observation estimate;
-- gpt-5.6 and gpt-5.6-sol share one canonical bucket;
-- Sol, Terra, and Luna remain separate;
-- component plus explicit total is not double-counted;
-- cumulative and duplicate records are not added repeatedly;
-- truncated coverage is bounded;
-- App Server failure does not erase a safe local model estimate;
-- no raw/auth/content field reaches API, log, fixture snapshot, or UI;
-- Codex credits and API dollars remain different metrics.
+- availableCount remains authoritative for null, empty, or capped details.
+- No synthetic reset-credit row or expiry is produced.
+- Opaque credit IDs disappear from normalized output.
+- gpt-5.6 and gpt-5.6-sol share one Sol bucket.
+- Terra and Luna remain separate.
+- Unknown safe models have no rate.
+- Unsafe labels become unknown without being echoed.
+- Explicit totals and subset components are not double-counted.
+- Official account usage and local model usage remain separate objects.
+- Truncated coverage is bounded.
+- Errors and output pass forbidden-content regression tests.

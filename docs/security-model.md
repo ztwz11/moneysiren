@@ -7,44 +7,72 @@ Related docs:
 - [Data we never store](data-we-never-store.md)
 - [Provider permissions](provider-permissions.md)
 - [Local-first architecture](local-first-architecture.md)
+- [Codex rate-limit and account usage](codex-reset-credits.md)
 - [Troubleshooting](troubleshooting.md)
 
 ## Secret Sources
 
 MoneySiren may read secrets from:
 
-- process environment variables
-- OS keychain through the local credential backend
-- encrypted local vault backend when explicitly configured
+- process environment variables;
+- OS keychain through the local credential backend;
+- encrypted local vault backend when explicitly configured.
 
 MoneySiren must not store credential material in SQLite.
 
+For official local Codex measurements, the Codex child process owns authentication. MoneySiren starts the documented App Server stdio transport and does not ingest Codex credentials into the web process.
+
 ## Local Storage
 
-SQLite stores normalized snapshots only. Raw provider responses, billing profiles, API keys, tokens, webhook URLs, account IDs, project IDs, invoice IDs, card data, and emails must not be persisted.
+SQLite stores normalized snapshots only. Raw provider responses, raw JSON-RPC messages, process output streams, billing profiles, API keys, tokens, webhook URLs, account IDs, project IDs, invoice IDs, card data, and emails must not be persisted.
+
+A Codex measurement may be persisted only after it conforms to schema v2 and has passed the sanitization boundary described below.
 
 ## Browser Output Policy
 
-Dashboard JSON and rendered UI must not expose credential material or raw provider payloads. Local session and CSRF values are local web controls, not provider credentials.
+Dashboard JSON and rendered UI must not expose credential material, account identifiers, raw provider payloads, raw App Server messages, or raw local AI records. Local session and CSRF values are local web controls, not provider credentials.
 
 ## Logging Policy
 
-Logs should use sanitized messages. Do not log provider Authorization headers, API keys, OAuth refresh tokens, Slack webhook URLs, raw JSONL lines, or local AI CLI prompt text.
+Logs should use sanitized messages. Do not log provider Authorization headers, API keys, OAuth refresh tokens, Slack webhook URLs, raw JSONL lines, App Server stdout or stderr, prompt text, tool input, shell commands, or local file context.
 
 ## Slack Webhook Policy
 
 Slack delivery is opt-in per run. `SLACK_WEBHOOK_URL` is treated as a local secret and must not appear in repository files, logs, fixtures, reports, or test snapshots.
 
-## Local AI CLI Prompt Policy
+## Official Codex App Server Boundary
 
-Codex CLI and Claude CLI logs may include prompt text, tool input, shell commands, and local file context. MoneySiren should only read and display sanitized metadata:
+MoneySiren runs `codex app-server --listen stdio://` locally and limits its measurement calls to:
 
-- token counts
-- quota percentages
-- reset times
-- model names
-- timestamps
-- confidence/freshness labels
+- `account/rateLimits/read`;
+- `account/usage/read`.
+
+Only normalized schema v2 output crosses from the transport adapter into application code. The adapter must enforce timeouts and response-size bounds, reject malformed results, map failures to sanitized reason codes, and discard raw messages after normalization.
+
+Allowed normalized fields include:
+
+- authoritative rate-limit counts and windows;
+- reset times;
+- reset-credit details supplied by App Server, without opaque identifiers;
+- official account usage summary values and daily buckets;
+- source, accuracy, timestamp, and coverage metadata.
+
+The authoritative `availableCount` is independent of the number of supplied detail rows. When `detailsComplete` is false, UI and reports must label the coverage as partial and must not synthesize missing credits. A lifetime awarded-credit total remains unavailable unless a documented source explicitly provides one.
+
+Official Codex account usage and locally parsed per-model estimates are separate measurements. They must not be summed, substituted, or presented with the same accuracy label.
+
+## Local AI Record Policy
+
+Local Codex and Claude records may include sensitive user content. MoneySiren may parse them only to derive sanitized metadata:
+
+- token counts;
+- quota percentages;
+- reset times;
+- safe model identifiers;
+- timestamps;
+- confidence, freshness, and coverage labels.
+
+Raw lines and content-bearing fields must not appear in logs, fixtures, dashboard JSON, reports, screenshots, tests, or persisted snapshots.
 
 ## Emergency Actions Policy
 

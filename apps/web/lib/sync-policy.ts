@@ -1,4 +1,5 @@
 import { redactSensitiveString } from "../../../packages/security/src/index";
+import { providerFreshnessPolicy } from "../../../packages/view-model/src/index";
 
 export type SyncPolicyStatus =
   | "initial_sync_required"
@@ -29,8 +30,6 @@ export interface ProviderSyncPolicy {
   summary: string;
   localOnly: true;
 }
-
-const LOCAL_AI_PROVIDER_KEYS = new Set(["codex-cli", "codex-app", "claude-cli", "claude-app", "antigravity"]);
 
 export function buildProviderSyncPolicy(input: SyncPolicyInput, now: Date = new Date()): ProviderSyncPolicy {
   const providerKey = safeText(input.providerKey);
@@ -92,23 +91,11 @@ function liveRefreshStatus(
 }
 
 function canonicalIntervalMinutes(providerKey: string): number {
-  if (providerKey === "openai") {
-    return 360;
-  }
-
-  if (providerKey === "aws" || providerKey === "supabase" || providerKey === "cloudflare") {
-    return 720;
-  }
-
-  return LOCAL_AI_PROVIDER_KEYS.has(providerKey) ? 60 : 720;
+  return providerFreshnessPolicy(providerKey).canonicalTtlSeconds / 60;
 }
 
 function liveTtlSeconds(providerKey: string): number {
-  if (LOCAL_AI_PROVIDER_KEYS.has(providerKey)) {
-    return 60;
-  }
-
-  return providerKey === "openai" ? 300 : 900;
+  return providerFreshnessPolicy(providerKey).recommendedLiveTtlSeconds;
 }
 
 function syncSummary(displayName: string, canonicalStatus: string, liveStatus: string): string {

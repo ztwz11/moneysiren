@@ -22,8 +22,10 @@ The CLI supports fake fixture mode for local review and a read-only live Usage/C
   - `group_by=model` for usage
   - `group_by=line_item` for costs
 - Response fields normalized:
-  - Usage: `model`, `input_tokens`, `output_tokens`, `num_model_requests`
+  - Usage: `model`, `input_tokens`, `input_cached_tokens`, `output_tokens`, `num_model_requests`
   - Costs: `amount.currency`, `amount.value`, bucket `start_time`, bucket `end_time`
+
+`input_cached_tokens` is exposed as a separate `cached_input_tokens` usage metric. It is not added to or subtracted from `input_tokens`. Model identifiers, including `gpt-5.6-sol`, `gpt-5.6-terra`, and `gpt-5.6-luna`, are preserved verbatim for the OpenAI Platform surface. Pagination cursors control collection only and are never persisted in normalized snapshots.
 
 ## Credentials
 
@@ -52,7 +54,7 @@ The fixture loader accepts either section-specific payloads or a combined fake p
 
 Persist normalized snapshots only:
 
-- usage snapshots by service and metric
+- usage snapshots by service and metric, with cached input tokens kept separate
 - billing snapshots by period and currency
 - cost estimates by period and currency
 
@@ -62,5 +64,7 @@ Do not persist raw OpenAI payloads, API keys, account IDs, project IDs, user IDs
 
 - Live Usage/Costs access depends on organization/admin key permissions and current OpenAI API availability.
 - Usage and costs may not reconcile exactly because they are separate provider surfaces.
+- MoneySiren does not derive API dollars from token counts. Costs API totals remain the only cost source in this connector.
+- OpenAI Platform API usage is separate from ChatGPT/Codex subscription quota, reset credits, and App Server account totals.
 - Costs are treated as estimated snapshots in v0.1.
 - Additional OpenAI usage surfaces beyond completions are out of scope for this minimal M5 slice.

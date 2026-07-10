@@ -43,6 +43,7 @@ export async function readBoundedJsonl(
   const decoder = new StringDecoder("utf8");
   let buffer = "";
   let droppingOversizedLine = false;
+  let byteLimitReached = false;
   let stopped = false;
 
   const consumeLine = (line: string): boolean => {
@@ -118,6 +119,7 @@ export async function readBoundedJsonl(
 
       if (remaining <= 0) {
         result.truncated = true;
+        byteLimitReached = true;
         break;
       }
 
@@ -127,11 +129,12 @@ export async function readBoundedJsonl(
 
       if (chunk.length > remaining || stopped) {
         result.truncated = true;
+        byteLimitReached = chunk.length > remaining;
         break;
       }
     }
 
-    if (!result.truncated && !stopped) {
+    if (!byteLimitReached && !stopped) {
       appendText(decoder.end());
 
       if (buffer.length > 0 && !droppingOversizedLine) {

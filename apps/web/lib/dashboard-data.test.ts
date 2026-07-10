@@ -345,6 +345,7 @@ describe("dashboard data adapter", () => {
         alerts: [],
         reportRuns: [],
         emergencyActionRuns: [],
+        providerSyncRuns: [],
       },
       {
         generatedAt: GENERATED_AT,

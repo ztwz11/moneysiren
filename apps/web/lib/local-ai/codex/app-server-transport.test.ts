@@ -2,9 +2,46 @@ import { describe, expect, it } from "vitest";
 import webPackage from "../../../package.json";
 import rateLimitsFixture from "../../../../../tests/fixtures/local-ai/codex/app-server-rate-limits.json";
 import accountUsageFixture from "../../../../../tests/fixtures/local-ai/codex/app-server-usage.json";
-import { CodexAppServerSession } from "./app-server-transport";
+import {
+  CodexAppServerJsonlDecoder,
+  CodexAppServerSession,
+} from "./app-server-transport";
 
 const FETCHED_AT = "2030-01-03T00:00:00.000Z";
+
+describe("Codex App Server bounded JSONL framing", () => {
+  it("reassembles split chunks and discards blank protocol lines", () => {
+    const decoder = new CodexAppServerJsonlDecoder(1_024);
+
+    expect(decoder.push('{"id":0')).toEqual({
+      lines: [],
+      oversized: false,
+    });
+    expect(decoder.push(',"result":{}}\r\n\n{"id":1')).toEqual({
+      lines: ['{"id":0,"result":{}}'],
+      oversized: false,
+    });
+    expect(decoder.push(',"result":{}}\n')).toEqual({
+      lines: ['{"id":1,"result":{}}'],
+      oversized: false,
+    });
+  });
+
+  it("fails an unterminated or completed line above the byte limit", () => {
+    const decoder = new CodexAppServerJsonlDecoder(8);
+
+    expect(decoder.push("123456789")).toEqual({
+      lines: [],
+      oversized: true,
+    });
+
+    const completedLineDecoder = new CodexAppServerJsonlDecoder(8);
+    expect(completedLineDecoder.push("123456789\n")).toEqual({
+      lines: [],
+      oversized: true,
+    });
+  });
+});
 
 describe("Codex App Server stdio JSON-RPC session", () => {
   it("uses the documented initialize handshake and only the two read methods", () => {

@@ -9,6 +9,9 @@ All notable changes to MoneySiren are documented here.
 - A versioned growth and reliability implementation plan.
 - Safe Issue Forms, project governance, and code ownership.
 - The Codex measurement v2 contract and synthetic GPT-5.6/App Server fixtures.
+- Official Codex App Server stdio reads for rate limits and account usage, with normalized cache/deduplication and no auth-file or undocumented HTTP access.
+- GPT-5.6 Sol/Terra/Luna model coverage and separate cached-input token accounting for OpenAI Platform usage.
+- Stable `Sync <provider>: <status>` output with exit codes 0 (ok), 2 (partial), and 1 (error).
 
 ## [0.1.5] - 2026-07-08
 

@@ -12,7 +12,7 @@ describe("notification evaluator", () => {
   it("uses normalized fields and emits a bounded summary without raw text", () => {
     const result = evaluateNormalizedNotification(ALERTS, {
       enabled: true,
-      now: new Date("2026-07-10T03:00:00.000Z"),
+      now: new Date(2026, 6, 10, 12, 0),
       quietStart: "22:00",
       quietEnd: "08:00",
       cooldownMinutes: 60,

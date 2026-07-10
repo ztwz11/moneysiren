@@ -12,12 +12,13 @@ MoneySiren is local-first. The CLI reads configuration and secrets from the proc
 
 ## Published Usage
 
-For normal source-free installs, prefer the app package because it downloads the matching web runtime during global npm install. HUD artifacts require signed release metadata by default; before signing is ready, unsigned HUD smoke testing requires explicit local opt-in:
+For normal source-free installs, prefer the app package. npm installs the command shims without contacting GitHub; install the matching web runtime explicitly. HUD artifacts require signed release metadata by default; before signing is ready, unsigned HUD smoke testing requires explicit local opt-in:
 
 ```bash
 npm install -g @moneysiren/app
+msiren install --status
+msiren install --web
 msiren start
-msiren hud
 ```
 
 For CLI-only automation:
@@ -36,13 +37,7 @@ moneysiren /doctor
 moneysiren dashboard check
 ```
 
-During a PowerShell, cmd, or shell install with an interactive TTY, `postinstall` prompts for the local surfaces to enable:
-
-- CLI
-- Web dashboard
-- HUD
-
-Press Enter to accept the recommended default, which selects all three. In CI or non-interactive npm installs, MoneySiren writes that all-selected profile automatically. Run `moneysiren install --all` to download GitHub Release assets for the web runtime and HUD desktop shell. Use `moneysiren install --profile-only` to change only the local profile, or `moneysiren install --status` to inspect it.
+npm postinstall is non-interactive and network-free. It installs command shims only. Run `moneysiren install --web`, `--hud`, or `--all` to select and explicitly download remote surfaces. The installer requires matching release metadata, verifies bounded bytes and archives, and activates atomically. Use `moneysiren install --profile-only` to change only the local profile. `moneysiren install --status` reports command and runtime readiness separately; an integrity-invalid runtime returns non-zero.
 
 One-off execution:
 

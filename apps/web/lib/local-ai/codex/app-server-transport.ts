@@ -1,6 +1,7 @@
 import "server-only";
 
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 import webPackage from "../../../package.json";
 import {
   normalizeCodexAccountUsageResult,
@@ -52,11 +53,12 @@ export interface CodexAppServerDecodedChunk {
  */
 export class CodexAppServerJsonlDecoder {
   private buffer = "";
+  private readonly utf8 = new StringDecoder("utf8");
 
   constructor(private readonly maxLineBytes: number) {}
 
   push(chunk: Buffer | string): CodexAppServerDecodedChunk {
-    this.buffer += Buffer.isBuffer(chunk) ? chunk.toString("utf8") : chunk;
+    this.buffer += Buffer.isBuffer(chunk) ? this.utf8.write(chunk) : chunk;
     const lines: string[] = [];
     let newlineIndex = this.buffer.indexOf("\n");
 

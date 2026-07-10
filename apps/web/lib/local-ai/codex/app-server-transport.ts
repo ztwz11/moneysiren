@@ -1,3 +1,5 @@
+import "server-only";
+
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import webPackage from "../../../package.json";
 import {
@@ -32,6 +34,51 @@ export interface ReadCodexAppServerOptions {
 export interface CodexAppServerAdvance {
   outbound: readonly string[];
   result: CodexOfficialAccountMeasurements | null;
+}
+
+export interface CodexAppServerDecodedChunk {
+  lines: readonly string[];
+  oversized: boolean;
+}
+
+/**
+ * Frames newline-delimited JSON without retaining completed protocol messages.
+ */
+export class CodexAppServerJsonlDecoder {
+  private buffer = "";
+
+  constructor(private readonly maxLineBytes: number) {}
+
+  push(chunk: Buffer | string): CodexAppServerDecodedChunk {
+    this.buffer += Buffer.isBuffer(chunk) ? chunk.toString("utf8") : chunk;
+    const lines: string[] = [];
+    let newlineIndex = this.buffer.indexOf("\n");
+
+    while (newlineIndex >= 0) {
+      const rawLine = this.buffer.slice(0, newlineIndex);
+      this.buffer = this.buffer.slice(newlineIndex + 1);
+
+      if (Buffer.byteLength(rawLine, "utf8") > this.maxLineBytes) {
+        this.buffer = "";
+        return { lines, oversized: true };
+      }
+
+      const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+
+      if (line.trim().length > 0) {
+        lines.push(line);
+      }
+
+      newlineIndex = this.buffer.indexOf("\n");
+    }
+
+    if (Buffer.byteLength(this.buffer, "utf8") > this.maxLineBytes) {
+      this.buffer = "";
+      return { lines, oversized: true };
+    }
+
+    return { lines, oversized: false };
+  }
 }
 
 /**
@@ -210,9 +257,10 @@ export async function readCodexAppServerOfficialMeasurements(
     return session.finishPending(reasonFromProcessError(error));
   }
 
+  const decoder = new CodexAppServerJsonlDecoder(maxLineBytes);
+
   return await new Promise<CodexOfficialAccountMeasurements>((resolve) => {
     let finished = false;
-    let stdoutBuffer = "";
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const finish = (result: CodexOfficialAccountMeasurements) => {
@@ -247,18 +295,7 @@ export async function readCodexAppServerOfficialMeasurements(
       }
     };
 
-    const processLine = (rawLine: string) => {
-      if (Buffer.byteLength(rawLine, "utf8") > maxLineBytes) {
-        finish(session.finishPending("oversized-response"));
-        return;
-      }
-
-      const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
-
-      if (line.trim().length === 0) {
-        return;
-      }
-
+    const processLine = (line: string) => {
       const advance = session.acceptLine(line);
 
       for (const outbound of advance.outbound) {
@@ -277,18 +314,17 @@ export async function readCodexAppServerOfficialMeasurements(
         return;
       }
 
-      stdoutBuffer += Buffer.isBuffer(chunk) ? chunk.toString("utf8") : chunk;
+      const decoded = decoder.push(chunk);
 
-      let newlineIndex = stdoutBuffer.indexOf("\n");
+      for (const line of decoded.lines) {
+        if (finished) {
+          return;
+        }
 
-      while (newlineIndex >= 0 && !finished) {
-        const line = stdoutBuffer.slice(0, newlineIndex);
-        stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1);
         processLine(line);
-        newlineIndex = stdoutBuffer.indexOf("\n");
       }
 
-      if (!finished && Buffer.byteLength(stdoutBuffer, "utf8") > maxLineBytes) {
+      if (!finished && decoded.oversized) {
         finish(session.finishPending("oversized-response"));
       }
     });

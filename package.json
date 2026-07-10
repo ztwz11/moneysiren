@@ -65,7 +65,11 @@
     "release:metadata": "node tools/scripts/check-release-metadata.mjs",
     "test:release-metadata": "node --test tools/scripts/lib/release-metadata.test.mjs",
     "release:manifest": "node tools/scripts/create-release-manifest.mjs",
-    "test:release-manifest": "node --test tools/scripts/lib/release-manifest.test.mjs"
+    "test:release-manifest": "node --test tools/scripts/lib/release-manifest.test.mjs",
+    "release:candidate": "node tools/scripts/check-release-candidate.mjs",
+    "test:release-candidate": "node --test tools/scripts/lib/release-candidate.test.mjs",
+    "smoke:installed-package": "node tools/scripts/smoke-installed-package.mjs",
+    "e2e": "pnpm dlx @playwright/test@1.54.2 test --config playwright.config.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

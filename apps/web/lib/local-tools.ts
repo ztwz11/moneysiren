@@ -3,6 +3,11 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, win32 } from "node:path";
 import { promisify } from "node:util";
+import { readCodexAppServerMeasurements } from "./local-ai/codex/app-server-client";
+import {
+  readCodexAppServerOfficialMeasurements,
+  type CodexOfficialAccountMeasurements,
+} from "./local-ai/codex/app-server-transport";
 
 const execFileAsync = promisify(execFile);
 const AWS_CLI_TIMEOUT_MS = 10_000;
@@ -179,6 +184,7 @@ export interface LocalCliUsageSummary {
   topModels: readonly string[];
   statusLine: LocalCliStatusLineUsage;
   message: string;
+  codexOfficial?: CodexOfficialAccountMeasurements;
 }
 
 export interface LocalCliUsageResetCredit {
@@ -901,19 +907,95 @@ async function enrichCodexUsageWithAppServer(
     return usage;
   }
 
-  const appServerStatusLine = await readCodexAppServerRateLimitStatus(context);
+  const childEnv = childProcessEnv(context.env);
+  const codexOfficial = await readCodexAppServerMeasurements({
+    read: async () => await readCodexAppServerOfficialMeasurements({
+      now: () => context.now,
+      spawnProcess: (_command, args) => spawnLocalCommand("codex", args, childEnv),
+    }),
+  });
+  const appServerStatusLine = statusLineFromCodexOfficialMeasurements(
+    codexOfficial,
+    context,
+  );
+  const hasOfficialMeasurement =
+    codexOfficial.rateLimits.availability === "available" ||
+    codexOfficial.accountUsage.availability === "available";
 
   if (appServerStatusLine === null) {
-    return usage;
+    return {
+      ...usage,
+      codexOfficial,
+      ...(hasOfficialMeasurement
+        ? {
+            message: usage.logFileCount === 0
+              ? "Official Codex account measurements were read from local App Server; local session logs were not found."
+              : `${usage.message} Official Codex account measurements were read from local App Server.`,
+          }
+        : {}),
+    };
   }
 
   return {
     ...usage,
-    statusLine: finalizeStatusLineUsage(mergeStatusLineUsage(usage.statusLine, appServerStatusLine)),
+    codexOfficial,
+    statusLine: finalizeStatusLineUsage(
+      mergeStatusLineUsage(usage.statusLine, appServerStatusLine),
+    ),
     message: usage.logFileCount === 0
-      ? "Codex live rate-limit metadata was read from local app-server; local session logs were not found."
-      : `${usage.message} Live rate-limit metadata was read from local Codex app-server.`,
+      ? "Official Codex rate-limit metadata was read from local App Server; local session logs were not found."
+      : `${usage.message} Official Codex rate-limit metadata was read from local App Server.`,
   };
+}
+
+function statusLineFromCodexOfficialMeasurements(
+  measurements: CodexOfficialAccountMeasurements,
+  context: {
+    env: Record<string, string | undefined>;
+    now: Date;
+  },
+): LocalCliStatusLineUsage | null {
+  if (measurements.rateLimits.availability !== "available") {
+    return null;
+  }
+
+  const accumulator = createUsageAccumulator(
+    "codex",
+    context.env,
+    context.now,
+    "codex-cli",
+  );
+
+  for (const window of [
+    measurements.rateLimits.data.primary,
+    measurements.rateLimits.data.secondary,
+  ]) {
+    if (window === null) {
+      continue;
+    }
+
+    applyWindowedRateLimit({
+      usedPercent: window.usedPercent,
+      windowDurationMins: window.windowDurationMinutes,
+      resetsAt: window.resetsAt,
+    }, accumulator, null);
+  }
+
+  accumulator.statusLine.usageResetCredits =
+    measurements.rateLimits.data.resetCredits?.details.map((detail) => ({
+      label: detail.title,
+      expiresAt: detail.expiresAt,
+      isExact: true,
+    })) ?? [];
+
+  const statusLine = finalizeStatusLineUsage(accumulator.statusLine);
+  const hasRateLimitMetadata = statusLine.fiveHourLimitPercent !== null ||
+    statusLine.weeklyLimitPercent !== null ||
+    statusLine.fiveHourResetAt !== null ||
+    statusLine.weeklyResetAt !== null ||
+    statusLine.usageResetCredits.length > 0;
+
+  return hasRateLimitMetadata ? statusLine : null;
 }
 
 async function readCodexAppServerRateLimitStatus(context: {

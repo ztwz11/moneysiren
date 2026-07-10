@@ -107,7 +107,7 @@ export function parseReleaseManifest(
 }
 
 export function selectReleaseAsset(
-  manifest: ReleaseManifest,
+  manifest: Pick<ReleaseManifest, "assets">,
   surface: Exclude<InstallSurface, "cli">,
   platform: NodeJS.Platform,
 ): ReleaseManifestAsset | null {

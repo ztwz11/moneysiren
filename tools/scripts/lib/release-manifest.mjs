@@ -157,7 +157,13 @@ function classifyReleaseAsset(name, tag) {
     };
   }
 
-  if (/^MoneySiren\.Tray_.+\.(?:exe|msi)$/i.test(name)) {
+  const windowsMatch = /^MoneySiren\.Tray_([^_]+)_.+\.(?:exe|msi)$/i.exec(name);
+
+  if (windowsMatch !== null) {
+    if (windowsMatch[1] !== tag.slice(1)) {
+      throw new Error(`Windows desktop asset version mismatch: expected ${tag.slice(1)}, got ${windowsMatch[1]}.`);
+    }
+
     return {
       surface: "hud",
       platform: "win32",

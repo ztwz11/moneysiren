@@ -154,6 +154,40 @@ describe("local SQLite store", () => {
     expect(persistedText).not.toMatch(/rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@/i);
   });
 
+  it("records a first partial attempt without usable snapshots as an error", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
+    const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
+
+    await saveLocalProviderCollection({
+      dbPath,
+      provider: {
+        key: "mock",
+        displayName: "Mock Provider",
+        connectorVersion: "0.1.0",
+      },
+      collectedAt: FIXED_NOW,
+      status: "partial",
+      snapshots: {
+        usage: [],
+        billing: [],
+        serviceHealth: [],
+        costEstimates: [],
+      },
+      alerts: [],
+    });
+
+    expect((await readLocalStore({ dbPath })).providerSyncRuns).toEqual([
+      expect.objectContaining({
+        providerKey: "mock",
+        attemptedAt: FIXED_NOW,
+        status: "error",
+        snapshotCount: 0,
+        errorCode: "SYNC_NO_USABLE_DATA",
+        sanitizedMessage: "Provider sync returned no usable data.",
+      }),
+    ]);
+  });
+
   it("persists sanitized sync-run history and retains the prior successful data timestamp", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
     const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
@@ -239,6 +273,19 @@ describe("local SQLite store", () => {
       estimateCount: 0,
       alertCount: 0,
     })).rejects.toThrow("non-negative safe integers");
+
+    await expect(recordLocalProviderSyncRun({
+      dbPath,
+      providerKey: "acct_private_identifier",
+      attemptedAt: "2026-06-02T09:20:00.000Z",
+      status: "error",
+      usageCount: 0,
+      billingCount: 0,
+      healthCount: 0,
+      estimateCount: 0,
+      alertCount: 0,
+      errorCode: "SYNC_EXECUTION",
+    })).rejects.toThrow("Sensitive provider value");
   });
 
   it("clears stale provider-sync alerts after a successful provider collection", async () => {

@@ -152,6 +152,10 @@ export interface Messages {
     codexCreditEstimate: string;
     codexCreditEstimateNote: string;
     codexUnavailable: string;
+    measurementOfficial: string;
+    measurementProviderReported: string;
+    measurementLocalEstimate: string;
+    measurementBounded: string;
   };
   catalog: {
     title: string;
@@ -526,6 +530,10 @@ const baseMessages = {
       codexCreditEstimate: "Estimated Codex credits",
       codexCreditEstimateNote: "Official dated rates × local token estimate; not official account spend.",
       codexUnavailable: "Unavailable",
+      measurementOfficial: "Official",
+      measurementProviderReported: "Provider reported",
+      measurementLocalEstimate: "Local estimate",
+      measurementBounded: "Bounded",
     },
     catalog: {
       title: "Provider catalog",
@@ -935,6 +943,10 @@ const baseMessages = {
       codexCreditEstimate: "Codex 크레딧 추정치",
       codexCreditEstimateNote: "날짜가 명시된 공식 요율 × 로컬 토큰 추정치이며 공식 계정 지출이 아닙니다.",
       codexUnavailable: "확인 불가",
+      measurementOfficial: "공식",
+      measurementProviderReported: "제공자 보고값",
+      measurementLocalEstimate: "로컬 추정치",
+      measurementBounded: "제한된 범위",
     },
     catalog: {
       title: "프로바이더 카탈로그",
@@ -1344,6 +1356,10 @@ const baseMessages = {
       codexCreditEstimate: "Codex クレジット推定",
       codexCreditEstimateNote: "日付付き公式レート × ローカルトークン推定であり、公式アカウント支出ではありません。",
       codexUnavailable: "利用不可",
+      measurementOfficial: "公式",
+      measurementProviderReported: "プロバイダー報告",
+      measurementLocalEstimate: "ローカル推定",
+      measurementBounded: "範囲限定",
     },
     catalog: {
       title: "プロバイダーカタログ",

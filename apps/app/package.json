@@ -52,7 +52,7 @@
     "prepack": "node ../../tools/scripts/build-app-package.mjs",
     "postinstall": "node scripts/postinstall.mjs",
     "pack:dry-run": "npm pack --dry-run",
-    "test": "node --check scripts/postinstall.mjs",
+    "test": "node --test scripts/postinstall.test.mjs",
     "typecheck": "node --check scripts/postinstall.mjs",
     "lint": "node --check scripts/postinstall.mjs"
   }

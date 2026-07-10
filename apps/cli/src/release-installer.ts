@@ -740,8 +740,15 @@ function parseLocalInstallManifest(
     value.tag !== expected.tag ||
     typeof value.version !== "string" ||
     value.version !== expected.tag.slice(1) ||
-    typeof value.sourceCommit !== "string" ||
-    !/^[a-f0-9]{40}$/.test(value.sourceCommit) ||
+    (value.provenance !== "manifest" && value.provenance !== "legacy-v0.1.5") ||
+    !(
+      (value.provenance === "manifest" &&
+        typeof value.sourceCommit === "string" &&
+        /^[a-f0-9]{40}$/.test(value.sourceCommit)) ||
+      (value.provenance === "legacy-v0.1.5" &&
+        expected.tag === LEGACY_MANIFESTLESS_TAG &&
+        value.sourceCommit === null)
+    ) ||
     typeof value.releaseUrl !== "string" ||
     typeof value.installedAt !== "string" ||
     !Array.isArray(value.selectedSurfaces) ||
@@ -759,7 +766,8 @@ function parseLocalInstallManifest(
     repository: value.repository,
     tag: value.tag,
     version: value.version,
-    sourceCommit: value.sourceCommit,
+    sourceCommit: value.sourceCommit as string | null,
+    provenance: value.provenance as LocalInstallManifest["provenance"],
     releaseUrl: value.releaseUrl,
     installedAt: value.installedAt,
     selectedSurfaces: value.selectedSurfaces.filter(isInstallSurface),

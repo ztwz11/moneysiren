@@ -44,3 +44,10 @@ export {
   type NotificationSuppressionReason,
   type QuietHoursWindow,
 } from "./notifications.js";
+
+export {
+  createTauriDesktopNotificationTransport,
+  installTauriNotificationClickHandler,
+  isSafeLocalNotificationPath,
+  type TauriNotificationPlugin,
+} from "./tauri-notification.js";

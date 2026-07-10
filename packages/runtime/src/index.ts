@@ -11,3 +11,14 @@ export {
   type RuntimeHealthCheckOptions,
   type RuntimeLockOptions,
 } from "./runtime.js";
+
+export {
+  acquireNotificationSchedulerLock,
+  readNotificationSchedulerLock,
+  releaseNotificationSchedulerLock,
+  resolveNotificationSchedulerLockPath,
+  type NotificationSchedulerLease,
+  type NotificationSchedulerLockOptions,
+  type NotificationSchedulerLockOwner,
+  type NotificationSchedulerLockResult,
+} from "./notification-scheduler-lock.js";

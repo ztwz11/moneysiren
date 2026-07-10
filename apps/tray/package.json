@@ -24,5 +24,8 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.2"
+  },
+  "dependencies": {
+    "@tauri-apps/plugin-notification": "^2.3.3"
   }
 }

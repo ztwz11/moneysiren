@@ -30,6 +30,7 @@ describe("initial SQLite schema", () => {
     expect(PROVIDER_SYNC_RUNS_SQL).toContain("CREATE TABLE IF NOT EXISTS provider_sync_runs");
     expect(PROVIDER_SYNC_RUNS_SQL).toContain("status TEXT NOT NULL CHECK (status IN (\'ok\', \'partial\', \'error\'))");
     expect(PROVIDER_SYNC_RUNS_SQL).toContain("usage_count INTEGER NOT NULL DEFAULT 0 CHECK (usage_count >= 0)");
+    expect(PROVIDER_SYNC_RUNS_SQL).toContain("alert_count INTEGER NOT NULL DEFAULT 0 CHECK (alert_count >= 0)");
     expect(PROVIDER_SYNC_RUNS_SQL).toContain("error_code TEXT");
     expect(PROVIDER_SYNC_RUNS_SQL).toContain("data_through TEXT");
     expect(PROVIDER_SYNC_RUNS_SQL).not.toMatch(/\braw_?payload\b/i);

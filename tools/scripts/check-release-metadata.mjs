@@ -1,11 +1,13 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 
+import { readReleaseTag } from "./lib/release-metadata.mjs";
+
 const repoRoot = resolve(import.meta.dirname, "../..");
-const tag = readTag(process.argv.slice(2));
 const rootPackage = await readJson(resolve(repoRoot, "package.json"));
 const version = requireVersion(rootPackage, "package.json");
 const expectedTag = "v" + version;
+const tag = readReleaseTag(process.argv.slice(2), expectedTag);
 const failures = [];
 
 if (tag !== expectedTag) {
@@ -94,17 +96,6 @@ async function readRequiredText(relativePath) {
 
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
-}
-
-function readTag(args) {
-  const tagIndex = args.indexOf("--tag");
-  const value = tagIndex >= 0 ? args[tagIndex + 1] : args[0];
-
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error("Usage: node tools/scripts/check-release-metadata.mjs --tag vX.Y.Z");
-  }
-
-  return value.trim();
 }
 
 function requireVersion(manifest, path) {

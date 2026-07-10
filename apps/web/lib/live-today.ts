@@ -93,6 +93,7 @@ export interface LiveTodayUsageSummary {
   period: "current_month";
   metrics: readonly LiveTodayUsageMetric[];
   topServices: readonly string[];
+  codexOfficial?: NonNullable<LocalAiCliProviderStatus["usage"]["codexOfficial"]>;
 }
 
 export interface LiveTodayUsageMetric {
@@ -803,8 +804,13 @@ export function summarizeLocalAiCliUsage(
   extraMetrics: readonly LiveTodayUsageMetric[] = [],
 ): LiveTodayUsageSummary | null {
   const metrics = mergeLocalCliUsageMetrics(localCliUsageMetrics(provider), extraMetrics);
+  const codexOfficial = provider.usage.codexOfficial;
+  const hasOfficialMeasurement = codexOfficial !== undefined && (
+    codexOfficial.rateLimits.availability === "available" ||
+    codexOfficial.accountUsage.availability === "available"
+  );
 
-  if (metrics.length === 0) {
+  if (metrics.length === 0 && !hasOfficialMeasurement) {
     return null;
   }
 
@@ -815,6 +821,7 @@ export function summarizeLocalAiCliUsage(
     topServices: provider.usage.topModels.length === 0
       ? [provider.displayName]
       : provider.usage.topModels,
+    ...(codexOfficial === undefined ? {} : { codexOfficial }),
   };
 }
 

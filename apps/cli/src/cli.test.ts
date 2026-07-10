@@ -270,7 +270,7 @@ describe("MoneySiren CLI", () => {
 
     const sync = await runCli(["/sync", "mock"], testContext(cwd));
     expect(sync.exitCode).toBe(0);
-    expect(sync.stdout.join("\n")).toContain("Synced mock provider snapshots");
+    expect(sync.stdout.join("\n")).toContain("Sync mock: ok");
 
     const report = await runCli(["/report", "ko"], testContext(cwd));
     expect(report.exitCode).toBe(0);
@@ -1276,7 +1276,7 @@ describe("MoneySiren CLI", () => {
 
     const syncResult = await runCli(["sync", "--provider", "mock"], testContext(cwd));
     expect(syncResult.exitCode).toBe(0);
-    expect(syncResult.stdout.join("\n")).toContain("Synced mock provider snapshots");
+    expect(syncResult.stdout.join("\n")).toContain("Sync mock: ok");
 
     const reportResult = await runCli(["report", "daily", "--lang", "ko"], testContext(cwd));
     const reportText = reportResult.stdout.join("\n");
@@ -1499,8 +1499,10 @@ describe("MoneySiren CLI", () => {
     );
 
     expect(result.exitCode).toBe(1);
-    expect(result.stdout.join("\n")).toContain("Synced AWS Cost Explorer snapshots");
-    expect(result.stderr.join("\n")).toContain("Token is expired");
+    expect(result.stdout.join("\n")).toContain("Sync aws: error");
+    expect(result.stdout.join("\n")).not.toContain("Synced");
+    expect(result.stderr.join("\n")).toContain("SYNC_COLLECTION");
+    expect(result.stderr.join("\n")).not.toContain("Token is expired");
     expect(result.stderr.join("\n")).not.toContain(fakeAccessKeyId);
     expect(result.stderr.join("\n")).not.toMatch(/arn:aws|\b\d{12}\b/i);
     expect(alerts).toEqual([
@@ -1610,8 +1612,8 @@ describe("MoneySiren CLI", () => {
 
     expect(aws.exitCode).toBe(0);
     expect(openai.exitCode).toBe(0);
-    expect(supabase.exitCode).toBe(0);
-    expect(cloudflare.exitCode).toBe(0);
+    expect(supabase.exitCode).toBe(2);
+    expect(cloudflare.exitCode).toBe(2);
     expect(awsCommands).toEqual(["GetCostAndUsage"]);
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
@@ -1645,7 +1647,7 @@ describe("MoneySiren CLI", () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("Synced AWS Cost Explorer snapshots");
+    expect(result.stdout.join("\n")).toContain("Sync aws: ok");
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
@@ -1725,7 +1727,7 @@ describe("MoneySiren CLI", () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("Synced OpenAI usage and costs snapshots");
+    expect(result.stdout.join("\n")).toContain("Sync openai: ok");
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
@@ -1829,8 +1831,9 @@ describe("MoneySiren CLI", () => {
       }),
     );
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("Synced Supabase usage and health snapshots");
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout.join("\n")).toContain("Sync supabase: partial");
+    expect(result.stderr.join("\n")).toContain("SYNC_PARTIAL");
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
@@ -1955,8 +1958,9 @@ describe("MoneySiren CLI", () => {
       }),
     );
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("Synced Cloudflare billing and usage snapshots");
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout.join("\n")).toContain("Sync cloudflare: partial");
+    expect(result.stderr.join("\n")).toContain("SYNC_PARTIAL");
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{

@@ -372,6 +372,150 @@ export function resolveReleaseInstallDir(input: {
   return joinForPlatform(platform, root, "releases", sanitizePathSegment(tag));
 }
 
+async function loadReleaseMetadata(input: {
+  fetchImpl: typeof fetch;
+  repository: string;
+  requestedSurfaces: readonly Exclude<InstallSurface, "cli">[];
+  tag: string;
+  timeoutMs?: number;
+}): Promise<ResolvedReleaseMetadata> {
+  const manifestUrl = buildReleaseAssetUrl(input.repository, input.tag, RELEASE_MANIFEST_FILE_NAME);
+
+  try {
+    const manifestBytes = await downloadBoundedReleaseBytes({
+      fetchImpl: input.fetchImpl,
+      maximumBytes: MAX_RELEASE_MANIFEST_BYTES,
+      ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+      url: manifestUrl,
+    });
+    const manifest = parseReleaseManifest(parseJsonManifest(manifestBytes), {
+      repository: input.repository,
+      tag: input.tag,
+    });
+
+    return {
+      version: manifest.version,
+      sourceCommit: manifest.sourceCommit,
+      provenance: "manifest",
+      assets: manifest.assets,
+    };
+  } catch (error) {
+    if (
+      !(error instanceof ReleaseDownloadHttpError) ||
+      error.status !== 404 ||
+      input.repository !== DEFAULT_RELEASE_REPOSITORY ||
+      input.tag !== LEGACY_MANIFESTLESS_TAG
+    ) {
+      throw error;
+    }
+  }
+
+  if (
+    input.requestedSurfaces.length !== 1 ||
+    input.requestedSurfaces[0] !== "web"
+  ) {
+    throw new Error(
+      "Legacy v0.1.5 compatibility is limited to the web runtime; HUD installs require a versioned release manifest.",
+    );
+  }
+
+  return loadLegacyWebReleaseMetadata(input);
+}
+
+async function loadLegacyWebReleaseMetadata(input: {
+  fetchImpl: typeof fetch;
+  repository: string;
+  tag: string;
+  timeoutMs?: number;
+}): Promise<ResolvedReleaseMetadata> {
+  const webName = `moneysiren-web-runtime-${input.tag}.tar.gz`;
+  const checksumName = "moneysiren-web-runtime-SHA256SUMS.txt";
+  const apiBytes = await downloadBoundedReleaseBytes({
+    fetchImpl: input.fetchImpl,
+    maximumBytes: MAX_RELEASE_MANIFEST_BYTES,
+    ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+    url: releaseApiUrl(input.repository, input.tag),
+  });
+  const release = parseJsonManifest(apiBytes);
+
+  if (
+    !isRecord(release) ||
+    release.tag_name !== input.tag ||
+    !Array.isArray(release.assets) ||
+    release.assets.length > 128
+  ) {
+    throw new Error("Legacy v0.1.5 release metadata is invalid.");
+  }
+
+  const assets = release.assets.filter(isRecord);
+  const webAsset = assets.find((asset) => asset.name === webName);
+  const checksumAsset = assets.find((asset) => asset.name === checksumName);
+
+  if (
+    webAsset === undefined ||
+    checksumAsset === undefined ||
+    typeof webAsset.size !== "number" ||
+    !Number.isSafeInteger(webAsset.size) ||
+    webAsset.size <= 0
+  ) {
+    throw new Error("Legacy v0.1.5 release asset or checksum metadata is missing.");
+  }
+
+  const checksumBytes = await downloadBoundedReleaseBytes({
+    fetchImpl: input.fetchImpl,
+    maximumBytes: LEGACY_CHECKSUM_MAX_BYTES,
+    ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+    url: buildReleaseAssetUrl(input.repository, input.tag, checksumName),
+  });
+  const sha256 = parseLegacyChecksum(checksumBytes.toString("utf8"), webName);
+
+  if (sha256 === null) {
+    throw new Error("Legacy v0.1.5 checksum entry is missing.");
+  }
+
+  const asset: ReleaseManifestAsset = {
+    name: webName,
+    surface: "web",
+    platform: "any",
+    archive: "tar.gz",
+    size: webAsset.size,
+    sha256,
+    signing: {
+      state: "not-required",
+      method: "none",
+    },
+  };
+
+  if (asset.size > releaseAssetMaximumBytes(asset)) {
+    throw new Error("Legacy v0.1.5 web runtime exceeds the installer byte limit.");
+  }
+
+  return {
+    version: input.tag.slice(1),
+    sourceCommit: null,
+    provenance: "legacy-v0.1.5",
+    assets: [asset],
+  };
+}
+
+function parseLegacyChecksum(content: string, assetName: string): string | null {
+  for (const line of content.split(/\r?\n/)) {
+    const match = /^([a-f0-9]{64})\s+\*?([^/\\]+)$/i.exec(line.trim());
+
+    if (match !== null && match[2] === assetName) {
+      return match[1]?.toLowerCase() ?? null;
+    }
+  }
+
+  return null;
+}
+
+function releaseApiUrl(repository: string, tag: string): string {
+  const [owner, name] = repository.split("/");
+
+  return `https://api.github.com/repos/${encodeURIComponent(owner ?? "")}/${encodeURIComponent(name ?? "")}/releases/tags/${encodeURIComponent(tag)}`;
+}
+
 async function activateStagedInstall(input: {
   backupDir: string;
   installDir: string;

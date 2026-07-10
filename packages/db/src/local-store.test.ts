@@ -223,7 +223,7 @@ describe("local SQLite store", () => {
         sanitizedMessage: "Provider sync could not be completed.",
       }),
     ]);
-    expect(store.providerSyncRuns[1]).not.toHaveProperty("dataThrough");
+    expect(store.providerSyncRuns?.[1]).not.toHaveProperty("dataThrough");
     expect(dumpPersistedProviderDataText(dbPath)).not.toMatch(
       /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@/i,
     );

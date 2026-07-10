@@ -16,6 +16,7 @@ import { promisify } from "node:util";
 import type { InstallSurface } from "./install-profile.js";
 import { validateTarGzArchive } from "./release-archive.js";
 import {
+  ReleaseDownloadHttpError,
   buildReleaseAssetUrl,
   downloadBoundedReleaseBytes,
   downloadVerifiedReleaseFile,
@@ -53,7 +54,8 @@ export interface ReleaseInstallResult {
   repository: string;
   tag: string;
   version: string;
-  sourceCommit: string;
+  sourceCommit: string | null;
+  provenance: "manifest" | "legacy-v0.1.5";
   installDir: string;
   releaseUrl: string;
   assets: readonly InstalledReleaseAsset[];
@@ -103,13 +105,21 @@ export interface ReleaseAssetSignatureVerificationResult {
   message: string;
 }
 
+interface ResolvedReleaseMetadata {
+  version: string;
+  sourceCommit: string | null;
+  provenance: "manifest" | "legacy-v0.1.5";
+  assets: readonly ReleaseManifestAsset[];
+}
+
 interface LocalInstallManifest {
   schemaVersion: 2;
   status: "ready";
   repository: string;
   tag: string;
   version: string;
-  sourceCommit: string;
+  sourceCommit: string | null;
+  provenance: "manifest" | "legacy-v0.1.5";
   releaseUrl: string;
   installedAt: string;
   selectedSurfaces: readonly InstallSurface[];
@@ -122,6 +132,8 @@ const RELEASE_INSTALL_DIR_ENV_KEY = "MONEYSIREN_RELEASE_INSTALL_DIR";
 const RELEASE_PLATFORM_ENV_KEY = "MONEYSIREN_RELEASE_PLATFORM";
 const WINDOWS_SIGNER_THUMBPRINTS_ENV_KEY = "MONEYSIREN_WINDOWS_SIGNER_THUMBPRINTS";
 const ALLOW_UNSIGNED_HUD_ENV_KEY = "MONEYSIREN_ALLOW_UNSIGNED_HUD";
+const LEGACY_MANIFESTLESS_TAG = "v0.1.5";
+const LEGACY_CHECKSUM_MAX_BYTES = 1024 * 1024;
 
 export async function installReleaseAssets(options: ReleaseInstallOptions): Promise<ReleaseInstallResult> {
   const env = options.env ?? process.env;
@@ -147,16 +159,12 @@ export async function installReleaseAssets(options: ReleaseInstallOptions): Prom
 
   await assertSafeInstallDestination(installDir);
 
-  const manifestUrl = buildReleaseAssetUrl(repository, tag, RELEASE_MANIFEST_FILE_NAME);
-  const manifestBytes = await downloadBoundedReleaseBytes({
+  const releaseMetadata = await loadReleaseMetadata({
     fetchImpl: options.fetchImpl,
-    maximumBytes: MAX_RELEASE_MANIFEST_BYTES,
-    ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-    url: manifestUrl,
-  });
-  const manifest = parseReleaseManifest(parseJsonManifest(manifestBytes), {
     repository,
+    requestedSurfaces,
     tag,
+    ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
   });
   const parentDir = dirname(installDir);
   const transactionId = randomUUID();
@@ -169,7 +177,7 @@ export async function installReleaseAssets(options: ReleaseInstallOptions): Prom
 
   try {
     for (const surface of requestedSurfaces) {
-      const asset = selectReleaseAsset(manifest, surface, platform);
+      const asset = selectReleaseAsset(releaseMetadata, surface, platform);
 
       if (asset === null) {
         throw new Error(`Release manifest has no ${surface} asset for ${platform}.`);
@@ -231,8 +239,9 @@ export async function installReleaseAssets(options: ReleaseInstallOptions): Prom
       status: "ready",
       repository,
       tag,
-      version: manifest.version,
-      sourceCommit: manifest.sourceCommit,
+      version: releaseMetadata.version,
+      sourceCommit: releaseMetadata.sourceCommit,
+      provenance: releaseMetadata.provenance,
       releaseUrl,
       installedAt: (options.now ?? (() => new Date()))().toISOString(),
       selectedSurfaces: options.selectedSurfaces,
@@ -249,8 +258,9 @@ export async function installReleaseAssets(options: ReleaseInstallOptions): Prom
     return {
       repository,
       tag,
-      version: manifest.version,
-      sourceCommit: manifest.sourceCommit,
+      version: releaseMetadata.version,
+      sourceCommit: releaseMetadata.sourceCommit,
+      provenance: releaseMetadata.provenance,
       installDir,
       releaseUrl,
       assets: stagedAssets,

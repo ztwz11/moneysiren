@@ -89,6 +89,13 @@ export function normalizeCodexAccountUsageResult(
     return unavailableCodexAccountUsage(fetchedAt, "malformed-response");
   }
 
+  if (
+    Array.isArray(root.dailyUsageBuckets) &&
+    root.dailyUsageBuckets.length > MAX_DAILY_USAGE_BUCKETS
+  ) {
+    return unavailableCodexAccountUsage(fetchedAt, "oversized-response");
+  }
+
   const summaryValue = root.summary;
   const summary = summaryValue === null || summaryValue === undefined
     ? null

@@ -24,8 +24,8 @@
         ]
       }
     ],
-    "has_more": true,
-    "next_page": "FAKE_OPENAI_USAGE_PAGE_2"
+    "has_more": false,
+    "next_page": null
   },
   "costs": {
     "object": "page",

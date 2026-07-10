@@ -112,6 +112,7 @@ export type LocalProviderSyncStatus = "ok" | "partial" | "error";
 export type LocalProviderSyncErrorCode =
   | "SYNC_PARTIAL"
   | "SYNC_COLLECTION"
+  | "SYNC_NO_USABLE_DATA"
   | "SYNC_CONFIGURATION"
   | "SYNC_EXECUTION";
 
@@ -265,6 +266,7 @@ const FORBIDDEN_STRING_PATTERN = /acct_|project_|invoice_|sk-|hooks\.slack|@/i;
 const SYNC_ERROR_MESSAGES: Readonly<Record<LocalProviderSyncErrorCode, string>> = {
   SYNC_PARTIAL: "Provider sync completed with partial data.",
   SYNC_COLLECTION: "Provider sync failed before usable data was collected.",
+  SYNC_NO_USABLE_DATA: "Provider sync returned no usable data.",
   SYNC_CONFIGURATION: "Provider sync configuration is unavailable.",
   SYNC_EXECUTION: "Provider sync could not be completed.",
 };
@@ -908,6 +910,7 @@ function insertAlertSql(alert: LocalAlertInput): string {
 
 function insertProviderSyncRunSql(input: LocalProviderSyncRunInput): string {
   validateProviderSyncRunInput(input);
+  const status = normalizedSyncStatus(input);
   const errorCode = syncErrorCodeFor(input);
   const sanitizedMessage = errorCode === undefined ? undefined : SYNC_ERROR_MESSAGES[errorCode];
 
@@ -921,7 +924,7 @@ function insertProviderSyncRunSql(input: LocalProviderSyncRunInput): string {
     ${sqlString(input.providerKey)},
     ${sqlString(input.attemptedAt)},
     ${sqlNullableString(input.completedAt)},
-    ${sqlString(input.status)},
+    ${sqlString(status)},
     ${sqlInteger(input.usageCount)},
     ${sqlInteger(input.billingCount)},
     ${sqlInteger(input.healthCount)},
@@ -984,11 +987,27 @@ function latestCollectionTimestamp(input: LocalProviderCollectionInput): string 
 }
 
 function syncErrorCodeFor(input: LocalProviderSyncRunInput): LocalProviderSyncErrorCode | undefined {
-  if (input.status === "ok") {
+  const status = normalizedSyncStatus(input);
+
+  if (status === "ok") {
     return undefined;
   }
 
-  return input.errorCode ?? (input.status === "partial" ? "SYNC_PARTIAL" : "SYNC_COLLECTION");
+  if (input.status === "partial" && snapshotCountForSyncRun(input) === 0) {
+    return "SYNC_NO_USABLE_DATA";
+  }
+
+  return input.errorCode ?? (status === "partial" ? "SYNC_PARTIAL" : "SYNC_COLLECTION");
+}
+
+function normalizedSyncStatus(input: LocalProviderSyncRunInput): LocalProviderSyncStatus {
+  return input.status === "partial" && snapshotCountForSyncRun(input) === 0
+    ? "error"
+    : input.status;
+}
+
+function snapshotCountForSyncRun(input: LocalProviderSyncRunInput): number {
+  return input.usageCount + input.billingCount + input.healthCount + input.estimateCount;
 }
 
 function validateProviderSyncRunInput(input: LocalProviderSyncRunInput): void {

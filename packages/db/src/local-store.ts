@@ -88,7 +88,7 @@ export interface LocalReportRunRecord {
   metadataJson: Record<string, never>;
 }
 
-export interface LocalEmergencyActionRunRecord {
+export interface LocalProviderSyncRunRecord {\n  id: string; providerKey: string; attemptedAt: string; completedAt?: string;\n  status: "ok" | "partial" | "error"; usageCount: number; billingCount: number; healthCount: number; estimateCount: number;\n  errorCode?: string; errorMessage?: string; dataThrough?: string; metadataJson: Record<string, never>;\n}\n\nexport interface LocalEmergencyActionRunRecord {
   id: string;
   providerKey: string;
   actionKey: string;
@@ -592,7 +592,7 @@ function readReportRuns(dbPath: string): LocalReportRunRecord[] {
   }));
 }
 
-function readEmergencyActionRuns(dbPath: string): LocalEmergencyActionRunRecord[] {
+function readProviderSyncRuns(dbPath: string): LocalProviderSyncRunRecord[] {\n  if (!tableExists(dbPath, "provider_sync_runs")) return [];\n  return querySqliteRowsSync<ProviderSyncRunRow>(dbPath, `SELECT id, provider_key AS providerKey, attempted_at AS attemptedAt, completed_at AS completedAt, status, usage_count AS usageCount, billing_count AS billingCount, health_count AS healthCount, estimate_count AS estimateCount, error_code AS errorCode, error_message AS errorMessage, data_through AS dataThrough, metadata_json AS metadataJson FROM provider_sync_runs ORDER BY attempted_at, id;`).map((row) => ({ id: row.id, providerKey: row.providerKey, attemptedAt: row.attemptedAt, status: row.status, usageCount: row.usageCount, billingCount: row.billingCount, healthCount: row.healthCount, estimateCount: row.estimateCount, metadataJson: emptyMetadata(row.metadataJson), ...(row.completedAt === null ? {} : { completedAt: row.completedAt }), ...(row.errorCode === null ? {} : { errorCode: row.errorCode }), ...(row.errorMessage === null ? {} : { errorMessage: row.errorMessage }), ...(row.dataThrough === null ? {} : { dataThrough: row.dataThrough }) }));\n}\n\nfunction readEmergencyActionRuns(dbPath: string): LocalEmergencyActionRunRecord[] {
   if (!tableExists(dbPath, "emergency_action_runs")) {
     return [];
   }
@@ -787,7 +787,7 @@ function insertAlertSql(alert: LocalAlertInput): string {
   `;
 }
 
-function insertEmergencyActionRunSql(input: LocalEmergencyActionRunInput): string {
+function insertProviderSyncRunSql(input: LocalProviderCollectionInput): string {\n  const failed = input.status === "error";\n  const partial = input.status === "partial";\n  return `INSERT INTO provider_sync_runs (id, provider_key, attempted_at, completed_at, status, usage_count, billing_count, health_count, estimate_count, error_code, error_message, data_through, metadata_json) VALUES (${sqlString(randomUUID())}, ${sqlString(input.provider.key)}, ${sqlString(input.collectedAt)}, ${sqlString(input.collectedAt)}, ${sqlString(input.status)}, ${sqlInteger(input.snapshots.usage.length)}, ${sqlInteger(input.snapshots.billing.length)}, ${sqlInteger(input.snapshots.serviceHealth.length)}, ${sqlInteger(input.snapshots.costEstimates.length)}, ${failed ? sqlString("SYNC_COLLECTION") : partial ? sqlString("SYNC_PARTIAL") : "NULL"}, ${failed ? sqlString("Provider collection failed.") : partial ? sqlString("Provider collection partially completed.") : "NULL"}, ${sqlString(input.collectedAt)}, ${sqlString(EMPTY_METADATA_JSON)});`;\n}\n\nfunction insertEmergencyActionRunSql(input: LocalEmergencyActionRunInput): string {
   return `
   INSERT INTO emergency_action_runs (
     id, provider_key, action_key, mode, readiness, requested_at, confirmed_at, executed_at, status,
@@ -1150,7 +1150,7 @@ interface ReportRunRow {
   metadataJson: string;
 }
 
-interface EmergencyActionRunRow {
+interface ProviderSyncRunRow { id: string; providerKey: string; attemptedAt: string; completedAt: string | null; status: "ok" | "partial" | "error"; usageCount: number; billingCount: number; healthCount: number; estimateCount: number; errorCode: string | null; errorMessage: string | null; dataThrough: string | null; metadataJson: string; }\n\ninterface EmergencyActionRunRow {
   id: string;
   providerKey: string;
   actionKey: string;

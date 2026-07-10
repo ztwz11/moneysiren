@@ -193,7 +193,7 @@ INSERT OR IGNORE INTO notification_scheduler_state (
   singleton_id, enabled, interval_minutes, jitter_seconds, quiet_start, quiet_end,
   consecutive_failures, updated_at
 )
-VALUES (1, 0, 15, 90, '22:00', '08:00', 0, CURRENT_TIMESTAMP);
+VALUES (1, 0, 15, 90, '22:00', '08:00', 0, strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 
 CREATE TABLE IF NOT EXISTS notification_delivery_runs (
   id TEXT PRIMARY KEY,

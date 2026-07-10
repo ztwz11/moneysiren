@@ -72,6 +72,41 @@ describe("MoneySiren release installer", () => {
     });
   });
 
+  it("keeps the published v0.1.5 web runtime on a bounded legacy compatibility path", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(root, "legacy");
+    const legacyTag = "v0.1.5";
+    const archive = webArchive("legacy");
+    const name = `moneysiren-web-runtime-${legacyTag}.tar.gz`;
+
+    const result = await installReleaseAssets({
+      fetchImpl: legacyV015Fetch(name, archive),
+      installDir,
+      platform: "linux",
+      repository,
+      selectedSurfaces: ["web"],
+      tag: legacyTag,
+    });
+
+    expect(result).toMatchObject({
+      tag: legacyTag,
+      version: "0.1.5",
+      sourceCommit: null,
+      provenance: "legacy-v0.1.5",
+    });
+    expect(await readFile(result.assets[0]!.path)).toEqual(archive);
+    await expect(readReleaseRuntimeInstallStatus({
+      installDir,
+      platform: "linux",
+      repository,
+      tag: legacyTag,
+    })).resolves.toMatchObject({
+      status: "ready",
+      version: "0.1.5",
+      sourceCommit: null,
+    });
+  });
+
   it("rejects missing manifests and missing assets", async () => {
     const root = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
     const installDir = join(root, "installed");
@@ -387,6 +422,53 @@ function releaseFetch(
         })
       : new Response(new Uint8Array(asset), {
           status: 200,
+        });
+  }) as unknown as typeof fetch;
+}
+
+function legacyV015Fetch(assetName: string, asset: Buffer): typeof fetch {
+  const checksumName = "moneysiren-web-runtime-SHA256SUMS.txt";
+
+  return vi.fn(async (input: string | URL | Request) => {
+    const url = new URL(String(input));
+    const name = decodeURIComponent(url.pathname.split("/").at(-1) ?? "");
+
+    if (url.hostname === "api.github.com") {
+      return new Response(JSON.stringify({
+        tag_name: "v0.1.5",
+        assets: [
+          {
+            name: assetName,
+            size: asset.byteLength,
+          },
+          {
+            name: checksumName,
+            size: 100,
+          },
+        ],
+      }), {
+        status: 200,
+      });
+    }
+
+    if (name === "moneysiren-release-manifest.json") {
+      return new Response("missing", {
+        status: 404,
+      });
+    }
+
+    if (name === checksumName) {
+      return new Response(`${sha256(asset)}  ${assetName}\n`, {
+        status: 200,
+      });
+    }
+
+    return name === assetName
+      ? new Response(new Uint8Array(asset), {
+          status: 200,
+        })
+      : new Response("missing", {
+          status: 404,
         });
   }) as unknown as typeof fetch;
 }

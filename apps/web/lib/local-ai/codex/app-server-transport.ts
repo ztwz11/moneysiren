@@ -15,6 +15,12 @@ import type {
   CodexUnavailableReason,
 } from "./types";
 
+export const CODEX_APP_SERVER_STDIO_ARGS = [
+  "app-server",
+  "--listen",
+  "stdio://",
+] as const;
+
 const INITIALIZE_REQUEST_ID = 0;
 const RATE_LIMITS_REQUEST_ID = 1;
 const ACCOUNT_USAGE_REQUEST_ID = 2;
@@ -257,7 +263,7 @@ export async function readCodexAppServerOfficialMeasurements(
   let child: ChildProcessWithoutNullStreams;
 
   try {
-    child = spawnProcess("codex", ["app-server", "--listen", "stdio://"]);
+    child = spawnProcess("codex", CODEX_APP_SERVER_STDIO_ARGS);
   } catch (error) {
     return session.finishPending(reasonFromProcessError(error));
   }

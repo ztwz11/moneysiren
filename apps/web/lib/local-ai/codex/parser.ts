@@ -189,10 +189,10 @@ function readTokenFields(usage: Record<string, unknown>): Omit<
 > | null {
   const input = readAliasedMetric(usage, ["inputTokens", "input_tokens", "prompt_tokens"]);
   const cached = readAliasedMetric(usage, ["cachedInputTokens", "cached_input_tokens", "cache_read_input_tokens"]);
-  const cacheWrite = readAliasedMetric(usage, ["cacheWriteTokens", "cache_write_tokens", "cache_creation_input_tokens"]);
+  const cacheWrite = readNullableAliasedMetric(usage, ["cacheWriteTokens", "cache_write_tokens", "cache_creation_input_tokens"]);
   const output = readAliasedMetric(usage, ["outputTokens", "output_tokens", "completion_tokens"]);
   const reasoning = readAliasedMetric(usage, ["reasoningTokens", "reasoning_output_tokens"]);
-  const total = readAliasedMetric(usage, ["explicitTotalTokens", "total_tokens"]);
+  const total = readNullableAliasedMetric(usage, ["explicitTotalTokens", "total_tokens"]);
   const values = [input, cached, cacheWrite, output, reasoning, total];
 
   if (values.every((item) => item === undefined) || values.some((item) => item === null)) {
@@ -219,6 +219,21 @@ function readAliasedMetric(
     }
 
     return readNonNegativeInteger(record[key]);
+  }
+
+  return undefined;
+}
+
+function readNullableAliasedMetric(
+  record: Record<string, unknown>,
+  keys: readonly string[],
+): number | null | undefined {
+  for (const key of keys) {
+    if (!(key in record)) {
+      continue;
+    }
+
+    return record[key] === null ? undefined : readNonNegativeInteger(record[key]);
   }
 
   return undefined;

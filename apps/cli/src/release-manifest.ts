@@ -78,8 +78,9 @@ export function parseReleaseManifest(
     throw new Error("Release manifest assets must contain between 1 and 64 entries.");
   }
 
+  const manifestTag = value.tag;
   const names = new Set<string>();
-  const assets = value.assets.map((asset, index) => parseAsset(asset, value.tag, index));
+  const assets = value.assets.map((asset, index) => parseAsset(asset, manifestTag, index));
 
   for (const asset of assets) {
     if (names.has(asset.name)) {

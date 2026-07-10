@@ -94,6 +94,7 @@ export interface LiveTodayUsageSummary {
   metrics: readonly LiveTodayUsageMetric[];
   topServices: readonly string[];
   codexOfficial?: NonNullable<LocalAiCliProviderStatus["usage"]["codexOfficial"]>;
+  codexLocal?: NonNullable<LocalAiCliProviderStatus["usage"]["codexLocal"]>;
 }
 
 export interface LiveTodayUsageMetric {
@@ -805,12 +806,13 @@ export function summarizeLocalAiCliUsage(
 ): LiveTodayUsageSummary | null {
   const metrics = mergeLocalCliUsageMetrics(localCliUsageMetrics(provider), extraMetrics);
   const codexOfficial = provider.usage.codexOfficial;
+  const codexLocal = provider.usage.codexLocal;
   const hasOfficialMeasurement = codexOfficial !== undefined && (
     codexOfficial.rateLimits.availability === "available" ||
     codexOfficial.accountUsage.availability === "available"
   );
 
-  if (metrics.length === 0 && !hasOfficialMeasurement) {
+  if (metrics.length === 0 && !hasOfficialMeasurement && codexLocal === undefined) {
     return null;
   }
 
@@ -822,6 +824,7 @@ export function summarizeLocalAiCliUsage(
       ? [provider.displayName]
       : provider.usage.topModels,
     ...(codexOfficial === undefined ? {} : { codexOfficial }),
+    ...(codexLocal === undefined ? {} : { codexLocal }),
   };
 }
 
@@ -1023,7 +1026,46 @@ function localCliUsageMetrics(provider: LocalAiCliProviderStatus): LiveTodayUsag
     metrics.push({ key: "log_files", value: provider.usage.logFileCount, unit: "files" });
   }
 
-  return metrics;
+  return metrics.map((metric) => decorateLocalUsageMetric(metric, provider));
+}
+
+function decorateLocalUsageMetric(
+  metric: LiveTodayUsageMetric,
+  provider: LocalAiCliProviderStatus,
+): LiveTodayUsageMetric {
+  if (metric.accuracy !== undefined || metric.source !== undefined) {
+    return metric;
+  }
+
+  const officialRateLimitMetric = metric.key === "five_hour_limit_percent" ||
+    metric.key === "weekly_limit_percent" ||
+    metric.key === "five_hour_remaining_tokens" ||
+    metric.key === "weekly_remaining_tokens";
+  const officialRateLimitsAvailable =
+    provider.usage.codexOfficial?.rateLimits.availability === "available";
+
+  if (officialRateLimitMetric && officialRateLimitsAvailable) {
+    return {
+      ...metric,
+      accuracy: "exact",
+      source: "codex-app-server-rate-limits",
+    };
+  }
+
+  const localMeasurement = provider.usage.codexLocal?.measurement;
+  const accuracy = localMeasurement?.availability === "available"
+    ? localMeasurement.accuracy
+    : provider.usage.providerKind === "codex"
+      ? "unknown"
+      : "estimated";
+
+  return {
+    ...metric,
+    accuracy,
+    source: provider.usage.providerKind === "codex"
+      ? "codex-local-session-metadata"
+      : `${provider.usage.providerKind}-local-session-metadata`,
+  };
 }
 
 function summarizeResetCreditMetricAccuracy(

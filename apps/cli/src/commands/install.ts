@@ -109,7 +109,7 @@ async function writeInstallStatus(context: CliExecutionContext): Promise<number>
   if (runtime.status === "ready") {
     context.stdout(`Runtime release: ${runtime.repository}@${runtime.tag}`);
     context.stdout(`Runtime version: ${runtime.version}`);
-    context.stdout(`Runtime source commit: ${runtime.sourceCommit}`);
+    context.stdout(`Runtime source commit: ${runtime.sourceCommit ?? "unavailable for legacy v0.1.5"}`);
   } else {
     context.stdout("Runtime next step: run `msiren install --web`.");
   }
@@ -354,7 +354,7 @@ function writeReleaseInstallResult(
 function writeReleaseInstallSummary(context: CliExecutionContext, result: ReleaseInstallResult): void {
   context.stdout(`Release: ${result.repository}@${result.tag}`);
   context.stdout(`Release URL: ${result.releaseUrl}`);
-  context.stdout(`Source commit: ${result.sourceCommit}`);
+  context.stdout(`Source commit: ${result.sourceCommit ?? "unavailable for legacy v0.1.5"}`);
   context.stdout(`Install directory: ${result.installDir}`);
 
   for (const asset of result.assets) {

@@ -21,18 +21,15 @@ export function toResetCreditError(value: unknown): ResetCreditError {
     return value;
   }
 
-  return new ResetCreditError("UPSTREAM_UNAVAILABLE", "Codex 초기화권 정보를 조회하지 못했습니다.", 500);
+  return new ResetCreditError(
+    "UPSTREAM_UNAVAILABLE",
+    "Codex App Server에서 초기화권 정보를 조회하지 못했습니다.",
+    502,
+  );
 }
 
 export function errorStatus(code: ResetCreditErrorCode): number {
   switch (code) {
-    case "AUTH_FILE_NOT_FOUND":
-    case "ACCESS_TOKEN_NOT_FOUND":
-    case "ACCOUNT_ID_NOT_FOUND":
-    case "LOCAL_CODEX_AUTH_UNAVAILABLE":
-      return 400;
-    case "AUTH_FILE_PERMISSION_DENIED":
-      return 403;
     case "API_UNAUTHORIZED":
     case "UPSTREAM_UNAUTHORIZED":
       return 401;
@@ -42,6 +39,8 @@ export function errorStatus(code: ResetCreditErrorCode): number {
       return 429;
     case "UPSTREAM_TIMEOUT":
       return 504;
+    case "CRON_SECRET_NOT_CONFIGURED":
+      return 500;
     default:
       return 502;
   }

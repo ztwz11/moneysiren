@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { verifyManagedProcessIdentity } from "./process-identity.js";
+import { parsePosixElapsedTime, verifyManagedProcessIdentity } from "./process-identity.js";
 
 const expected = {
   pid: 4242,
@@ -88,4 +88,12 @@ describe("managed process identity", () => {
     });
     expect(JSON.stringify(result)).not.toContain(expected.executablePath);
   });
+  it("parses portable POSIX elapsed time formats", () => {
+    expect(parsePosixElapsedTime("00:03")).toBe(3);
+    expect(parsePosixElapsedTime("01:02:03")).toBe(3_723);
+    expect(parsePosixElapsedTime("2-03:04:05")).toBe(183_845);
+    expect(parsePosixElapsedTime("25:00:00")).toBeNull();
+    expect(parsePosixElapsedTime("sensitive command text")).toBeNull();
+  });
+
 });

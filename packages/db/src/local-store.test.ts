@@ -49,6 +49,7 @@ describe("local SQLite store", () => {
       { id: "0002_read_model_indexes" },
       { id: "0003_emergency_action_runs" },
       { id: "0004_provider_sync_runs" },
+      { id: "0005_notification_state" },
     ]);
     expect(await fileExists(join(rootDir, ".env"))).toBe(false);
   });

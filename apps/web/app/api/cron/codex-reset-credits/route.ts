@@ -1,9 +1,13 @@
 import { timingSafeEqual } from "node:crypto";
 import {
   fetchCodexResetCreditStatus,
+  RESET_CREDIT_ACCURACY,
+  RESET_CREDIT_SCHEMA_VERSION,
+  RESET_CREDIT_SOURCE,
   toResetCreditError,
 } from "../../../../lib/codex-reset-credits";
 import { ResetCreditError } from "../../../../lib/codex-reset-credits/errors";
+import type { ResetCreditStatus } from "../../../../lib/codex-reset-credits/types";
 import { runResetCreditAlerts } from "../../../../lib/notifications/alert-service";
 
 export const runtime = "nodejs";
@@ -17,11 +21,14 @@ const NO_STORE_HEADERS = {
 export async function POST(request: Request): Promise<Response> {
   try {
     requireCronSecret(request, process.env);
-    const status = await fetchCodexResetCreditStatus();
+    const status = alertableResetCreditStatus(await fetchCodexResetCreditStatus());
     const result = await runResetCreditAlerts(status);
 
     return Response.json({
       ok: true,
+      schemaVersion: RESET_CREDIT_SCHEMA_VERSION,
+      source: RESET_CREDIT_SOURCE,
+      accuracy: RESET_CREDIT_ACCURACY,
       checked: result.checked,
       notificationsSent: result.notificationsSent,
       skippedDuplicates: result.skippedDuplicates,
@@ -33,6 +40,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json({
       ok: false,
+      schemaVersion: RESET_CREDIT_SCHEMA_VERSION,
       error: {
         code: error.code,
         message: error.message,
@@ -42,6 +50,15 @@ export async function POST(request: Request): Promise<Response> {
       headers: NO_STORE_HEADERS,
     });
   }
+}
+
+export function alertableResetCreditStatus(status: ResetCreditStatus): ResetCreditStatus {
+  return {
+    ...status,
+    credits: status.credits.filter((credit) =>
+      credit.expiresAtUtc !== null && Number.isFinite(Date.parse(credit.expiresAtUtc))
+    ),
+  };
 }
 
 export function requireCronSecret(
@@ -65,12 +82,10 @@ export function requireCronSecret(
 function timingSafeStringEqual(left: string, right: string): boolean {
   const leftBuffer = Buffer.from(left, "utf8");
   const rightBuffer = Buffer.from(right, "utf8");
-
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
 }
 
 function trimToNull(value: string | undefined): string | null {
   const trimmed = value?.trim() ?? "";
-
   return trimmed.length === 0 ? null : trimmed;
 }

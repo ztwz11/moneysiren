@@ -1,55 +1,71 @@
 # Good First Issues
 
-These are safe contribution areas for new contributors. They should not require real credentials, real billing payloads, provider account IDs, project IDs, invoice IDs, webhook URLs, local AI prompt text, shell command bodies, raw JSONL lines, or auth file contents.
+MoneySiren maintains small contribution tasks that require no real credentials
+or private data.
 
-## Open Good First Issue Examples
+Browse the current queue:
 
-- [#13 docs: improve Windows OPENAI_ADMIN_KEY troubleshooting](https://github.com/ztwz11/moneysiren/issues/13)
-- [#14 docs: add AWS_PROFILE setup screenshots](https://github.com/ztwz11/moneysiren/issues/14)
-- [#15 docs: add Codex App/CLI troubleshooting screenshots](https://github.com/ztwz11/moneysiren/issues/15)
-- [#16 test: add connection diagnostics regression cases](https://github.com/ztwz11/moneysiren/issues/16)
-- [#17 demo: add mock scenario for emergency readiness](https://github.com/ztwz11/moneysiren/issues/17)
+https://github.com/ztwz11/moneysiren/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22
 
-## Docs
+## Current starter issues
 
-- Improve Windows environment variable troubleshooting.
-- Add screenshots generated from fake fixture data.
-- Improve OpenAI Admin API key setup docs without showing real keys.
-- Improve `AWS_PROFILE` and AWS SSO setup docs.
-- Translate UI copy.
-- Improve the provider support matrix.
-- Clarify emergency readiness manual-only behavior.
+- #13 Windows OPENAI_ADMIN_KEY troubleshooting
+- #14 AWS_PROFILE setup screenshots
+- #15 Codex App/CLI troubleshooting screenshots
+- #16 Connection diagnostics regression cases
+- #17 Mock emergency-readiness scenario
 
-## Fixtures and Tests
+The GitHub label query is authoritative if this static list becomes stale.
 
-- Add fake provider fixture scenarios.
-- Add redaction tests for new sanitized fields.
-- Add connection diagnostics tests.
-- Add dashboard empty-state tests.
-- Add parser tests that use synthetic provider payloads only.
+## How to start
 
-## Provider Links
+1. Read CONTRIBUTING.md.
+2. Comment on the issue that you would like to work on it.
+3. Confirm files, acceptance criteria, and verification.
+4. Use fake or synthetic data only.
+5. Keep the pull request limited to the issue scope.
+6. Report changed files, commands, tests, typecheck/build status, remaining
+   risks, and security impact.
 
-- Add official provider console links.
-- Verify provider docs links are current.
-- Improve link labels and next-action copy.
+An assignment prevents duplicate work but does not grant repository access.
 
-## UI Copy
+## Safe starter areas
 
-- Improve first-run empty states.
-- Improve local-only and read-only explanations.
-- Improve warning copy for stale live data.
-- Improve settings labels for notification thresholds.
+- install and troubleshooting documentation;
+- Korean or English copy;
+- fake-data screenshots;
+- synthetic provider fixtures;
+- parser and redaction tests;
+- dashboard empty states;
+- connection diagnostics;
+- release notes;
+- official provider documentation links.
 
-## Not Good First Issues
+## Data that must never be used
 
-These areas need maintainer review and should not be first contributions:
+A starter issue must not require:
 
-- new provider auth flows;
-- OAuth;
-- hosted services;
-- credential upload;
-- provider write APIs;
-- emergency execution actions;
-- local AI raw log parsing that could expose prompt or command content;
-- release signing changes.
+- real credentials, tokens, webhook URLs, or auth files;
+- provider account, organization, project, invoice, billing, or email data;
+- raw provider payloads or screenshots from real provider accounts;
+- local prompt or assistant text, tool input, command bodies, shell history,
+  raw JSONL, session IDs, or full local paths;
+- real databases, logs, environment files, certificates, or signing material.
+
+If an issue appears to require any of these, stop and ask the maintainer for a
+synthetic fixture or safer scope.
+
+## Not good first issues
+
+These require maintainer ownership and security review:
+
+- provider authentication or OAuth;
+- hosted services or credential upload;
+- provider write APIs or emergency execution;
+- local AI raw-log discovery or auth access;
+- persistence or retention deletion;
+- desktop signing or release publication;
+- security incident response;
+- telemetry or scheduled network collection.
+
+Remove starter labels if an issue grows beyond a safe bounded contribution.

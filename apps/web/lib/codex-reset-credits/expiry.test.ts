@@ -65,17 +65,24 @@ describe("codex reset credit alert logic", () => {
 
 function statusWithExpiry(expiresAtUtc: string): ResetCreditStatus {
   return {
+    schemaVersion: 2,
+    source: "codex-app-server",
+    accuracy: "official",
     fetchedAtUtc: NOW.toISOString(),
     availableCount: 1,
-    totalEarnedCount: 1,
-    credits: [
-      {
-        index: 1,
-        expiresAtUtc,
-        remainingSeconds: Math.max(0, Math.floor((Date.parse(expiresAtUtc) - NOW.getTime()) / 1000)),
-        status: Date.parse(expiresAtUtc) <= NOW.getTime() ? "expired" : "active",
-      },
-    ],
+    totalEarnedCount: null,
+    detailsComplete: true,
+    credits: [{
+      index: 1,
+      resetType: "codexRateLimits",
+      providerStatus: "available",
+      grantedAtUtc: null,
+      expiresAtUtc,
+      title: null,
+      description: null,
+      remainingSeconds: Math.max(0, Math.floor((Date.parse(expiresAtUtc) - NOW.getTime()) / 1000)),
+      status: Date.parse(expiresAtUtc) <= NOW.getTime() ? "expired" : "active",
+    }],
   };
 }
 

@@ -32,6 +32,14 @@ describe("normalizeOpenAiUsageCosts", () => {
           provider: "openai",
           collectedAt: FIXED_NOW,
           service: "completions:gpt-4.1-mini",
+          metric: "cached_input_tokens",
+          unit: "tokens",
+          value: 400000,
+        },
+        {
+          provider: "openai",
+          collectedAt: FIXED_NOW,
+          service: "completions:gpt-4.1-mini",
           metric: "output_tokens",
           unit: "tokens",
           value: 150000,
@@ -88,6 +96,77 @@ describe("normalizeOpenAiUsageCosts", () => {
     expect(JSON.stringify(snapshots)).not.toMatch(
       /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@|\b\d{12}\b/i,
     );
+  });
+
+  it("keeps GPT-5.6 model IDs and cached input tokens separate across a paginated page", () => {
+    const payload: OpenAiUsageCostsPayload = {
+      usage: {
+        data: [{
+          results: [
+            {
+              object: "organization.usage.completions.result",
+              model: "gpt-5.6-sol",
+              input_tokens: 100,
+              output_tokens: 20,
+              num_model_requests: 1,
+            },
+            {
+              object: "organization.usage.completions.result",
+              model: "gpt-5.6-terra",
+              input_tokens: 70,
+              input_cached_tokens: 0,
+              output_tokens: 3,
+              num_model_requests: 1,
+            },
+            {
+              object: "organization.usage.completions.result",
+              model: "gpt-5.6-luna",
+              input_tokens: 50,
+              input_cached_tokens: 11,
+              output_tokens: 2,
+              num_model_requests: 1,
+            },
+          ],
+        }],
+        has_more: true,
+        next_page: "FAKE_OPENAI_USAGE_PAGE_2",
+      },
+      costs: {
+        data: [],
+        has_more: false,
+        next_page: null,
+      },
+    };
+
+    const snapshots = normalizeOpenAiUsageCosts({ payload, collectedAt: FIXED_NOW });
+    const cached = snapshots.usage.filter((snapshot) => snapshot.metric === "cached_input_tokens");
+
+    expect(cached).toEqual([
+      expect.objectContaining({ service: "completions:gpt-5.6-terra", value: 0 }),
+      expect.objectContaining({ service: "completions:gpt-5.6-luna", value: 11 }),
+    ]);
+    expect(snapshots.usage.filter((snapshot) => snapshot.metric === "input_tokens").map((snapshot) => snapshot.value))
+      .toEqual([100, 70, 50]);
+    expect(snapshots.billing).toEqual([]);
+    expect(snapshots.costEstimates).toEqual([]);
+    expect(JSON.stringify(snapshots)).not.toContain("FAKE_OPENAI_USAGE_PAGE_2");
+  });
+
+  it("rejects malformed cached input token values", () => {
+    const payload: OpenAiUsageCostsPayload = {
+      usage: {
+        data: [{
+          results: [{
+            model: "gpt-5.6-sol",
+            input_cached_tokens: Number.NaN,
+          }],
+        }],
+      },
+      costs: { data: [] },
+    };
+
+    expect(() => normalizeOpenAiUsageCosts({ payload, collectedAt: FIXED_NOW }))
+      .toThrow("completions:gpt-5.6-sol input_cached_tokens must be a finite number.");
   });
 
   it("rounds OpenAI decimal amounts to minor units", () => {

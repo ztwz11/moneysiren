@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import type { SlackReportTransportRequest } from "../../../packages/report/src/slack.js";
 import { CLI_VERSION, runCli } from "./cli.js";
@@ -258,7 +259,9 @@ describe("MoneySiren CLI", () => {
     expect(doctorOutput).toContain("openai: configured via local process environment");
     expect(doctorOutput).not.toContain("sk-fake-openai-admin-key");
 
-    const modes = await runCli(["/modes"], testContext(cwd));
+    const modes = await runCli(["/modes"], testContext(cwd, {
+      MONEYSIREN_INSTALL_PROFILE_PATH: join(cwd, "slash-install-profile.json"),
+    }));
     expect(modes.exitCode).toBe(0);
     expect(modes.stdout.join("\n")).toContain("MoneySiren modes");
     expect(modes.stdout.join("\n")).toContain("Install profile: CLI, Web dashboard, HUD");
@@ -270,7 +273,7 @@ describe("MoneySiren CLI", () => {
 
     const sync = await runCli(["/sync", "mock"], testContext(cwd));
     expect(sync.exitCode).toBe(0);
-    expect(sync.stdout.join("\n")).toContain("Synced mock provider snapshots");
+    expect(sync.stdout.join("\n")).toContain("Sync mock: ok");
 
     const report = await runCli(["/report", "ko"], testContext(cwd));
     expect(report.exitCode).toBe(0);
@@ -340,6 +343,8 @@ describe("MoneySiren CLI", () => {
       { id: "0001_init" },
       { id: "0002_read_model_indexes" },
       { id: "0003_emergency_action_runs" },
+      { id: "0004_provider_sync_runs" },
+      { id: "0005_notification_state" },
     ]);
     expect(persistedText).not.toContain("sqlite-placeholder-v1");
     expect(persistedText).not.toMatch(/sk-|hooks\.slack|@/i);
@@ -438,11 +443,14 @@ describe("MoneySiren CLI", () => {
   it("writes and reports the npm install component profile without secrets", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const profilePath = join(cwd, "install-profile.json");
+    const runtimeDir = join(cwd, "release-runtime");
     const install = await runCli(["install", "--profile-only", "--cli", "--hud"], testContext(cwd, {
       MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
+      MONEYSIREN_RELEASE_INSTALL_DIR: runtimeDir,
     }));
     const status = await runCli(["install", "--status"], testContext(cwd, {
       MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
+      MONEYSIREN_RELEASE_INSTALL_DIR: runtimeDir,
     }));
     const profile = JSON.parse(await readFile(profilePath, "utf8")) as {
       selectedSurfaces?: string[];
@@ -472,184 +480,172 @@ describe("MoneySiren CLI", () => {
     expect(stdout).toContain("Release default: ztwz11/moneysiren@v0.1.5.");
   });
 
-  it("installs selected release assets from GitHub Releases without storing secrets", async () => {
+  it("installs selected release assets from a strict release manifest without storing secrets", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const installDir = join(cwd, "release-install");
     const profilePath = join(cwd, "install-profile.json");
-    const webAsset = "moneysiren-web-runtime-v0.1.0.tar.gz";
+    const tag = "v0.1.6";
+    const webAsset = `moneysiren-web-runtime-${tag}.tar.gz`;
     const hudAsset = "MoneySiren.Tray-macos-ARM64.tar.gz";
-    const webBytes = Buffer.from("fake web runtime");
-    const hudBytes = Buffer.from("fake hud binary");
-    const checksum = [
-      `${testSha256(webBytes)}  ${webAsset}`,
-      `${testSha256(hudBytes)}  ${hudAsset}`,
-      "",
-    ].join("\n");
+    const webBytes = testTarGz("web");
+    const hudBytes = testTarGz("hud");
+    const manifest = testReleaseManifest(tag, [
+      {
+        name: webAsset,
+        surface: "web",
+        platform: "any",
+        archive: "tar.gz",
+        size: webBytes.byteLength,
+        sha256: testSha256(webBytes),
+        signing: {
+          state: "not-required",
+          method: "none",
+        },
+      },
+      {
+        name: hudAsset,
+        surface: "hud",
+        platform: "darwin",
+        archive: "tar.gz",
+        size: hudBytes.byteLength,
+        sha256: testSha256(hudBytes),
+        signing: {
+          state: "signed",
+          method: "apple-codesign-notarized",
+        },
+      },
+    ]);
     const result = await runCli(
-      ["install", "--all", "--dir", installDir, "--tag", "v0.1.0"],
+      ["install", "--all", "--dir", installDir, "--tag", tag],
       {
         ...testContext(cwd, {
           MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
           MONEYSIREN_RELEASE_PLATFORM: "darwin",
         }),
-        fetch: async (input) => {
-          const url = String(input);
-
-          if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0")) {
-            return Response.json({
-              html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0",
-              assets: [
-                {
-                  name: webAsset,
-                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.0/${webAsset}`,
-                },
-                {
-                  name: hudAsset,
-                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.0/${hudAsset}`,
-                },
-                {
-                  name: "moneysiren-web-runtime-SHA256SUMS.txt",
-                  browser_download_url: "https://github.com/ztwz11/moneysiren/releases/download/v0.1.0/moneysiren-web-runtime-SHA256SUMS.txt",
-                },
-              ],
-            });
-          }
-
-          if (url.endsWith(webAsset)) {
-            return new Response(webBytes);
-          }
-
-          if (url.endsWith(hudAsset)) {
-            return new Response(hudBytes);
-          }
-
-          if (url.endsWith("SHA256SUMS.txt")) {
-            return new Response(checksum);
-          }
-
-          return new Response("missing", {
-            status: 404,
-            statusText: "Not Found",
-          });
-        },
+        fetch: testReleaseFetch(manifest, {
+          [webAsset]: webBytes,
+          [hudAsset]: hudBytes,
+        }),
       },
     );
     const allOutput = [...result.stdout, ...result.stderr].join("\n");
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("Release: ztwz11/moneysiren@v0.1.0");
+    expect(result.exitCode, result.stderr.join("\n")).toBe(0);
+    expect(result.stdout.join("\n")).toContain(`Release: ztwz11/moneysiren@${tag}`);
+    expect(result.stdout.join("\n")).toContain("Source commit: 0123456789abcdef0123456789abcdef01234567");
     expect(result.stdout.join("\n")).toContain(`Install directory: ${installDir}`);
     expect(result.stdout.join("\n")).toContain(`Downloaded web: ${webAsset}`);
     expect(result.stdout.join("\n")).toContain(`Downloaded hud: ${hudAsset}`);
-    expect(await readFile(join(installDir, webAsset), "utf8")).toBe(webBytes.toString("utf8"));
-    expect(await readFile(join(installDir, hudAsset), "utf8")).toBe(hudBytes.toString("utf8"));
+    expect(await readFile(join(installDir, webAsset))).toEqual(webBytes);
+    expect(await readFile(join(installDir, hudAsset))).toEqual(hudBytes);
     expect(await readFile(join(installDir, "install-manifest.json"), "utf8")).not.toMatch(/sk-|hooks\.slack|FAKE_/i);
     expect(allOutput).not.toMatch(/sk-|hooks\.slack|FAKE_/i);
   });
 
-  it("does not persist the install profile when release asset installation fails", async () => {
+  it("does not persist the install profile when manifested asset integrity fails", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const installDir = join(cwd, "release-install");
     const profilePath = join(cwd, "install-profile.json");
-    const hudAsset = "MoneySiren.Tray_0.1.0_x64-setup.exe";
-    const hudBytes = Buffer.from("fake hud binary");
+    const tag = "v0.1.6";
+    const webAsset = `moneysiren-web-runtime-${tag}.tar.gz`;
+    const hudAsset = "MoneySiren.Tray_0.1.6_x64-portable.exe";
+    const webBytes = testTarGz("web");
+    const expectedHud = Buffer.from("synthetic expected HUD");
+    const corruptHud = Buffer.from("synthetic corrupt! HUD");
+    const manifest = testReleaseManifest(tag, [
+      {
+        name: webAsset,
+        surface: "web",
+        platform: "any",
+        archive: "tar.gz",
+        size: webBytes.byteLength,
+        sha256: testSha256(webBytes),
+        signing: {
+          state: "not-required",
+          method: "none",
+        },
+      },
+      {
+        name: hudAsset,
+        surface: "hud",
+        platform: "win32",
+        archive: "none",
+        size: corruptHud.byteLength,
+        sha256: testSha256(expectedHud),
+        signing: {
+          state: "unsigned",
+          method: "authenticode",
+        },
+      },
+    ]);
 
     const result = await runCli(
-      ["install", "--hud", "--dir", installDir, "--tag", "v0.1.0"],
+      ["install", "--hud", "--dir", installDir, "--tag", tag],
       {
         ...testContext(cwd, {
           MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
           MONEYSIREN_RELEASE_PLATFORM: "win32",
         }),
-        fetch: async (input) => {
-          const url = String(input);
-
-          if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0")) {
-            return Response.json({
-              html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0",
-              assets: [
-                {
-                  name: hudAsset,
-                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.0/${hudAsset}`,
-                },
-                {
-                  name: "moneysiren-tray-windows-SHA256SUMS.txt",
-                  browser_download_url: "https://github.com/ztwz11/moneysiren/releases/download/v0.1.0/moneysiren-tray-windows-SHA256SUMS.txt",
-                },
-              ],
-            });
-          }
-
-          if (url.endsWith(hudAsset)) {
-            return new Response(hudBytes);
-          }
-
-          if (url.endsWith("SHA256SUMS.txt")) {
-            return new Response(`${testSha256(hudBytes)}  other-installer.exe\n`);
-          }
-
-          return new Response("missing", {
-            status: 404,
-            statusText: "Not Found",
-          });
-        },
+        fetch: testReleaseFetch(manifest, {
+          [hudAsset]: corruptHud,
+        }),
       },
     );
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr.join("\n")).toContain(`Release asset installation failed: SHA256 checksum entry missing for ${hudAsset}.`);
-    expect(result.stderr.join("\n")).toContain("The selected HUD desktop artifact must be present, checksummed, and signed before MoneySiren will install it.");
+    expect(result.stderr.join("\n")).toContain("Release asset installation failed: Release asset SHA256 does not match the manifest.");
+    expect(result.stderr.join("\n")).toContain("The selected HUD desktop artifact must be present in the versioned release manifest, integrity-verified, and signed before MoneySiren will install it.");
     expect(result.stderr.join("\n")).toContain("For now, use `moneysiren install --web` to install only the web runtime, or retry after a signed desktop release is published.");
     expect(result.stderr.join("\n")).toContain("Install profile was not changed.");
     await expect(readFile(profilePath, "utf8")).rejects.toThrow();
   });
 
-  it("allows unsigned Windows HUD installation only through the explicit CLI flag", async () => {
+  it("allows manifested unsigned Windows HUD installation only through the explicit CLI flag", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const installDir = join(cwd, "release-install");
     const profilePath = join(cwd, "install-profile.json");
-    const hudAsset = "MoneySiren.Tray_0.1.5_x64-portable.exe";
-    const hudBytes = Buffer.from("fake unsigned hud executable");
+    const tag = "v0.1.6";
+    const webAsset = `moneysiren-web-runtime-${tag}.tar.gz`;
+    const hudAsset = "MoneySiren.Tray_0.1.6_x64-portable.exe";
+    const webBytes = testTarGz("web");
+    const hudBytes = Buffer.from("synthetic unsigned HUD executable");
+    const manifest = testReleaseManifest(tag, [
+      {
+        name: webAsset,
+        surface: "web",
+        platform: "any",
+        archive: "tar.gz",
+        size: webBytes.byteLength,
+        sha256: testSha256(webBytes),
+        signing: {
+          state: "not-required",
+          method: "none",
+        },
+      },
+      {
+        name: hudAsset,
+        surface: "hud",
+        platform: "win32",
+        archive: "none",
+        size: hudBytes.byteLength,
+        sha256: testSha256(hudBytes),
+        signing: {
+          state: "unsigned",
+          method: "authenticode",
+        },
+      },
+    ]);
 
     const result = await runCli(
-      ["install", "--hud", "--allow-unsigned-hud", "--dir", installDir, "--tag", "v0.1.5"],
+      ["install", "--hud", "--allow-unsigned-hud", "--dir", installDir, "--tag", tag],
       {
         ...testContext(cwd, {
           MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
           MONEYSIREN_RELEASE_PLATFORM: "win32",
         }),
-        fetch: async (input) => {
-          const url = String(input);
-
-          if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.5")) {
-            return Response.json({
-              html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.5",
-              assets: [
-                {
-                  name: hudAsset,
-                  browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.5/${hudAsset}`,
-                },
-                {
-                  name: "moneysiren-tray-windows-SHA256SUMS.txt",
-                  browser_download_url: "https://github.com/ztwz11/moneysiren/releases/download/v0.1.5/moneysiren-tray-windows-SHA256SUMS.txt",
-                },
-              ],
-            });
-          }
-
-          if (url.endsWith(hudAsset)) {
-            return new Response(hudBytes);
-          }
-
-          if (url.endsWith("SHA256SUMS.txt")) {
-            return new Response(`${testSha256(hudBytes)}  ${hudAsset}\n`);
-          }
-
-          return new Response("missing", {
-            status: 404,
-            statusText: "Not Found",
-          });
-        },
+        fetch: testReleaseFetch(manifest, {
+          [hudAsset]: hudBytes,
+        }),
       },
     );
     const profile = JSON.parse(await readFile(profilePath, "utf8")) as {
@@ -660,7 +656,7 @@ describe("MoneySiren CLI", () => {
     expect(profile.selectedSurfaces).toEqual(["hud"]);
     expect(result.stdout.join("\n")).toContain(`Downloaded hud: ${hudAsset}`);
     expect(result.stdout.join("\n")).toContain("Signature status: unsigned local smoke opt-in accepted");
-    await expect(readFile(join(installDir, hudAsset), "utf8")).resolves.toBe(hudBytes.toString("utf8"));
+    await expect(readFile(join(installDir, hudAsset))).resolves.toEqual(hudBytes);
   });
 
   it("checks the default dashboard API and accepts the safe empty state", async () => {
@@ -1276,7 +1272,7 @@ describe("MoneySiren CLI", () => {
 
     const syncResult = await runCli(["sync", "--provider", "mock"], testContext(cwd));
     expect(syncResult.exitCode).toBe(0);
-    expect(syncResult.stdout.join("\n")).toContain("Synced mock provider snapshots");
+    expect(syncResult.stdout.join("\n")).toContain("Sync mock: ok");
 
     const reportResult = await runCli(["report", "daily", "--lang", "ko"], testContext(cwd));
     const reportText = reportResult.stdout.join("\n");
@@ -1499,8 +1495,10 @@ describe("MoneySiren CLI", () => {
     );
 
     expect(result.exitCode).toBe(1);
-    expect(result.stdout.join("\n")).toContain("Synced AWS Cost Explorer snapshots");
-    expect(result.stderr.join("\n")).toContain("Token is expired");
+    expect(result.stdout.join("\n")).toContain("Sync aws: error");
+    expect(result.stdout.join("\n")).not.toContain("Synced");
+    expect(result.stderr.join("\n")).toContain("SYNC_COLLECTION");
+    expect(result.stderr.join("\n")).not.toContain("Token is expired");
     expect(result.stderr.join("\n")).not.toContain(fakeAccessKeyId);
     expect(result.stderr.join("\n")).not.toMatch(/arn:aws|\b\d{12}\b/i);
     expect(alerts).toEqual([
@@ -1512,6 +1510,51 @@ describe("MoneySiren CLI", () => {
     ]);
     expect(JSON.stringify(alerts)).not.toContain(fakeAccessKeyId);
     expect(JSON.stringify(alerts)).not.toMatch(/arn:aws|\b\d{12}\b/i);
+  });
+
+  it("returns 1 for OpenAI collection errors without exposing upstream text", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
+    const upstreamDetail = "synthetic upstream detail that must not reach CLI output";
+    const fakeAdminKey = "sk-" + "fake-openai-admin-key";
+    const result = await runCli(["sync", "--provider", "openai"], {
+      ...testContext(cwd, {
+        OPENAI_ADMIN_KEY: fakeAdminKey,
+      }),
+      liveClients: {
+        openaiUsageCosts: {
+          async fetchUsageCosts() {
+            throw new Error(upstreamDetail);
+          },
+        },
+      },
+    });
+    const output = [...result.stdout, ...result.stderr].join("\n");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout.join("\n")).toContain("Sync openai: error");
+    expect(result.stdout.join("\n")).not.toContain("Synced");
+    expect(result.stderr.join("\n")).toContain("SYNC_COLLECTION");
+    expect(output).not.toContain(upstreamDetail);
+    expect(output).not.toContain(fakeAdminKey);
+  });
+
+  it("returns a sanitized error for unreadable fixture input", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
+    const privatePath = join(cwd, "private-user-name", "missing-openai-usage.json");
+    const result = await runCli(
+      ["sync", "--provider", "openai"],
+      testContext(cwd, {
+        MONEYSIREN_OPENAI_USAGE_FIXTURE: privatePath,
+        MONEYSIREN_OPENAI_COSTS_FIXTURE: privatePath,
+      }),
+    );
+    const output = [...result.stdout, ...result.stderr].join("\n");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout.join("\n")).toContain("Sync openai: error");
+    expect(result.stderr.join("\n")).toContain("SYNC_EXECUTION");
+    expect(output).not.toContain(privatePath);
+    expect(output).not.toContain("private-user-name");
   });
 
   it("fails OpenAI sync gracefully without admin key or fixture mode", async () => {
@@ -1610,8 +1653,8 @@ describe("MoneySiren CLI", () => {
 
     expect(aws.exitCode).toBe(0);
     expect(openai.exitCode).toBe(0);
-    expect(supabase.exitCode).toBe(0);
-    expect(cloudflare.exitCode).toBe(0);
+    expect(supabase.exitCode).toBe(2);
+    expect(cloudflare.exitCode).toBe(2);
     expect(awsCommands).toEqual(["GetCostAndUsage"]);
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
@@ -1645,7 +1688,7 @@ describe("MoneySiren CLI", () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("Synced AWS Cost Explorer snapshots");
+    expect(result.stdout.join("\n")).toContain("Sync aws: ok");
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
@@ -1725,7 +1768,7 @@ describe("MoneySiren CLI", () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("Synced OpenAI usage and costs snapshots");
+    expect(result.stdout.join("\n")).toContain("Sync openai: ok");
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
@@ -1766,13 +1809,19 @@ describe("MoneySiren CLI", () => {
 
     expect(counts).toEqual({
       providers: 1,
-      usage_snapshots: 5,
+      usage_snapshots: 6,
       billing_snapshots: 1,
       service_health_snapshots: 0,
       cost_estimates: 1,
       alerts: 0,
     });
     expect(usage).toEqual([
+      {
+        service: "completions:gpt-4.1-mini",
+        metric: "cached_input_tokens",
+        unit: "tokens",
+        value: 400000,
+      },
       {
         service: "completions:gpt-4.1-mini",
         metric: "input_tokens",
@@ -1823,8 +1872,9 @@ describe("MoneySiren CLI", () => {
       }),
     );
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("Synced Supabase usage and health snapshots");
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout.join("\n")).toContain("Sync supabase: partial");
+    expect(result.stderr.join("\n")).toContain("SYNC_PARTIAL");
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
@@ -1949,8 +1999,9 @@ describe("MoneySiren CLI", () => {
       }),
     );
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.join("\n")).toContain("Synced Cloudflare billing and usage snapshots");
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout.join("\n")).toContain("Sync cloudflare: partial");
+    expect(result.stderr.join("\n")).toContain("SYNC_PARTIAL");
 
     const dbPath = join(cwd, ".moneysiren", "moneysiren.sqlite");
     const counts = querySqlite<{
@@ -2134,6 +2185,86 @@ async function fileExists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function testReleaseManifest(tag: string, assets: readonly unknown[]): unknown {
+  return {
+    schemaVersion: 1,
+    repository: "ztwz11/moneysiren",
+    tag,
+    version: tag.slice(1),
+    sourceCommit: "0123456789abcdef0123456789abcdef01234567",
+    assets,
+  };
+}
+
+function testReleaseFetch(
+  manifest: unknown,
+  assets: Readonly<Record<string, Buffer>>,
+): typeof fetch {
+  return async (input) => {
+    const url = new URL(String(input));
+    const name = decodeURIComponent(url.pathname.split("/").at(-1) ?? "");
+
+    if (name === "moneysiren-release-manifest.json") {
+      return new Response(JSON.stringify(manifest), {
+        status: 200,
+      });
+    }
+
+    const asset = assets[name];
+
+    return asset === undefined
+      ? new Response("missing", {
+          status: 404,
+          statusText: "Not Found",
+        })
+      : new Response(new Uint8Array(asset), {
+          status: 200,
+        });
+  };
+}
+
+function testTarGz(label: string): Buffer {
+  const content = Buffer.from(`console.log(${JSON.stringify(label)})\\n`);
+  const header = Buffer.alloc(512);
+
+  Buffer.from("moneysiren-web-runtime/start.mjs").copy(header, 0);
+  writeTestTarOctal(header, 100, 8, 0o644);
+  writeTestTarOctal(header, 108, 8, 0);
+  writeTestTarOctal(header, 116, 8, 0);
+  writeTestTarOctal(header, 124, 12, content.byteLength);
+  writeTestTarOctal(header, 136, 12, 0);
+  header.fill(0x20, 148, 156);
+  header.write("0", 156, 1, "ascii");
+  header.write("ustar", 257, 5, "ascii");
+  header.write("00", 263, 2, "ascii");
+
+  let checksum = 0;
+
+  for (const byte of header) {
+    checksum += byte;
+  }
+
+  header.write(checksum.toString(8).padStart(6, "0"), 148, 6, "ascii");
+  header[154] = 0;
+  header[155] = 0x20;
+
+  return gzipSync(Buffer.concat([
+    header,
+    content,
+    Buffer.alloc((512 - (content.byteLength % 512)) % 512),
+    Buffer.alloc(1024),
+  ]));
+}
+
+function writeTestTarOctal(
+  buffer: Buffer,
+  offset: number,
+  length: number,
+  value: number,
+): void {
+  buffer.write(`${value.toString(8).padStart(length - 1, "0")}\0`, offset, length, "ascii");
 }
 
 function testSha256(content: Buffer): string {

@@ -20,13 +20,13 @@ jobs:
           - 24
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # pinned
         with:
           version: 11.5.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # pinned
         with:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
@@ -34,6 +34,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: npm run typecheck
       - run: npm run test
+      - run: npm run test:release-metadata
+      - run: npm run test:release-manifest
+      - run: node --check tools/scripts/lib/release-candidate.mjs
+      - run: node --check tools/scripts/check-release-candidate.mjs
+      - run: node --check tools/scripts/lib/release-candidate-directory.mjs
+      - run: node --check tools/scripts/check-published-release-assets.mjs
+      - run: npm run test:release-candidate
+      - run: npm run test:community-health
+      - run: npm run release:metadata
       - run: npm run build
       - run: npm run tray:native:check
       - run: npm run secret:scan

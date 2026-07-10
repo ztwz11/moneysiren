@@ -1,0 +1,14 @@
+# Default ownership
+* @ztwz11
+
+# Security-sensitive and release-critical areas
+/SECURITY.md @ztwz11
+/.github/workflows/ @ztwz11
+/apps/app/ @ztwz11
+/apps/cli/src/release-installer.ts @ztwz11
+/apps/web/lib/codex-reset-credits/ @ztwz11
+/apps/web/lib/local-ai/ @ztwz11
+/packages/connectors/ @ztwz11
+/packages/db/ @ztwz11
+/packages/security/ @ztwz11
+/tools/scripts/ @ztwz11

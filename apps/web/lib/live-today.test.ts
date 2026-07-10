@@ -596,6 +596,83 @@ describe("live today cache", () => {
     ]);
   }, 90_000);
 
+  it("keeps the last successful value stale after failure and clears the error on recovery", async () => {
+    const store = createMemoryCredentialStore({
+      now: () => NOW,
+    });
+    await store.setCredential("openai", "read-only", {
+      secret: "FAKE_OPENAI_ADMIN_KEY_FOR_TESTS",
+      authMethod: "api_key",
+    });
+    const connections = await readConnectionsStatus({
+      credentialStore: store,
+      localAiCliStatus: emptyLocalAiCliStatus(),
+      now: () => NOW,
+    });
+    let attempts = 0;
+    const collector: LiveTodayProviderCollector = async (context) => {
+      attempts += 1;
+
+      if (attempts === 2) {
+        throw new Error("temporary network failure");
+      }
+
+      return {
+        providerKey: "openai",
+        status: "ok",
+        checkedAt: context.now.toISOString(),
+        todayLiveAmountMinor: attempts === 1 ? 100 : 200,
+        currency: "USD",
+        included: true,
+        confidence: "medium",
+      };
+    };
+
+    const first = await refreshLiveToday({
+      connections,
+      credentialStore: store,
+      now: () => NOW,
+      ttlSeconds: 60,
+      collectors: { openai: collector },
+    });
+    const failed = await refreshLiveToday({
+      connections,
+      credentialStore: store,
+      now: () => new Date(NOW.getTime() + 30_000),
+      ttlSeconds: 60,
+      collectors: { openai: collector },
+    });
+    const recovered = await refreshLiveToday({
+      connections,
+      credentialStore: store,
+      now: () => new Date(NOW.getTime() + 45_000),
+      ttlSeconds: 60,
+      collectors: { openai: collector },
+    });
+
+    expect(first.providers.find((provider) => provider.providerKey === "openai")).toMatchObject({
+      freshness: "live",
+      todayLiveAmountMinor: 100,
+      lastRefreshFailed: false,
+    });
+    expect(failed.providers.find((provider) => provider.providerKey === "openai")).toMatchObject({
+      freshness: "stale",
+      todayLiveAmountMinor: 100,
+      included: false,
+      lastAttemptAt: "2026-06-08T04:00:30.000Z",
+      lastSuccessAt: NOW.toISOString(),
+      lastRefreshFailed: true,
+    });
+    expect(recovered.providers.find((provider) => provider.providerKey === "openai")).toMatchObject({
+      freshness: "live",
+      todayLiveAmountMinor: 200,
+      included: true,
+      lastAttemptAt: "2026-06-08T04:00:45.000Z",
+      lastSuccessAt: "2026-06-08T04:00:45.000Z",
+      lastRefreshFailed: false,
+    });
+  }, 90_000);
+
   it("redacts sensitive provider error text before returning cached live status", async () => {
     const store = createMemoryCredentialStore({
       now: () => NOW,

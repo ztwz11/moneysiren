@@ -50,6 +50,16 @@ export {
   type WidgetItemView,
 } from "./hud-model.js";
 export {
+  calculateProviderFreshness,
+  classifyProviderFreshness,
+  providerFreshnessPolicy,
+  type ProviderFreshness,
+  type ProviderFreshnessPolicy,
+  type ProviderFreshnessStatus,
+  type ProviderSyncRunLike,
+  type ProviderSyncRunStatus,
+} from "./freshness.js";
+export {
   createSyncError,
   isNeutralSyncState,
   summarizeAggregateSync,

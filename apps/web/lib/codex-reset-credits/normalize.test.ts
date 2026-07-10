@@ -1,107 +1,113 @@
 import { describe, expect, it } from "vitest";
+import type { CodexRateLimitsMeasurement } from "../local-ai/codex/types";
 import { normalizeResetCreditStatus } from "./normalize";
 
-const NOW = new Date("2026-06-19T00:00:00.000Z");
+const NOW = new Date("2030-01-25T00:00:00.000Z");
+const FETCHED_AT = "2030-01-20T00:00:00.000Z";
+type AvailableRateLimits = Extract<CodexRateLimitsMeasurement, { availability: "available" }>;
 
-describe("codex reset credit normalizer", () => {
-  it("normalizes snake_case responses", () => {
-    const status = normalizeResetCreditStatus({
-      available_reset_credits: 2,
-      total_earned_count: 3,
-      reset_credits: [
-        { expires_at: "2026-07-13T01:39:00.000Z", id: "secret-credit-id" },
-      ],
-      email: "user@example.com",
-    }, NOW);
+describe("official Codex reset-credit compatibility adapter", () => {
+  it("keeps availableCount authoritative and maps only supplied details", () => {
+    const status = normalizeResetCreditStatus(measurement({
+      availableCount: 3,
+      detailsComplete: false,
+      details: [{
+        resetType: "codexRateLimits",
+        status: "available",
+        grantedAt: "2030-01-01T00:00:00.000Z",
+        expiresAt: "2030-02-01T00:00:00.000Z",
+        title: "Synthetic detail",
+        description: null,
+      }],
+    }), NOW);
 
-    expect(status.availableCount).toBe(2);
-    expect(status.totalEarnedCount).toBe(3);
-    expect(status.credits[0]?.expiresAtUtc).toBe("2026-07-13T01:39:00.000Z");
-    expect(JSON.stringify(status)).not.toContain("secret-credit-id");
-    expect(JSON.stringify(status)).not.toContain("user@example.com");
-  });
-
-  it("normalizes camelCase responses", () => {
-    const status = normalizeResetCreditStatus({
-      availableResetCredits: 1,
-      totalEarnedCount: 1,
-      resetCredits: [
-        { expiresAt: "2026-06-20T00:00:00.000Z" },
-      ],
-    }, NOW);
-
-    expect(status.availableCount).toBe(1);
-    expect(status.totalEarnedCount).toBe(1);
-    expect(status.credits[0]?.status).toBe("expiring-soon");
-  });
-
-  it("normalizes items arrays", () => {
-    const status = normalizeResetCreditStatus({
-      availableCount: 1,
-      items: [
-        { expirationTime: "2026-07-20T00:00:00.000Z" },
-      ],
-    }, NOW);
-
+    expect(status).toMatchObject({
+      schemaVersion: 2,
+      source: "codex-app-server",
+      accuracy: "official",
+      fetchedAtUtc: FETCHED_AT,
+      availableCount: 3,
+      totalEarnedCount: null,
+      detailsComplete: false,
+    });
     expect(status.credits).toHaveLength(1);
-    expect(status.credits[0]?.status).toBe("active");
-  });
-
-  it("supports ISO, Unix seconds, and Unix milliseconds", () => {
-    const status = normalizeResetCreditStatus({
-      credits: [
-        { expiresAt: "2026-07-01T00:00:00.000Z" },
-        { expiresAt: 1782864000 },
-        { expiresAt: 1782950400000 },
-      ],
-    }, NOW);
-
-    expect(status.credits.map((credit) => credit.expiresAtUtc)).toEqual([
-      "2026-07-01T00:00:00.000Z",
-      "2026-07-01T00:00:00.000Z",
-      "2026-07-02T00:00:00.000Z",
-    ]);
-  });
-
-  it("marks invalid expiry values as unknown without failing the whole response", () => {
-    const status = normalizeResetCreditStatus({
-      credits: [
-        { expiresAt: "not-a-date" },
-      ],
-    }, NOW);
-
     expect(status.credits[0]).toMatchObject({
-      expiresAtUtc: null,
-      remainingSeconds: null,
-      status: "unknown",
+      index: 1,
+      resetType: "codexRateLimits",
+      providerStatus: "available",
+      grantedAtUtc: "2030-01-01T00:00:00.000Z",
+      expiresAtUtc: "2030-02-01T00:00:00.000Z",
+      status: "expiring-soon",
     });
   });
 
-  it("handles empty arrays and missing optional fields", () => {
-    const status = normalizeResetCreditStatus({
-      available: 0,
-      credits: [],
-    }, NOW);
+  it("does not invent rows when only the official count is known", () => {
+    const status = normalizeResetCreditStatus(measurement({
+      availableCount: 2,
+      details: [],
+      detailsComplete: false,
+    }), NOW);
 
-    expect(status.availableCount).toBe(0);
+    expect(status.availableCount).toBe(2);
+    expect(status.credits).toEqual([]);
+    expect(status.detailsComplete).toBe(false);
+  });
+
+  it("represents absent reset-credit data without synthetic totals", () => {
+    const status = normalizeResetCreditStatus(measurement(null), NOW);
+
+    expect(status.availableCount).toBeNull();
     expect(status.totalEarnedCount).toBeNull();
+    expect(status.detailsComplete).toBe(false);
     expect(status.credits).toEqual([]);
   });
 
-  it("sorts credits by expiry and unknown values last", () => {
-    const status = normalizeResetCreditStatus({
-      credits: [
-        { expiresAt: null },
-        { expiresAt: "2026-08-01T00:00:00.000Z" },
-        { expiresAt: "2026-06-20T00:00:00.000Z" },
+  it("sorts supplied expiries and keeps unknown expiry last", () => {
+    const status = normalizeResetCreditStatus(measurement({
+      availableCount: 2,
+      detailsComplete: true,
+      details: [
+        detail(null),
+        detail("2030-01-26T00:00:00.000Z"),
       ],
-    }, NOW);
+    }), NOW);
 
     expect(status.credits.map((credit) => credit.expiresAtUtc)).toEqual([
-      "2026-06-20T00:00:00.000Z",
-      "2026-08-01T00:00:00.000Z",
+      "2030-01-26T00:00:00.000Z",
       null,
     ]);
-    expect(status.credits.map((credit) => credit.index)).toEqual([1, 2, 3]);
+    expect(status.credits.map((credit) => credit.status)).toEqual([
+      "expiring-soon",
+      "unknown",
+    ]);
   });
 });
+
+function measurement(
+  resetCredits: AvailableRateLimits["data"]["resetCredits"],
+): AvailableRateLimits {
+  return {
+    schemaVersion: 2,
+    availability: "available",
+    source: "codex-app-server-rate-limits",
+    accuracy: "official",
+    fetchedAt: FETCHED_AT,
+    data: {
+      primary: null,
+      secondary: null,
+      reachedType: null,
+      resetCredits,
+    },
+  };
+}
+
+function detail(expiresAt: string | null) {
+  return {
+    resetType: "codexRateLimits" as const,
+    status: "available" as const,
+    grantedAt: null,
+    expiresAt,
+    title: null,
+    description: null,
+  };
+}

@@ -1,0 +1,59 @@
+{
+  "result": {
+    "rateLimits": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+        "usedPercent": 25,
+        "windowDurationMins": 300,
+        "resetsAt": 1893456000
+      },
+      "secondary": {
+        "usedPercent": 10,
+        "windowDurationMins": 10080,
+        "resetsAt": 1893974400
+      },
+      "rateLimitReachedType": null
+    },
+    "rateLimitsByLimitId": {
+      "codex": {
+        "limitId": "codex",
+        "limitName": null,
+        "primary": {
+          "usedPercent": 25,
+          "windowDurationMins": 300,
+          "resetsAt": 1893456000
+        },
+        "secondary": {
+          "usedPercent": 10,
+          "windowDurationMins": 10080,
+          "resetsAt": 1893974400
+        },
+        "rateLimitReachedType": null
+      }
+    },
+    "rateLimitResetCredits": {
+      "availableCount": 2,
+      "credits": [
+        {
+          "id": "RateLimitResetCredit_FAKE_1",
+          "resetType": "codexRateLimits",
+          "status": "available",
+          "grantedAt": 1890864000,
+          "expiresAt": 1896134400,
+          "title": "FAKE rate-limit reset",
+          "description": "Synthetic fixture detail."
+        },
+        {
+          "id": "RateLimitResetCredit_FAKE_2",
+          "resetType": "codexRateLimits",
+          "status": "available",
+          "grantedAt": 1890950400,
+          "expiresAt": null,
+          "title": null,
+          "description": null
+        }
+      ]
+    }
+  }
+}

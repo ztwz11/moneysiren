@@ -1,487 +1,562 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import { installReleaseAssets, resolveReleaseInstallDir } from "./release-installer.js";
+import { gzipSync } from "node:zlib";
+import { describe, expect, it, vi } from "vitest";
+import {
+  installReleaseAssets,
+  readReleaseRuntimeInstallStatus,
+  resolveReleaseInstallDir,
+} from "./release-installer.js";
+import type { ReleaseManifest } from "./release-manifest.js";
+
+const repository = "ztwz11/moneysiren";
+const tag = "v0.1.6";
+const sourceCommit = "0123456789abcdef0123456789abcdef01234567";
 
 describe("MoneySiren release installer", () => {
-  it("downloads selected web and HUD release assets with checksum verification", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
-    const installDir = join(cwd, "installed");
-    const webAsset = "moneysiren-web-runtime-v0.1.0.tar.gz";
-    const hudInstallerAsset = "MoneySiren.Tray_0.1.0_x64-setup.exe";
-    const hudAsset = "MoneySiren.Tray_0.1.0_x64-portable.exe";
-    const webBytes = Buffer.from("fake web runtime archive");
-    const hudInstallerBytes = Buffer.from("fake hud installer");
-    const hudBytes = Buffer.from("fake hud portable executable");
-    const expectedSignerThumbprint = "AABBCCDDEEFF00112233445566778899AABBCCDD";
-    const checksum = [
-      `${sha256Hex(webBytes)}  ${webAsset}`,
-      `${sha256Hex(hudInstallerBytes)}  ${hudInstallerAsset}`,
-      `${sha256Hex(hudBytes)}  ${hudAsset}`,
-      "",
-    ].join("\n");
-    const requests: string[] = [];
-    const signatureVerifierInputs: string[] = [];
+  it("installs a strict manifested web runtime and reports verified readiness", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(root, "installed");
+    const archive = webArchive("first");
+    const manifest = manifestWithAssets([
+      webAsset(archive),
+    ]);
 
     const result = await installReleaseAssets({
-      env: {},
-      fetchImpl: async (input) => {
-        const url = String(input);
-        requests.push(url);
-
-        if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0")) {
-          return Response.json({
-            html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0",
-            assets: [
-              releaseAsset(webAsset),
-              releaseAsset(hudInstallerAsset),
-              releaseAsset(hudAsset),
-              releaseAsset("moneysiren-web-runtime-SHA256SUMS.txt"),
-              releaseAsset("moneysiren-tray-windows-SHA256SUMS.txt"),
-              releaseAsset("moneysiren-tray-windows-SIGNATURE.json"),
-            ],
-          });
-        }
-
-        if (url.endsWith(webAsset)) {
-          return new Response(webBytes);
-        }
-
-        if (url.endsWith(hudAsset)) {
-          return new Response(hudBytes);
-        }
-
-        if (url.endsWith(hudInstallerAsset)) {
-          return new Response(hudInstallerBytes);
-        }
-
-        if (url.endsWith("SHA256SUMS.txt")) {
-          return new Response(checksum);
-        }
-
-        if (url.endsWith("SIGNATURE.json")) {
-          return Response.json([{
-            assetName: hudAsset,
-            signerThumbprint: expectedSignerThumbprint,
-            signerSubject: "CN=MoneySiren Test",
-            signatureStatus: "Valid",
-          }]);
-        }
-
-        return new Response("missing", {
-          status: 404,
-          statusText: "Not Found",
-        });
-      },
+      fetchImpl: releaseFetch(manifest, {
+        [manifest.assets[0]!.name]: archive,
+      }),
       installDir,
-      platform: "win32",
-      selectedSurfaces: ["cli", "web", "hud"],
-      signatureVerifier: {
-        async verify(input) {
-          signatureVerifierInputs.push(`${input.assetName}:${input.expectedSignerThumbprints?.join(",") ?? "none"}`);
-          return {
-            verified: true,
-            status: input.surface === "hud" ? "Valid" : "not-required",
-            message: "test signature verifier",
-          };
-        },
-      },
-      tag: "v0.1.0",
+      now: () => new Date("2026-07-10T00:00:00.000Z"),
+      platform: "linux",
+      repository,
+      selectedSurfaces: ["cli", "web"],
+      tag,
     });
 
-    expect(result.assets.map((asset) => asset.surface)).toEqual(["web", "hud"]);
-    expect(result.assets.every((asset) => asset.checksumVerified)).toBe(true);
-    expect(await readFile(join(installDir, webAsset), "utf8")).toBe(webBytes.toString("utf8"));
-    expect(await readFile(join(installDir, hudAsset), "utf8")).toBe(hudBytes.toString("utf8"));
-    const manifest = await readFile(join(installDir, "install-manifest.json"), "utf8");
-    expect(manifest).not.toMatch(/sk-|hooks\.slack|FAKE_/i);
-    expect(manifest).toContain("\"signatureVerified\": true");
-    expect(signatureVerifierInputs).toContain(`${hudAsset}:${expectedSignerThumbprint}`);
-    expect(requests).toContain("https://api.github.com/repos/ztwz11/moneysiren/releases/tags/v0.1.0");
-    expect(requests.some((url) => url.endsWith(hudInstallerAsset))).toBe(false);
+    expect(result).toMatchObject({
+      repository,
+      tag,
+      version: "0.1.6",
+      sourceCommit,
+      installDir,
+    });
+    expect(await readFile(result.assets[0]!.path)).toEqual(archive);
+
+    const localManifest = JSON.parse(
+      await readFile(join(installDir, "install-manifest.json"), "utf8"),
+    ) as Record<string, unknown>;
+
+    expect(localManifest).toMatchObject({
+      schemaVersion: 2,
+      status: "ready",
+      repository,
+      tag,
+      version: "0.1.6",
+      sourceCommit,
+      installedAt: "2026-07-10T00:00:00.000Z",
+    });
+    expect(JSON.stringify(localManifest)).not.toMatch(/sk-|hooks\.slack|FAKE_/i);
+
+    await expect(readReleaseRuntimeInstallStatus({
+      installDir,
+      platform: "linux",
+      repository,
+      tag,
+    })).resolves.toMatchObject({
+      status: "ready",
+      version: "0.1.6",
+      sourceCommit,
+    });
   });
 
-  it("prefers independently configured Windows signer thumbprints over release metadata", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
-    const installDir = join(cwd, "installed");
-    const hudAsset = "MoneySiren_0.1.0_x64-setup.exe";
-    const hudBytes = Buffer.from("fake signed hud installer");
-    const checksum = `${sha256Hex(hudBytes)}  ${hudAsset}\n`;
-    const expectedSignerThumbprint = "AABBCCDDEEFF00112233445566778899AABBCCDD";
-    const signatureVerifierInputs: string[] = [];
+  it("keeps the published v0.1.5 web runtime on a bounded legacy compatibility path", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(root, "legacy");
+    const legacyTag = "v0.1.5";
+    const archive = webArchive("legacy");
+    const name = `moneysiren-web-runtime-${legacyTag}.tar.gz`;
+
+    const result = await installReleaseAssets({
+      fetchImpl: legacyV015Fetch(name, archive),
+      installDir,
+      platform: "linux",
+      repository,
+      selectedSurfaces: ["web"],
+      tag: legacyTag,
+    });
+
+    expect(result).toMatchObject({
+      tag: legacyTag,
+      version: "0.1.5",
+      sourceCommit: null,
+      provenance: "legacy-v0.1.5",
+    });
+    expect(await readFile(result.assets[0]!.path)).toEqual(archive);
+    await expect(readReleaseRuntimeInstallStatus({
+      installDir,
+      platform: "linux",
+      repository,
+      tag: legacyTag,
+    })).resolves.toMatchObject({
+      status: "ready",
+      version: "0.1.5",
+      sourceCommit: null,
+    });
+  });
+
+  it("rejects missing manifests and missing assets", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(root, "installed");
+    const archive = webArchive("missing");
+    const manifest = manifestWithAssets([
+      webAsset(archive),
+    ]);
+
+    await expect(installReleaseAssets({
+      fetchImpl: vi.fn(async () => new Response("missing", {
+        status: 404,
+      })) as unknown as typeof fetch,
+      installDir,
+      platform: "linux",
+      repository,
+      selectedSurfaces: ["web"],
+      tag,
+    })).rejects.toThrow(/HTTP 404/);
+
+    await expect(installReleaseAssets({
+      fetchImpl: releaseFetch(manifest, {}),
+      installDir,
+      platform: "linux",
+      repository,
+      selectedSurfaces: ["web"],
+      tag,
+    })).rejects.toThrow(/HTTP 404/);
+  });
+
+  it("rejects manifest version and checksum mismatches", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(root, "installed");
+    const archive = webArchive("expected");
+    const asset = webAsset(archive);
+
+    await expect(installReleaseAssets({
+      fetchImpl: releaseFetch({
+        ...manifestWithAssets([asset]),
+        version: "0.1.5",
+      }, {
+        [asset.name]: archive,
+      }),
+      installDir,
+      platform: "linux",
+      repository,
+      selectedSurfaces: ["web"],
+      tag,
+    })).rejects.toThrow(/version mismatch/);
+
+    await expect(installReleaseAssets({
+      fetchImpl: releaseFetch(manifestWithAssets([asset]), {
+        [asset.name]: webArchive("corrupt!"),
+      }),
+      installDir,
+      platform: "linux",
+      repository,
+      selectedSurfaces: ["web"],
+      tag,
+    })).rejects.toThrow(/Content-Length|manifest size|partial|SHA256/);
+  });
+
+  it("atomically upgrades a healthy runtime without leaving transaction directories", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(root, "installed");
+    const firstArchive = webArchive("first");
+    const secondArchive = webArchive("second");
 
     await installReleaseAssets({
-      env: {
-        MONEYSIREN_WINDOWS_SIGNER_THUMBPRINTS: expectedSignerThumbprint,
-      },
-      fetchImpl: async (input) => {
-        const url = String(input);
-
-        if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0")) {
-          return Response.json({
-            html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0",
-            assets: [
-              releaseAsset(hudAsset),
-              releaseAsset("moneysiren-tray-windows-SHA256SUMS.txt"),
-            ],
-          });
-        }
-
-        if (url.endsWith(hudAsset)) {
-          return new Response(hudBytes);
-        }
-
-        if (url.endsWith("SHA256SUMS.txt")) {
-          return new Response(checksum);
-        }
-
-        return new Response("missing", {
-          status: 404,
-          statusText: "Not Found",
-        });
-      },
+      fetchImpl: releaseFetch(manifestWithAssets([webAsset(firstArchive)]), {
+        [`moneysiren-web-runtime-${tag}.tar.gz`]: firstArchive,
+      }),
       installDir,
-      platform: "win32",
-      selectedSurfaces: ["hud"],
-      signatureVerifier: {
-        async verify(input) {
-          signatureVerifierInputs.push(input.expectedSignerThumbprints?.join(",") ?? "none");
-          return {
-            verified: true,
-            status: "Valid",
-            message: "test signature verifier",
-          };
-        },
-      },
-      tag: "v0.1.0",
-    });
-
-    expect(signatureVerifierInputs).toEqual([expectedSignerThumbprint]);
-  });
-
-  it("fails when checksum files exist but omit the selected asset", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
-    const installDir = join(cwd, "installed");
-    const webAsset = "moneysiren-web-runtime-v0.1.0.tar.gz";
-
-    await expect(installReleaseAssets({
-      env: {},
-      fetchImpl: async (input) => {
-        const url = String(input);
-
-        if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0")) {
-          return Response.json({
-            html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0",
-            assets: [
-              releaseAsset(webAsset),
-              releaseAsset("moneysiren-web-runtime-SHA256SUMS.txt"),
-            ],
-          });
-        }
-
-        if (url.endsWith(webAsset)) {
-          return new Response("fake web runtime archive");
-        }
-
-        if (url.endsWith("SHA256SUMS.txt")) {
-          return new Response(`${sha256Hex(Buffer.from("other asset"))}  other.tar.gz\n`);
-        }
-
-        return new Response("missing", {
-          status: 404,
-          statusText: "Not Found",
-        });
-      },
-      installDir,
-      platform: "win32",
+      platform: "linux",
+      repository,
       selectedSurfaces: ["web"],
-      tag: "v0.1.0",
-    })).rejects.toThrow(`SHA256 checksum entry missing for ${webAsset}.`);
-  });
-
-  it("fails Windows HUD installs when the release installer signature is invalid", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
-    const installDir = join(cwd, "installed");
-    const hudAsset = "MoneySiren_0.1.0_x64-setup.exe";
-    const hudBytes = Buffer.from("fake unsigned hud installer");
-    const checksum = `${sha256Hex(hudBytes)}  ${hudAsset}\n`;
-
-    await expect(installReleaseAssets({
-      env: {},
-      fetchImpl: async (input) => {
-        const url = String(input);
-
-        if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0")) {
-          return Response.json({
-            html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0",
-            assets: [
-              releaseAsset(hudAsset),
-              releaseAsset("moneysiren-tray-windows-SHA256SUMS.txt"),
-            ],
-          });
-        }
-
-        if (url.endsWith(hudAsset)) {
-          return new Response(hudBytes);
-        }
-
-        if (url.endsWith("SHA256SUMS.txt")) {
-          return new Response(checksum);
-        }
-
-        return new Response("missing", {
-          status: 404,
-          statusText: "Not Found",
-        });
-      },
-      installDir,
-      platform: "win32",
-      selectedSurfaces: ["hud"],
-      signatureVerifier: {
-        async verify() {
-          return {
-            verified: false,
-            status: "NotSigned",
-            message: "The file is not digitally signed.",
-          };
-        },
-      },
-      tag: "v0.1.0",
-    })).rejects.toThrow(`Release asset signature verification failed for ${hudAsset}: NotSigned The file is not digitally signed.`);
-
-    await expect(readFile(join(installDir, hudAsset), "utf8")).rejects.toThrow();
-  });
-
-  it("accepts unsigned Windows HUD installers for prereleases when release signature metadata is missing", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
-    const installDir = join(cwd, "installed");
-    const hudAsset = "MoneySiren_0.1.0-rc.1_x64-setup.exe";
-    const hudBytes = Buffer.from("fake unsigned hud installer");
-    const checksum = `${sha256Hex(hudBytes)}  ${hudAsset}\n`;
-
-    const result = await installReleaseAssets({
-      env: {},
-      fetchImpl: async (input) => {
-        const url = String(input);
-
-        if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0-rc.1")) {
-          return Response.json({
-            html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0-rc.1",
-            assets: [
-              releaseAsset(hudAsset),
-              releaseAsset("moneysiren-tray-windows-SHA256SUMS.txt"),
-            ],
-          });
-        }
-
-        if (url.endsWith(hudAsset)) {
-          return new Response(hudBytes);
-        }
-
-        if (url.endsWith("SHA256SUMS.txt")) {
-          return new Response(checksum);
-        }
-
-        return new Response("missing", {
-          status: 404,
-          statusText: "Not Found",
-        });
-      },
-      installDir,
-      platform: "win32",
-      selectedSurfaces: ["hud"],
-      tag: "v0.1.0-rc.1",
+      tag,
     });
 
-    expect(result.assets).toHaveLength(1);
-    expect(result.assets[0]?.signatureVerified).toBe(false);
-    expect(result.assets[0]?.signatureStatus).toBe("unsigned-prerelease-accepted");
-    await expect(readFile(join(installDir, hudAsset), "utf8")).resolves.toBe(hudBytes.toString("utf8"));
+    const upgraded = await installReleaseAssets({
+      fetchImpl: releaseFetch(manifestWithAssets([webAsset(secondArchive)]), {
+        [`moneysiren-web-runtime-${tag}.tar.gz`]: secondArchive,
+      }),
+      installDir,
+      platform: "linux",
+      repository,
+      selectedSurfaces: ["web"],
+      tag,
+    });
+
+    expect(await readFile(upgraded.assets[0]!.path)).toEqual(secondArchive);
+    expect(await readdir(root)).toEqual(["installed"]);
   });
 
-  it("accepts unsigned Windows HUD installers for public releases only with explicit local smoke opt-in", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
-    const installDir = join(cwd, "installed");
-    const hudAsset = "MoneySiren_0.1.0_x64-portable.exe";
-    const hudBytes = Buffer.from("fake unsigned hud executable");
-    const checksum = `${sha256Hex(hudBytes)}  ${hudAsset}\n`;
+  it("preserves the previous runtime when an update fails integrity verification", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(root, "installed");
+    const firstArchive = webArchive("first");
+    const secondArchive = webArchive("second");
+    const name = `moneysiren-web-runtime-${tag}.tar.gz`;
+
+    const installed = await installReleaseAssets({
+      fetchImpl: releaseFetch(manifestWithAssets([webAsset(firstArchive)]), {
+        [name]: firstArchive,
+      }),
+      installDir,
+      platform: "linux",
+      repository,
+      selectedSurfaces: ["web"],
+      tag,
+    });
+
+    await expect(installReleaseAssets({
+      fetchImpl: releaseFetch(manifestWithAssets([webAsset(secondArchive)]), {
+        [name]: Buffer.from(secondArchive).fill(0, 0, 1),
+      }),
+      installDir,
+      platform: "linux",
+      repository,
+      selectedSurfaces: ["web"],
+      tag,
+    })).rejects.toThrow(/SHA256/);
+
+    expect(await readFile(installed.assets[0]!.path)).toEqual(firstArchive);
+    await expect(readReleaseRuntimeInstallStatus({
+      installDir,
+      platform: "linux",
+      repository,
+      tag,
+    })).resolves.toMatchObject({
+      status: "ready",
+    });
+  });
+
+  it("requires stable Windows HUD signing and verifies the manifest signer", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(root, "installed");
+    const hudBytes = Buffer.from("synthetic signed executable");
+    const name = "MoneySiren.Tray_0.1.6_x64-portable.exe";
+    const signerThumbprint = "A".repeat(40);
+    const asset = {
+      name,
+      surface: "hud",
+      platform: "win32",
+      archive: "none",
+      size: hudBytes.byteLength,
+      sha256: sha256(hudBytes),
+      signing: {
+        state: "signed",
+        method: "authenticode",
+        signerThumbprint,
+      },
+    } as const;
+    const signatureVerifier = {
+      verify: vi.fn(async (input) => ({
+        verified: input.expectedSignerThumbprints?.[0] === signerThumbprint,
+        status: "Valid",
+        message: "synthetic verifier",
+      })),
+    };
 
     const result = await installReleaseAssets({
+      fetchImpl: releaseFetch(manifestWithAssets([
+        webAsset(webArchive("web")),
+        asset,
+      ]), {
+        [name]: hudBytes,
+      }),
+      installDir,
+      platform: "win32",
+      repository,
+      selectedSurfaces: ["hud"],
+      signatureVerifier,
+      tag,
+    });
+
+    expect(result.assets[0]).toMatchObject({
+      name,
+      signatureVerified: true,
+      signatureStatus: "Valid",
+      signingState: "signed",
+    });
+    expect(signatureVerifier.verify).toHaveBeenCalledWith(expect.objectContaining({
+      expectedSignerThumbprints: [signerThumbprint],
+    }));
+  });
+
+  it("allows unsigned stable HUD assets only with explicit local smoke opt-in", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const hudBytes = Buffer.from("synthetic unsigned executable");
+    const name = "MoneySiren.Tray_0.1.6_x64-portable.exe";
+    const asset = {
+      name,
+      surface: "hud",
+      platform: "win32",
+      archive: "none",
+      size: hudBytes.byteLength,
+      sha256: sha256(hudBytes),
+      signing: {
+        state: "unsigned",
+        method: "authenticode",
+      },
+    } as const;
+    const manifest = manifestWithAssets([
+      webAsset(webArchive("web")),
+      asset,
+    ]);
+
+    await expect(installReleaseAssets({
+      fetchImpl: releaseFetch(manifest, {
+        [name]: hudBytes,
+      }),
+      installDir: join(root, "denied"),
+      platform: "win32",
+      repository,
+      selectedSurfaces: ["hud"],
+      tag,
+    })).rejects.toThrow(/unsigned-not-allowed/);
+
+    const accepted = await installReleaseAssets({
       env: {
         MONEYSIREN_ALLOW_UNSIGNED_HUD: "true",
       },
-      fetchImpl: async (input) => {
-        const url = String(input);
-
-        if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0")) {
-          return Response.json({
-            html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0",
-            assets: [
-              releaseAsset(hudAsset),
-              releaseAsset("moneysiren-tray-windows-SHA256SUMS.txt"),
-            ],
-          });
-        }
-
-        if (url.endsWith(hudAsset)) {
-          return new Response(hudBytes);
-        }
-
-        if (url.endsWith("SHA256SUMS.txt")) {
-          return new Response(checksum);
-        }
-
-        return new Response("missing", {
-          status: 404,
-          statusText: "Not Found",
-        });
-      },
-      installDir,
+      fetchImpl: releaseFetch(manifest, {
+        [name]: hudBytes,
+      }),
+      installDir: join(root, "accepted"),
       platform: "win32",
+      repository,
       selectedSurfaces: ["hud"],
-      tag: "v0.1.0",
+      tag,
     });
 
-    expect(result.assets).toHaveLength(1);
-    expect(result.assets[0]?.signatureVerified).toBe(false);
-    expect(result.assets[0]?.signatureStatus).toBe("unsigned-opt-in-accepted");
-    await expect(readFile(join(installDir, hudAsset), "utf8")).resolves.toBe(hudBytes.toString("utf8"));
+    expect(accepted.assets[0]).toMatchObject({
+      signatureVerified: false,
+      signatureStatus: "unsigned-opt-in-accepted",
+    });
   });
 
-  it("fails unsigned Windows HUD prerelease installs when explicitly disabled", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
-    const installDir = join(cwd, "installed");
-    const hudAsset = "MoneySiren_0.1.0-rc.1_x64-setup.exe";
-    const hudBytes = Buffer.from("fake unsigned hud installer");
-    const checksum = `${sha256Hex(hudBytes)}  ${hudAsset}\n`;
-
-    await expect(installReleaseAssets({
-      env: {
-        MONEYSIREN_ALLOW_UNSIGNED_HUD: "false",
-      },
-      fetchImpl: async (input) => {
-        const url = String(input);
-
-        if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0-rc.1")) {
-          return Response.json({
-            html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0-rc.1",
-            assets: [
-              releaseAsset(hudAsset),
-              releaseAsset("moneysiren-tray-windows-SHA256SUMS.txt"),
-            ],
-          });
-        }
-
-        if (url.endsWith(hudAsset)) {
-          return new Response(hudBytes);
-        }
-
-        if (url.endsWith("SHA256SUMS.txt")) {
-          return new Response(checksum);
-        }
-
-        return new Response("missing", {
-          status: 404,
-          statusText: "Not Found",
-        });
-      },
+  it("reports tampered local assets as invalid", async () => {
+    const root = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(root, "installed");
+    const archive = webArchive("first");
+    const installed = await installReleaseAssets({
+      fetchImpl: releaseFetch(manifestWithAssets([webAsset(archive)]), {
+        [`moneysiren-web-runtime-${tag}.tar.gz`]: archive,
+      }),
       installDir,
-      platform: "win32",
-      selectedSurfaces: ["hud"],
-      tag: "v0.1.0-rc.1",
-    })).rejects.toThrow(
-      "Release asset signature verification failed for MoneySiren_0.1.0-rc.1_x64-setup.exe: missing-signature-metadata",
-    );
+      platform: "linux",
+      repository,
+      selectedSurfaces: ["web"],
+      tag,
+    });
 
-    await expect(readFile(join(installDir, hudAsset), "utf8")).rejects.toThrow();
-  });
+    await writeFile(installed.assets[0]!.path, "tampered");
 
-  it("removes Windows HUD installers when release signature metadata is invalid JSON", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
-    const installDir = join(cwd, "installed");
-    const hudAsset = "MoneySiren_0.1.0_x64-setup.exe";
-    const hudBytes = Buffer.from("fake unsigned hud installer");
-    const checksum = `${sha256Hex(hudBytes)}  ${hudAsset}\n`;
-
-    await expect(installReleaseAssets({
-      env: {},
-      fetchImpl: async (input) => {
-        const url = String(input);
-
-        if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0")) {
-          return Response.json({
-            html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0",
-            assets: [
-              releaseAsset(hudAsset),
-              releaseAsset("moneysiren-tray-windows-SHA256SUMS.txt"),
-              releaseAsset("moneysiren-tray-windows-SIGNATURE.json"),
-            ],
-          });
-        }
-
-        if (url.endsWith(hudAsset)) {
-          return new Response(hudBytes);
-        }
-
-        if (url.endsWith("SHA256SUMS.txt")) {
-          return new Response(checksum);
-        }
-
-        if (url.endsWith("SIGNATURE.json")) {
-          return new Response("{not-json");
-        }
-
-        return new Response("missing", {
-          status: 404,
-          statusText: "Not Found",
-        });
-      },
+    await expect(readReleaseRuntimeInstallStatus({
       installDir,
-      platform: "win32",
-      selectedSurfaces: ["hud"],
-      tag: "v0.1.0",
-    })).rejects.toThrow();
-
-    await expect(readFile(join(installDir, hudAsset), "utf8")).rejects.toThrow();
+      platform: "linux",
+      repository,
+      tag,
+    })).resolves.toMatchObject({
+      status: "invalid",
+    });
   });
 
   it("resolves platform-specific default install directories", () => {
     expect(resolveReleaseInstallDir({
       env: {
-        MONEYSIREN_RELEASE_INSTALL_DIR: "C:\\MoneySiren\\custom-release",
+        APPDATA: "C:\\Users\\Test\\AppData\\Roaming",
       },
       platform: "win32",
-      tag: "v0.1.0",
-    })).toBe("C:\\MoneySiren\\custom-release");
+      tag,
+    })).toBe(`C:\\Users\\Test\\AppData\\Roaming\\MoneySiren\\releases\\${tag}`);
 
     expect(resolveReleaseInstallDir({
       env: {
-        APPDATA: "C:\\Users\\tester\\AppData\\Roaming",
-      },
-      platform: "win32",
-      tag: "v0.1.0",
-    })).toBe("C:\\Users\\tester\\AppData\\Roaming\\MoneySiren\\releases\\v0.1.0");
-
-    expect(resolveReleaseInstallDir({
-      env: {
-        HOME: "/Users/tester",
+        HOME: "/Users/test",
       },
       platform: "darwin",
-      tag: "v0.1.0",
-    })).toBe("/Users/tester/Library/Application Support/MoneySiren/releases/v0.1.0");
+      tag,
+    })).toBe(`/Users/test/Library/Application Support/MoneySiren/releases/${tag}`);
+
+    expect(resolveReleaseInstallDir({
+      env: {
+        HOME: "/home/test",
+        XDG_DATA_HOME: "/home/test/.data",
+      },
+      platform: "linux",
+      tag,
+    })).toBe(`/home/test/.data/moneysiren/releases/${tag}`);
   });
 });
 
-function releaseAsset(name: string) {
+function releaseFetch(
+  manifest: ReleaseManifest,
+  assets: Readonly<Record<string, Buffer>>,
+): typeof fetch {
+  return vi.fn(async (input: string | URL | Request) => {
+    const url = new URL(String(input));
+    const name = decodeURIComponent(url.pathname.split("/").at(-1) ?? "");
+
+    if (name === "moneysiren-release-manifest.json") {
+      return new Response(JSON.stringify(manifest), {
+        status: 200,
+      });
+    }
+
+    const asset = assets[name];
+
+    return asset === undefined
+      ? new Response("missing", {
+          status: 404,
+        })
+      : new Response(new Uint8Array(asset), {
+          status: 200,
+        });
+  }) as unknown as typeof fetch;
+}
+
+function legacyV015Fetch(assetName: string, asset: Buffer): typeof fetch {
+  const checksumName = "moneysiren-web-runtime-SHA256SUMS.txt";
+
+  return vi.fn(async (input: string | URL | Request) => {
+    const url = new URL(String(input));
+    const name = decodeURIComponent(url.pathname.split("/").at(-1) ?? "");
+
+    if (url.hostname === "api.github.com") {
+      return new Response(JSON.stringify({
+        tag_name: "v0.1.5",
+        assets: [
+          {
+            name: assetName,
+            size: asset.byteLength,
+          },
+          {
+            name: checksumName,
+            size: 100,
+          },
+        ],
+      }), {
+        status: 200,
+      });
+    }
+
+    if (name === "moneysiren-release-manifest.json") {
+      return new Response("missing", {
+        status: 404,
+      });
+    }
+
+    if (name === checksumName) {
+      return new Response(`${sha256(asset)}  ${assetName}\n`, {
+        status: 200,
+      });
+    }
+
+    return name === assetName
+      ? new Response(new Uint8Array(asset), {
+          status: 200,
+        })
+      : new Response("missing", {
+          status: 404,
+        });
+  }) as unknown as typeof fetch;
+}
+
+function manifestWithAssets(assets: ReleaseManifest["assets"]): ReleaseManifest {
   return {
-    name,
-    browser_download_url: `https://github.com/ztwz11/moneysiren/releases/download/v0.1.0/${name}`,
-    size: 1,
+    schemaVersion: 1,
+    repository,
+    tag,
+    version: "0.1.6",
+    sourceCommit,
+    assets,
   };
 }
 
-function sha256Hex(content: Buffer): string {
+function webAsset(content: Buffer): ReleaseManifest["assets"][number] {
+  return {
+    name: `moneysiren-web-runtime-${tag}.tar.gz`,
+    surface: "web",
+    platform: "any",
+    archive: "tar.gz",
+    size: content.byteLength,
+    sha256: sha256(content),
+    signing: {
+      state: "not-required",
+      method: "none",
+    },
+  };
+}
+
+function webArchive(label: string): Buffer {
+  return gzipSync(Buffer.concat([
+    tarEntry("moneysiren-web-runtime/", {
+      type: "5",
+    }),
+    tarEntry("moneysiren-web-runtime/start.mjs", {
+      content: Buffer.from(`console.log(${JSON.stringify(label)})\n`),
+    }),
+    Buffer.alloc(1024),
+  ]));
+}
+
+function tarEntry(
+  name: string,
+  options: {
+    content?: Buffer;
+    type?: string;
+  } = {},
+): Buffer {
+  const content = options.content ?? Buffer.alloc(0);
+  const header = Buffer.alloc(512);
+
+  writeString(header, 0, 100, name);
+  writeOctal(header, 100, 8, 0o644);
+  writeOctal(header, 108, 8, 0);
+  writeOctal(header, 116, 8, 0);
+  writeOctal(header, 124, 12, content.byteLength);
+  writeOctal(header, 136, 12, 0);
+  header.fill(0x20, 148, 156);
+  writeString(header, 156, 1, options.type ?? "0");
+  writeString(header, 257, 6, "ustar");
+  writeString(header, 263, 2, "00");
+
+  let checksum = 0;
+
+  for (const byte of header) {
+    checksum += byte;
+  }
+
+  header.write(checksum.toString(8).padStart(6, "0"), 148, 6, "ascii");
+  header[154] = 0;
+  header[155] = 0x20;
+
+  return Buffer.concat([
+    header,
+    content,
+    Buffer.alloc((512 - (content.byteLength % 512)) % 512),
+  ]);
+}
+
+function writeString(buffer: Buffer, offset: number, length: number, value: string): void {
+  Buffer.from(value, "utf8").copy(buffer, offset, 0, length);
+}
+
+function writeOctal(buffer: Buffer, offset: number, length: number, value: number): void {
+  buffer.write(`${value.toString(8).padStart(length - 1, "0")}\0`, offset, length, "ascii");
+}
+
+function sha256(content: Buffer): string {
   return createHash("sha256").update(content).digest("hex");
 }

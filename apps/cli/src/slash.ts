@@ -54,6 +54,13 @@ export function resolveSlashCommand(args: readonly string[]): SlashDispatch {
     return noExtraArgs(command, rest, ["doctor"]);
   }
 
+  if (command === "/demo") {
+    return {
+      kind: "dispatch",
+      args: ["demo", ...rest],
+    };
+  }
+
   if (command === "/install") {
     return resolveInstallSlash(rest);
   }

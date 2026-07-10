@@ -1,15 +1,39 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import {
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  rename,
+  rm,
+  stat,
+} from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, join, posix, resolve, win32 } from "node:path";
+import { basename, dirname, join, parse, posix, resolve, win32 } from "node:path";
 import { promisify } from "node:util";
 import type { InstallSurface } from "./install-profile.js";
+import { validateTarGzArchive } from "./release-archive.js";
+import {
+  ReleaseDownloadHttpError,
+  buildReleaseAssetUrl,
+  downloadBoundedReleaseBytes,
+  downloadVerifiedReleaseFile,
+} from "./release-download.js";
+import {
+  MAX_RELEASE_MANIFEST_BYTES,
+  RELEASE_MANIFEST_FILE_NAME,
+  parseReleaseManifest,
+  releaseAssetMaximumBytes,
+  selectReleaseAsset,
+  type ReleaseManifestAsset,
+} from "./release-manifest.js";
 
 const execFileAsync = promisify(execFile);
 
 export const DEFAULT_RELEASE_REPOSITORY = "ztwz11/moneysiren";
-// Keep the source-free installer pinned to the latest published desktop/web release tag.
+// Keep this pinned until the matching immutable v0.1.6 assets are published.
 export const DEFAULT_RELEASE_TAG = "v0.1.5";
 
 export interface ReleaseInstallOptions {
@@ -22,12 +46,16 @@ export interface ReleaseInstallOptions {
   selectedSurfaces: readonly InstallSurface[];
   signatureVerifier?: ReleaseAssetSignatureVerifier;
   tag?: string;
+  timeoutMs?: number;
   trustedWindowsSignerThumbprints?: readonly string[];
 }
 
 export interface ReleaseInstallResult {
   repository: string;
   tag: string;
+  version: string;
+  sourceCommit: string | null;
+  provenance: "manifest" | "legacy-v0.1.5";
   installDir: string;
   releaseUrl: string;
   assets: readonly InstalledReleaseAsset[];
@@ -39,9 +67,22 @@ export interface InstalledReleaseAsset {
   path: string;
   size: number;
   sha256: string;
-  checksumVerified: boolean;
+  checksumVerified: true;
   signatureVerified: boolean;
   signatureStatus: string;
+  platform: "any" | "win32" | "darwin";
+  signingState: "not-required" | "signed" | "unsigned";
+}
+
+export interface ReleaseRuntimeInstallStatus {
+  status: "ready" | "not-installed" | "invalid";
+  installDir: string;
+  repository: string;
+  tag: string;
+  version: string | null;
+  sourceCommit: string | null;
+  assets: readonly InstalledReleaseAsset[];
+  message: string;
 }
 
 export interface ReleaseAssetSignatureVerifier {
@@ -64,16 +105,25 @@ export interface ReleaseAssetSignatureVerificationResult {
   message: string;
 }
 
-interface GitHubRelease {
-  html_url?: unknown;
-  tag_name?: unknown;
-  assets?: unknown;
+interface ResolvedReleaseMetadata {
+  version: string;
+  sourceCommit: string | null;
+  provenance: "manifest" | "legacy-v0.1.5";
+  assets: readonly ReleaseManifestAsset[];
 }
 
-interface GitHubReleaseAsset {
-  name: string;
-  browser_download_url: string;
-  size?: number;
+interface LocalInstallManifest {
+  schemaVersion: 2;
+  status: "ready";
+  repository: string;
+  tag: string;
+  version: string;
+  sourceCommit: string | null;
+  provenance: "manifest" | "legacy-v0.1.5";
+  releaseUrl: string;
+  installedAt: string;
+  selectedSurfaces: readonly InstallSurface[];
+  assets: readonly InstalledReleaseAsset[];
 }
 
 const RELEASE_REPOSITORY_ENV_KEY = "MONEYSIREN_RELEASE_REPOSITORY";
@@ -82,6 +132,8 @@ const RELEASE_INSTALL_DIR_ENV_KEY = "MONEYSIREN_RELEASE_INSTALL_DIR";
 const RELEASE_PLATFORM_ENV_KEY = "MONEYSIREN_RELEASE_PLATFORM";
 const WINDOWS_SIGNER_THUMBPRINTS_ENV_KEY = "MONEYSIREN_WINDOWS_SIGNER_THUMBPRINTS";
 const ALLOW_UNSIGNED_HUD_ENV_KEY = "MONEYSIREN_ALLOW_UNSIGNED_HUD";
+const LEGACY_MANIFESTLESS_TAG = "v0.1.5";
+const LEGACY_CHECKSUM_MAX_BYTES = 1024 * 1024;
 
 export async function installReleaseAssets(options: ReleaseInstallOptions): Promise<ReleaseInstallResult> {
   const env = options.env ?? process.env;
@@ -97,110 +149,199 @@ export async function installReleaseAssets(options: ReleaseInstallOptions): Prom
     platform,
     tag,
   });
-  const release = await fetchRelease({
+  const requestedSurfaces = Array.from(new Set(options.selectedSurfaces.filter(
+    (surface): surface is Exclude<InstallSurface, "cli"> => surface === "web" || surface === "hud",
+  )));
+
+  if (requestedSurfaces.length === 0) {
+    throw new Error("Release asset installation requires web or HUD selection.");
+  }
+
+  await assertSafeInstallDestination(installDir);
+
+  const releaseMetadata = await loadReleaseMetadata({
     fetchImpl: options.fetchImpl,
     repository,
+    requestedSurfaces,
     tag,
+    ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
   });
-  const releaseAssets = parseReleaseAssets(release.assets);
-  const checksumAssets = releaseAssets.filter((asset) => asset.name.toLowerCase().includes("sha256sums"));
-  const requestedSurfaces = options.selectedSurfaces.filter((surface): surface is Exclude<InstallSurface, "cli"> =>
-    surface === "web" || surface === "hud"
-  );
-  const installedAssets: InstalledReleaseAsset[] = [];
+  const parentDir = dirname(installDir);
+  const transactionId = randomUUID();
+  const stagingDir = join(parentDir, `.${basename(installDir)}.staging-${transactionId}`);
+  const backupDir = join(parentDir, `.${basename(installDir)}.backup-${transactionId}`);
+  const stagedAssets: InstalledReleaseAsset[] = [];
 
-  await mkdir(installDir, { recursive: true });
+  await mkdir(parentDir, { recursive: true });
+  await mkdir(stagingDir);
 
-  for (const surface of requestedSurfaces) {
-    const asset = selectSurfaceAsset(surface, platform, releaseAssets);
+  try {
+    for (const surface of requestedSurfaces) {
+      const asset = selectReleaseAsset(releaseMetadata, surface, platform);
 
-    if (asset === null) {
-      throw new Error(`No ${surface} release asset found for ${platform} in ${repository}@${tag}.`);
-    }
+      if (asset === null) {
+        throw new Error(`Release manifest has no ${surface} asset for ${platform}.`);
+      }
 
-    const downloaded = await downloadAsset(options.fetchImpl, asset.browser_download_url);
-    const sha256 = sha256Hex(downloaded);
-    const checksum = await findChecksum({
-      assetName: asset.name,
-      checksumAssets,
-      fetchImpl: options.fetchImpl,
-    });
-
-    if (checksumAssets.length > 0 && checksum === null) {
-      throw new Error(`SHA256 checksum entry missing for ${asset.name}.`);
-    }
-
-    if (checksum !== null && checksum.toLowerCase() !== sha256) {
-      throw new Error(`SHA256 mismatch for ${asset.name}.`);
-    }
-
-    const outputPath = join(installDir, sanitizeAssetFileName(asset.name));
-
-    await writeFile(outputPath, downloaded);
-    let signature: ReleaseAssetSignatureVerificationResult;
-    try {
-      signature = await verifyReleaseAssetSignature({
-        assetName: asset.name,
-        env,
+      const partialPath = join(stagingDir, `${asset.name}.partial`);
+      const stagedPath = join(stagingDir, asset.name);
+      const finalPath = join(installDir, asset.name);
+      const downloaded = await downloadVerifiedReleaseFile({
+        expectedSha256: asset.sha256,
+        expectedSize: asset.size,
         fetchImpl: options.fetchImpl,
-        path: outputPath,
+        maximumBytes: releaseAssetMaximumBytes(asset),
+        temporaryPath: partialPath,
+        ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+        url: buildReleaseAssetUrl(repository, tag, asset.name),
+      });
+
+      if (asset.archive === "tar.gz") {
+        await validateTarGzArchive(partialPath);
+      }
+
+      const signature = await verifyReleaseAssetSignature({
+        asset,
+        env,
+        path: partialPath,
         platform,
-        releaseAssets,
-        surface,
         tag,
         ...(options.signatureVerifier === undefined ? {} : { signatureVerifier: options.signatureVerifier }),
         ...(options.trustedWindowsSignerThumbprints === undefined
           ? {}
           : { trustedWindowsSignerThumbprints: options.trustedWindowsSignerThumbprints }),
       });
-    } catch (error) {
-      await unlink(outputPath).catch(() => undefined);
-      throw error;
+
+      if (!signature.verified) {
+        throw new Error(
+          `Release asset signature verification failed for ${asset.name}: ${signature.status} ${signature.message}`.trim(),
+        );
+      }
+
+      await rename(partialPath, stagedPath);
+      stagedAssets.push({
+        surface,
+        name: asset.name,
+        path: finalPath,
+        size: downloaded.size,
+        sha256: downloaded.sha256,
+        checksumVerified: true,
+        signatureVerified: isLocallyVerifiedSignatureStatus(signature.status),
+        signatureStatus: signature.status,
+        platform: asset.platform,
+        signingState: asset.signing.state,
+      });
     }
 
-    if (!signature.verified) {
-      await unlink(outputPath).catch(() => undefined);
-      throw new Error(`Release asset signature verification failed for ${asset.name}: ${signature.status} ${signature.message}`.trim());
-    }
+    const releaseUrl = releasePageUrl(repository, tag);
+    const localManifest: LocalInstallManifest = {
+      schemaVersion: 2,
+      status: "ready",
+      repository,
+      tag,
+      version: releaseMetadata.version,
+      sourceCommit: releaseMetadata.sourceCommit,
+      provenance: releaseMetadata.provenance,
+      releaseUrl,
+      installedAt: (options.now ?? (() => new Date()))().toISOString(),
+      selectedSurfaces: options.selectedSurfaces,
+      assets: stagedAssets,
+    };
 
-    installedAssets.push({
-      surface,
-      name: asset.name,
-      path: outputPath,
-      size: downloaded.byteLength,
-      sha256,
-      checksumVerified: checksum !== null,
-      signatureVerified: isVerifiedSignatureStatus(signature.status),
-      signatureStatus: signature.status,
+    await writeDurableJson(join(stagingDir, "install-manifest.json"), localManifest);
+    await activateStagedInstall({
+      backupDir,
+      installDir,
+      stagingDir,
     });
+
+    return {
+      repository,
+      tag,
+      version: releaseMetadata.version,
+      sourceCommit: releaseMetadata.sourceCommit,
+      provenance: releaseMetadata.provenance,
+      installDir,
+      releaseUrl,
+      assets: stagedAssets,
+    };
+  } catch (error) {
+    await rm(stagingDir, {
+      recursive: true,
+      force: true,
+    }).catch(() => undefined);
+    throw error;
+  }
+}
+
+export async function readReleaseRuntimeInstallStatus(input: {
+  env?: Record<string, string | undefined>;
+  installDir?: string;
+  platform?: NodeJS.Platform;
+  repository?: string;
+  tag?: string;
+} = {}): Promise<ReleaseRuntimeInstallStatus> {
+  const env = input.env ?? process.env;
+  const repository = normalizeRepository(
+    input.repository ?? env[RELEASE_REPOSITORY_ENV_KEY] ?? DEFAULT_RELEASE_REPOSITORY,
+  );
+  const tag = normalizeTag(input.tag ?? env[RELEASE_TAG_ENV_KEY] ?? DEFAULT_RELEASE_TAG);
+  const platform = normalizePlatform(input.platform ?? env[RELEASE_PLATFORM_ENV_KEY] ?? process.platform);
+  const installDir = resolveReleaseInstallDir({
+    env,
+    ...(input.installDir === undefined ? {} : { installDir: input.installDir }),
+    platform,
+    tag,
+  });
+  let source: string;
+
+  try {
+    source = await readFile(join(installDir, "install-manifest.json"), "utf8");
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return {
+        status: "not-installed",
+        installDir,
+        repository,
+        tag,
+        version: null,
+        sourceCommit: null,
+        assets: [],
+        message: "No verified release runtime is installed.",
+      };
+    }
+
+    return invalidRuntimeStatus(installDir, repository, tag);
   }
 
-  await writeFile(join(installDir, "install-manifest.json"), `${JSON.stringify({
-    version: 1,
-    repository,
-    tag,
-    releaseUrl: typeof release.html_url === "string" ? release.html_url : releaseUrl(repository, tag),
-    installedAt: (options.now ?? (() => new Date()))().toISOString(),
-    selectedSurfaces: options.selectedSurfaces,
-    assets: installedAssets.map((asset) => ({
-      surface: asset.surface,
-      name: asset.name,
-      path: asset.path,
-      size: asset.size,
-      sha256: asset.sha256,
-      checksumVerified: asset.checksumVerified,
-      signatureVerified: asset.signatureVerified,
-      signatureStatus: asset.signatureStatus,
-    })),
-  }, null, 2)}\n`, "utf8");
+  try {
+    const manifest = parseLocalInstallManifest(JSON.parse(source), {
+      installDir,
+      repository,
+      tag,
+    });
 
-  return {
-    repository,
-    tag,
-    installDir,
-    releaseUrl: typeof release.html_url === "string" ? release.html_url : releaseUrl(repository, tag),
-    assets: installedAssets,
-  };
+    for (const asset of manifest.assets) {
+      const metadata = await stat(asset.path);
+
+      if (!metadata.isFile() || metadata.size !== asset.size || await sha256File(asset.path) !== asset.sha256) {
+        return invalidRuntimeStatus(installDir, repository, tag);
+      }
+    }
+
+    return {
+      status: "ready",
+      installDir,
+      repository,
+      tag,
+      version: manifest.version,
+      sourceCommit: manifest.sourceCommit,
+      assets: manifest.assets,
+      message: "Verified release runtime is ready.",
+    };
+  } catch {
+    return invalidRuntimeStatus(installDir, repository, tag);
+  }
 }
 
 export function resolveReleaseInstallDir(input: {
@@ -231,312 +372,293 @@ export function resolveReleaseInstallDir(input: {
   return joinForPlatform(platform, root, "releases", sanitizePathSegment(tag));
 }
 
-function normalizeRepository(repository: string): string {
-  const normalized = repository.trim();
+async function loadReleaseMetadata(input: {
+  fetchImpl: typeof fetch;
+  repository: string;
+  requestedSurfaces: readonly Exclude<InstallSurface, "cli">[];
+  tag: string;
+  timeoutMs?: number;
+}): Promise<ResolvedReleaseMetadata> {
+  const manifestUrl = buildReleaseAssetUrl(input.repository, input.tag, RELEASE_MANIFEST_FILE_NAME);
 
-  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(normalized)) {
-    throw new Error("Release repository must be in owner/name form.");
+  try {
+    const manifestBytes = await downloadBoundedReleaseBytes({
+      fetchImpl: input.fetchImpl,
+      maximumBytes: MAX_RELEASE_MANIFEST_BYTES,
+      ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+      url: manifestUrl,
+    });
+    const manifest = parseReleaseManifest(parseJsonManifest(manifestBytes), {
+      repository: input.repository,
+      tag: input.tag,
+    });
+
+    return {
+      version: manifest.version,
+      sourceCommit: manifest.sourceCommit,
+      provenance: "manifest",
+      assets: manifest.assets,
+    };
+  } catch (error) {
+    if (
+      !(error instanceof ReleaseDownloadHttpError) ||
+      error.status !== 404 ||
+      input.repository !== DEFAULT_RELEASE_REPOSITORY ||
+      input.tag !== LEGACY_MANIFESTLESS_TAG
+    ) {
+      throw error;
+    }
   }
 
-  return normalized;
-}
-
-function normalizeTag(tag: string): string {
-  const normalized = tag.trim();
-
-  if (normalized.length === 0 || normalized.length > 128) {
-    throw new Error("Release tag is empty or too long.");
+  if (
+    input.requestedSurfaces.length !== 1 ||
+    input.requestedSurfaces[0] !== "web"
+  ) {
+    throw new Error(
+      "Legacy v0.1.5 compatibility is limited to the web runtime; HUD installs require a versioned release manifest.",
+    );
   }
 
-  return normalized;
+  return loadLegacyWebReleaseMetadata(input);
 }
 
-function normalizePlatform(platform: string): NodeJS.Platform {
-  if (platform === "win32" || platform === "darwin" || platform === "linux") {
-    return platform;
-  }
-
-  return process.platform;
-}
-
-async function fetchRelease(input: {
+async function loadLegacyWebReleaseMetadata(input: {
   fetchImpl: typeof fetch;
   repository: string;
   tag: string;
-}): Promise<GitHubRelease> {
-  const response = await input.fetchImpl(
-    `https://api.github.com/repos/${input.repository}/releases/tags/${encodeURIComponent(input.tag)}`,
-    {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "moneysiren-cli-release-installer",
-      },
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`Could not read GitHub Release ${input.repository}@${input.tag}: ${response.status} ${response.statusText}`);
-  }
-
-  const body = await response.json() as unknown;
-
-  if (!isRecord(body)) {
-    throw new Error("GitHub Release response was not an object.");
-  }
-
-  return body;
-}
-
-function parseReleaseAssets(value: unknown): GitHubReleaseAsset[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .filter(isRecord)
-    .flatMap((asset) => {
-      const name = asset.name;
-      const browserDownloadUrl = asset.browser_download_url;
-
-      if (typeof name !== "string" || typeof browserDownloadUrl !== "string") {
-        return [];
-      }
-
-      return [{
-        name,
-        browser_download_url: browserDownloadUrl,
-        ...(typeof asset.size === "number" ? { size: asset.size } : {}),
-      }];
-    });
-}
-
-function selectSurfaceAsset(
-  surface: Exclude<InstallSurface, "cli">,
-  platform: NodeJS.Platform,
-  assets: readonly GitHubReleaseAsset[],
-): GitHubReleaseAsset | null {
-  const candidates = assets.filter((asset) => !asset.name.toLowerCase().includes("sha256sums"));
-
-  if (surface === "web") {
-    return candidates.find((asset) => /^moneysiren-web-runtime-.+\.tar\.gz$/i.test(asset.name)) ?? null;
-  }
-
-  if (platform === "win32") {
-    return candidates.find(isDirectWindowsHudAsset) ??
-      candidates.find((asset) => isWindowsHudAsset(asset.name)) ??
-      null;
-  }
-
-  if (platform === "darwin") {
-    return candidates.find((asset) => /macos/i.test(asset.name) && /\.(tar\.gz|dmg)$/i.test(asset.name)) ?? null;
-  }
-
-  return null;
-}
-
-function isDirectWindowsHudAsset(asset: GitHubReleaseAsset): boolean {
-  return isWindowsHudAsset(asset.name) &&
-    /\.exe$/i.test(asset.name) &&
-    !isInstallerLikeWindowsAsset(asset.name);
-}
-
-function isWindowsHudAsset(name: string): boolean {
-  return /\.(exe|msi)$/i.test(name);
-}
-
-function isInstallerLikeWindowsAsset(name: string): boolean {
-  return /\.msi$/i.test(name) || /(?:^|[._ -])(?:setup|install|installer)(?:[._ -]|$)/i.test(name);
-}
-
-async function findChecksum(input: {
-  assetName: string;
-  checksumAssets: readonly GitHubReleaseAsset[];
-  fetchImpl: typeof fetch;
-}): Promise<string | null> {
-  for (const checksumAsset of input.checksumAssets) {
-    const content = await downloadAsset(input.fetchImpl, checksumAsset.browser_download_url);
-    const checksum = parseChecksumFile(content.toString("utf8"), input.assetName);
-
-    if (checksum !== null) {
-      return checksum;
-    }
-  }
-
-  return null;
-}
-
-async function downloadAsset(fetchImpl: typeof fetch, url: string): Promise<Buffer> {
-  const parsed = new URL(url);
-
-  if (parsed.protocol !== "https:") {
-    throw new Error("Refusing to download a non-HTTPS release asset.");
-  }
-
-  const response = await fetchImpl(url, {
-    headers: {
-      "User-Agent": "moneysiren-cli-release-installer",
-    },
+  timeoutMs?: number;
+}): Promise<ResolvedReleaseMetadata> {
+  const webName = `moneysiren-web-runtime-${input.tag}.tar.gz`;
+  const checksumName = "moneysiren-web-runtime-SHA256SUMS.txt";
+  const apiBytes = await downloadBoundedReleaseBytes({
+    fetchImpl: input.fetchImpl,
+    maximumBytes: MAX_RELEASE_MANIFEST_BYTES,
+    ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+    url: releaseApiUrl(input.repository, input.tag),
   });
+  const release = parseJsonManifest(apiBytes);
 
-  if (!response.ok) {
-    throw new Error(`Could not download release asset: ${response.status} ${response.statusText}`);
+  if (
+    !isRecord(release) ||
+    release.tag_name !== input.tag ||
+    !Array.isArray(release.assets) ||
+    release.assets.length > 128
+  ) {
+    throw new Error("Legacy v0.1.5 release metadata is invalid.");
   }
 
-  return Buffer.from(await response.arrayBuffer());
+  const assets = release.assets.filter(isRecord);
+  const webAsset = assets.find((asset) => asset.name === webName);
+  const checksumAsset = assets.find((asset) => asset.name === checksumName);
+
+  if (
+    webAsset === undefined ||
+    checksumAsset === undefined ||
+    typeof webAsset.size !== "number" ||
+    !Number.isSafeInteger(webAsset.size) ||
+    webAsset.size <= 0
+  ) {
+    throw new Error("Legacy v0.1.5 release asset or checksum metadata is missing.");
+  }
+
+  const checksumBytes = await downloadBoundedReleaseBytes({
+    fetchImpl: input.fetchImpl,
+    maximumBytes: LEGACY_CHECKSUM_MAX_BYTES,
+    ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+    url: buildReleaseAssetUrl(input.repository, input.tag, checksumName),
+  });
+  const sha256 = parseLegacyChecksum(checksumBytes.toString("utf8"), webName);
+
+  if (sha256 === null) {
+    throw new Error("Legacy v0.1.5 checksum entry is missing.");
+  }
+
+  const asset: ReleaseManifestAsset = {
+    name: webName,
+    surface: "web",
+    platform: "any",
+    archive: "tar.gz",
+    size: webAsset.size,
+    sha256,
+    signing: {
+      state: "not-required",
+      method: "none",
+    },
+  };
+
+  if (asset.size > releaseAssetMaximumBytes(asset)) {
+    throw new Error("Legacy v0.1.5 web runtime exceeds the installer byte limit.");
+  }
+
+  return {
+    version: input.tag.slice(1),
+    sourceCommit: null,
+    provenance: "legacy-v0.1.5",
+    assets: [asset],
+  };
 }
 
-function parseChecksumFile(content: string, assetName: string): string | null {
+function parseLegacyChecksum(content: string, assetName: string): string | null {
   for (const line of content.split(/\r?\n/)) {
-    const match = /^([a-f0-9]{64})\s+\*?(.+)$/i.exec(line.trim());
+    const match = /^([a-f0-9]{64})\s+\*?([^/\\]+)$/i.exec(line.trim());
 
-    if (match !== null && basename(match[2] ?? "") === assetName) {
-      return match[1] ?? null;
+    if (match !== null && match[2] === assetName) {
+      return match[1]?.toLowerCase() ?? null;
     }
   }
 
   return null;
 }
 
-function sha256Hex(content: Buffer): string {
-  return createHash("sha256").update(content).digest("hex");
+function releaseApiUrl(repository: string, tag: string): string {
+  const [owner, name] = repository.split("/");
+
+  return `https://api.github.com/repos/${encodeURIComponent(owner ?? "")}/${encodeURIComponent(name ?? "")}/releases/tags/${encodeURIComponent(tag)}`;
+}
+
+async function activateStagedInstall(input: {
+  backupDir: string;
+  installDir: string;
+  stagingDir: string;
+}): Promise<void> {
+  const previousExists = await pathExists(input.installDir);
+
+  if (previousExists) {
+    await rename(input.installDir, input.backupDir);
+  }
+
+  try {
+    await rename(input.stagingDir, input.installDir);
+  } catch {
+    if (previousExists) {
+      try {
+        await rename(input.backupDir, input.installDir);
+      } catch {
+        throw new Error(
+          `Release activation failed and the previous runtime remains at the rollback path: ${input.backupDir}`,
+        );
+      }
+    }
+
+    throw new Error("Release activation failed; the previous runtime was preserved.");
+  }
+
+  if (previousExists) {
+    await rm(input.backupDir, {
+      recursive: true,
+      force: true,
+    }).catch(() => undefined);
+  }
+}
+
+async function assertSafeInstallDestination(installDir: string): Promise<void> {
+  const root = parse(installDir).root;
+
+  if (installDir === root || dirname(installDir) === installDir) {
+    throw new Error("Release install directory cannot be a filesystem root.");
+  }
+
+  try {
+    const metadata = await lstat(installDir);
+
+    if (metadata.isSymbolicLink() || !metadata.isDirectory()) {
+      throw new Error("Release install directory must be a real directory.");
+    }
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return;
+    }
+
+    throw error;
+  }
 }
 
 async function verifyReleaseAssetSignature(input: {
-  assetName: string;
+  asset: ReleaseManifestAsset;
   env: Record<string, string | undefined>;
-  fetchImpl: typeof fetch;
   path: string;
   platform: NodeJS.Platform;
-  releaseAssets: readonly GitHubReleaseAsset[];
   signatureVerifier?: ReleaseAssetSignatureVerifier;
-  surface: Exclude<InstallSurface, "cli">;
   tag: string;
   trustedWindowsSignerThumbprints?: readonly string[];
 }): Promise<ReleaseAssetSignatureVerificationResult> {
-  const verifier = input.signatureVerifier ?? defaultReleaseAssetSignatureVerifier;
-  const expectedSignerThumbprints = await findExpectedSignerThumbprints({
-    assetName: input.assetName,
-    env: input.env,
-    fetchImpl: input.fetchImpl,
-    platform: input.platform,
-    releaseAssets: input.releaseAssets,
-    surface: input.surface,
-    ...(input.trustedWindowsSignerThumbprints === undefined
-      ? {}
-      : { trustedWindowsSignerThumbprints: input.trustedWindowsSignerThumbprints }),
-  });
-
-  return verifier.verify({
-    assetName: input.assetName,
-    env: input.env,
-    ...(expectedSignerThumbprints === null ? {} : { expectedSignerThumbprints }),
-    path: input.path,
-    platform: input.platform,
-    surface: input.surface,
-    tag: input.tag,
-  });
-}
-
-const defaultReleaseAssetSignatureVerifier: ReleaseAssetSignatureVerifier = {
-  async verify(input) {
-    if (input.surface !== "hud" || input.platform !== "win32") {
-      return {
-        verified: true,
-        status: "not-required",
-        message: "No platform signature check is required for this release asset.",
-      };
-    }
-
-    if (!/\.(exe|msi)$/i.test(input.assetName)) {
-      return {
-        verified: false,
-        status: "unsupported",
-        message: "Windows HUD release assets must be .exe or .msi artifacts.",
-      };
-    }
-
-    if (input.expectedSignerThumbprints === undefined || input.expectedSignerThumbprints.length === 0) {
-      const unsignedHudAllowance = unsignedHudAllowanceStatus(input.env, input.tag);
-
-      if (unsignedHudAllowance !== null) {
-        return {
-          verified: true,
-          status: unsignedHudAllowance,
-          message: unsignedHudAllowance === "unsigned-opt-in-accepted"
-            ? "Unsigned Windows HUD artifact accepted by explicit local smoke opt-in."
-            : "Unsigned Windows HUD artifact accepted for prerelease review.",
-        };
-      }
-
-      return {
-        verified: false,
-        status: "missing-signature-metadata",
-        message: `Windows HUD release assets require ${WINDOWS_SIGNER_THUMBPRINTS_ENV_KEY} or moneysiren-tray-windows-SIGNATURE.json metadata.`,
-      };
-    }
-
-    return verifyWindowsAuthenticodeSignature(input.path, input.expectedSignerThumbprints);
-  },
-};
-
-async function findExpectedSignerThumbprints(input: {
-  assetName: string;
-  env: Record<string, string | undefined>;
-  fetchImpl: typeof fetch;
-  platform: NodeJS.Platform;
-  releaseAssets: readonly GitHubReleaseAsset[];
-  surface: Exclude<InstallSurface, "cli">;
-  trustedWindowsSignerThumbprints?: readonly string[];
-}): Promise<readonly string[] | null> {
-  if (input.surface !== "hud" || input.platform !== "win32") {
-    return null;
-  }
-
-  const trustedThumbprints = normalizeThumbprintList([
+  const configuredThumbprints = normalizeThumbprintList([
     ...(input.trustedWindowsSignerThumbprints ?? []),
     ...parseThumbprintEnv(input.env[WINDOWS_SIGNER_THUMBPRINTS_ENV_KEY]),
   ]);
 
-  if (trustedThumbprints.length > 0) {
-    return trustedThumbprints;
+  if (
+    input.asset.platform === "win32" &&
+    input.asset.signing.state === "signed" &&
+    configuredThumbprints.length > 0 &&
+    !configuredThumbprints.includes(input.asset.signing.signerThumbprint ?? "")
+  ) {
+    return {
+      verified: false,
+      status: "signer-not-trusted",
+      message: "The manifest signer is not in the configured allowlist.",
+    };
   }
 
-  const metadataAsset = input.releaseAssets.find((asset) =>
-    /^moneysiren-tray-windows-SIGNATURE\.json$/i.test(asset.name)
-  );
+  const expectedSignerThumbprints = input.asset.signing.state === "signed" &&
+    input.asset.signing.signerThumbprint !== undefined
+    ? [input.asset.signing.signerThumbprint]
+    : undefined;
+  const verificationInput: ReleaseAssetSignatureVerificationInput = {
+    assetName: input.asset.name,
+    env: input.env,
+    ...(expectedSignerThumbprints === undefined ? {} : { expectedSignerThumbprints }),
+    path: input.path,
+    platform: input.platform,
+    surface: input.asset.surface,
+    tag: input.tag,
+  };
 
-  if (metadataAsset === undefined) {
-    return null;
+  if (input.signatureVerifier !== undefined) {
+    return input.signatureVerifier.verify(verificationInput);
   }
 
-  const metadata = JSON.parse((await downloadAsset(input.fetchImpl, metadataAsset.browser_download_url)).toString("utf8")) as unknown;
-  const entries = Array.isArray(metadata) ? metadata : [metadata];
-
-  for (const entry of entries) {
-    if (!isRecord(entry) || entry.assetName !== input.assetName || typeof entry.signerThumbprint !== "string") {
-      continue;
-    }
-
-    return [normalizeThumbprint(entry.signerThumbprint)];
+  if (input.asset.surface !== "hud") {
+    return {
+      verified: true,
+      status: "not-required",
+      message: "The web runtime is integrity-verified by the release manifest.",
+    };
   }
 
-  return null;
-}
+  if (input.asset.signing.state === "unsigned") {
+    const allowance = unsignedHudAllowanceStatus(input.env, input.tag);
 
-function isVerifiedSignatureStatus(status: string): boolean {
-  return status !== "not-required" &&
-    status !== "unsigned-prerelease-accepted" &&
-    status !== "unsigned-opt-in-accepted";
-}
-
-function unsignedHudAllowanceStatus(env: Record<string, string | undefined>, tag: string): string | null {
-  const configured = env[ALLOW_UNSIGNED_HUD_ENV_KEY]?.trim().toLowerCase();
-
-  if (configured !== undefined && configured.length > 0) {
-    return ["1", "true", "yes", "on"].includes(configured) ? "unsigned-opt-in-accepted" : null;
+    return allowance === null
+      ? {
+          verified: false,
+          status: "unsigned-not-allowed",
+          message: "Unsigned HUD assets require an explicit local smoke opt-in.",
+        }
+      : {
+          verified: true,
+          status: allowance,
+          message: "Unsigned HUD artifact accepted only for explicit local review.",
+        };
   }
 
-  return /-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(tag) ? "unsigned-prerelease-accepted" : null;
+  if (input.asset.platform === "darwin") {
+    return {
+      verified: true,
+      status: "signed-notarized-manifest",
+      message: "The release manifest records successful Apple signing and notarization.",
+    };
+  }
+
+  if (input.asset.platform !== "win32" || expectedSignerThumbprints === undefined) {
+    return {
+      verified: false,
+      status: "unsupported-signing-state",
+      message: "The HUD signing state cannot be verified on this platform.",
+    };
+  }
+
+  return verifyWindowsAuthenticodeSignature(input.path, expectedSignerThumbprints);
 }
 
 async function verifyWindowsAuthenticodeSignature(
@@ -573,7 +695,7 @@ async function verifyWindowsAuthenticodeSignature(
       return {
         verified: false,
         status: "signer-mismatch",
-        message: `Expected signer ${normalizedExpectedSignerThumbprints.join(", ")}, got ${normalizedSignerThumbprint || "unknown"}.`,
+        message: "The Authenticode signer does not match the release manifest.",
       };
     }
 
@@ -584,14 +706,192 @@ async function verifyWindowsAuthenticodeSignature(
     };
   } catch (error) {
     const output = isRecord(error) && typeof error.stdout === "string" ? error.stdout.trim() : "";
-    const [status, ...messageParts] = output.split("|");
+    const [status] = output.split("|");
 
     return {
       verified: false,
       status: status && status.length > 0 ? status : "Unknown",
-      message: messageParts.join("|") || (error instanceof Error ? error.message : String(error)),
+      message: "Windows Authenticode verification did not succeed.",
     };
   }
+}
+
+function parseJsonManifest(content: Buffer): unknown {
+  try {
+    return JSON.parse(content.toString("utf8"));
+  } catch {
+    throw new Error("Release manifest is not valid JSON.");
+  }
+}
+
+function parseLocalInstallManifest(
+  value: unknown,
+  expected: {
+    installDir: string;
+    repository: string;
+    tag: string;
+  },
+): LocalInstallManifest {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 2 ||
+    value.status !== "ready" ||
+    value.repository !== expected.repository ||
+    value.tag !== expected.tag ||
+    typeof value.version !== "string" ||
+    value.version !== expected.tag.slice(1) ||
+    (value.provenance !== "manifest" && value.provenance !== "legacy-v0.1.5") ||
+    !(
+      (value.provenance === "manifest" &&
+        typeof value.sourceCommit === "string" &&
+        /^[a-f0-9]{40}$/.test(value.sourceCommit)) ||
+      (value.provenance === "legacy-v0.1.5" &&
+        expected.tag === LEGACY_MANIFESTLESS_TAG &&
+        value.sourceCommit === null)
+    ) ||
+    typeof value.releaseUrl !== "string" ||
+    typeof value.installedAt !== "string" ||
+    !Array.isArray(value.selectedSurfaces) ||
+    !Array.isArray(value.assets) ||
+    value.assets.length === 0
+  ) {
+    throw new Error("Local install manifest is invalid.");
+  }
+
+  const assets = value.assets.map((asset) => parseLocalInstalledAsset(asset, expected.installDir));
+
+  return {
+    schemaVersion: 2,
+    status: "ready",
+    repository: value.repository,
+    tag: value.tag,
+    version: value.version,
+    sourceCommit: value.sourceCommit as string | null,
+    provenance: value.provenance as LocalInstallManifest["provenance"],
+    releaseUrl: value.releaseUrl,
+    installedAt: value.installedAt,
+    selectedSurfaces: value.selectedSurfaces.filter(isInstallSurface),
+    assets,
+  };
+}
+
+function parseLocalInstalledAsset(value: unknown, installDir: string): InstalledReleaseAsset {
+  if (
+    !isRecord(value) ||
+    (value.surface !== "web" && value.surface !== "hud") ||
+    typeof value.name !== "string" ||
+    basename(value.name) !== value.name ||
+    typeof value.path !== "string" ||
+    value.path !== join(installDir, value.name) ||
+    typeof value.size !== "number" ||
+    !Number.isSafeInteger(value.size) ||
+    value.size <= 0 ||
+    typeof value.sha256 !== "string" ||
+    !/^[a-f0-9]{64}$/.test(value.sha256) ||
+    value.checksumVerified !== true ||
+    typeof value.signatureVerified !== "boolean" ||
+    typeof value.signatureStatus !== "string" ||
+    !["any", "win32", "darwin"].includes(String(value.platform)) ||
+    !["not-required", "signed", "unsigned"].includes(String(value.signingState))
+  ) {
+    throw new Error("Local install manifest asset is invalid.");
+  }
+
+  return {
+    surface: value.surface,
+    name: value.name,
+    path: value.path,
+    size: value.size,
+    sha256: value.sha256,
+    checksumVerified: true,
+    signatureVerified: value.signatureVerified,
+    signatureStatus: value.signatureStatus,
+    platform: value.platform as InstalledReleaseAsset["platform"],
+    signingState: value.signingState as InstalledReleaseAsset["signingState"],
+  };
+}
+
+async function writeDurableJson(path: string, value: unknown): Promise<void> {
+  const temporaryPath = `${path}.partial`;
+  const file = await open(temporaryPath, "wx", 0o600);
+
+  try {
+    await file.writeFile(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+    await file.sync();
+  } finally {
+    await file.close();
+  }
+
+  await rename(temporaryPath, path);
+}
+
+async function sha256File(path: string): Promise<string> {
+  const hash = createHash("sha256");
+
+  for await (const chunk of createReadStream(path)) {
+    hash.update(chunk);
+  }
+
+  return hash.digest("hex");
+}
+
+function invalidRuntimeStatus(
+  installDir: string,
+  repository: string,
+  tag: string,
+): ReleaseRuntimeInstallStatus {
+  return {
+    status: "invalid",
+    installDir,
+    repository,
+    tag,
+    version: null,
+    sourceCommit: null,
+    assets: [],
+    message: "Installed release runtime failed manifest or integrity validation.",
+  };
+}
+
+function normalizeRepository(repository: string): string {
+  const normalized = repository.trim();
+
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(normalized)) {
+    throw new Error("Release repository must be in owner/name form.");
+  }
+
+  return normalized;
+}
+
+function normalizeTag(tag: string): string {
+  const normalized = tag.trim();
+
+  if (!/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/.test(normalized)) {
+    throw new Error("Release tag must be a v-prefixed semantic version.");
+  }
+
+  return normalized;
+}
+
+function normalizePlatform(platform: string): NodeJS.Platform {
+  if (platform === "win32" || platform === "darwin" || platform === "linux") {
+    return platform;
+  }
+
+  return process.platform;
+}
+
+function isLocallyVerifiedSignatureStatus(status: string): boolean {
+  return status.toLowerCase() === "valid";
+}
+
+function unsignedHudAllowanceStatus(env: Record<string, string | undefined>, tag: string): string | null {
+  const configured = env[ALLOW_UNSIGNED_HUD_ENV_KEY]?.trim().toLowerCase();
+
+  if (configured !== undefined && configured.length > 0) {
+    return ["1", "true", "yes", "on"].includes(configured) ? "unsigned-opt-in-accepted" : null;
+  }
+
+  return /-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(tag) ? "unsigned-prerelease-accepted" : null;
 }
 
 function normalizeThumbprint(value: string): string {
@@ -603,26 +903,20 @@ function normalizeThumbprintList(values: readonly string[]): readonly string[] {
 }
 
 function parseThumbprintEnv(value: string | undefined): readonly string[] {
-  if (value === undefined) {
-    return [];
-  }
-
-  return value.split(/[,\s;]+/).map((part) => part.trim()).filter((part) => part.length > 0);
+  return value === undefined
+    ? []
+    : value.split(/[,\s;]+/).map((part) => part.trim()).filter((part) => part.length > 0);
 }
 
 function powerShellSingleQuotedString(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-function sanitizeAssetFileName(name: string): string {
-  return basename(name).replace(/[^A-Za-z0-9._ -]/g, "_");
-}
-
 function sanitizePathSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]/g, "_");
 }
 
-function releaseUrl(repository: string, tag: string): string {
+function releasePageUrl(repository: string, tag: string): string {
   return `https://github.com/${repository}/releases/tag/${encodeURIComponent(tag)}`;
 }
 
@@ -632,7 +926,6 @@ function resolveHomeDirectory(env: Record<string, string | undefined>): string {
 
 function trimToNull(value: string | undefined): string | null {
   const trimmed = value?.trim();
-
   return trimmed === undefined || trimmed.length === 0 ? null : trimmed;
 }
 
@@ -642,6 +935,27 @@ function joinForPlatform(platform: NodeJS.Platform, ...segments: string[]): stri
 
 function isAbsoluteForPlatform(platform: NodeJS.Platform, value: string): boolean {
   return platform === "win32" ? win32.isAbsolute(value) : posix.isAbsolute(value);
+}
+
+function isInstallSurface(value: unknown): value is InstallSurface {
+  return value === "cli" || value === "web" || value === "hud";
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await lstat(path);
+    return true;
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return false;
+    }
+
+    throw error;
+  }
+}
+
+function isNodeError(value: unknown): value is NodeJS.ErrnoException {
+  return value instanceof Error && "code" in value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -466,9 +466,11 @@ describe("local tool status", () => {
         toolCallCount: 1,
         parsedUsageRecordCount: 2,
         searchedPathHint: expect.stringMatching(/^~[\\/]\.codex[\\/]sessions$/),
-        inputTokens: 100,
-        outputTokens: 25,
-        totalTokens: 125,
+        inputTokens: 50100,
+        outputTokens: 1225,
+        cacheTokens: 30000,
+        totalTokens: 51325,
+        reasoningOutputTokens: 300,
         statusLine: {
           contextWindowTokens: 50000,
           contextWindowLimit: 200000,
@@ -486,11 +488,11 @@ describe("local tool status", () => {
           lastCacheTokens: 30000,
           lastReasoningTokens: 300,
           lastTotalTokens: 51200,
-          totalInputTokens: 100000,
-          totalOutputTokens: 2500,
-          totalCacheTokens: 60000,
-          totalReasoningTokens: 700,
-          totalTokens: 102500,
+          totalInputTokens: 50100,
+          totalOutputTokens: 1225,
+          totalCacheTokens: 30000,
+          totalReasoningTokens: 300,
+          totalTokens: 51325,
         },
       },
     });
@@ -634,10 +636,7 @@ describe("local tool status", () => {
       fiveHourResetAt: "2026-06-10T05:00:00.000Z",
       weeklyLimitPercent: 6,
       weeklyResetAt: "2026-06-17T00:00:00.000Z",
-      usageResetCredits: [
-        { label: null, expiresAt: null },
-        { label: null, expiresAt: null },
-      ],
+      usageResetCredits: [],
     });
   });
 
@@ -898,6 +897,69 @@ describe("local tool status", () => {
     });
   });
 
+  it("marks a Codex corpus with more than 400 eligible files bounded", async () => {
+    const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-codex-file-cap-"));
+    const sessionsDir = join(homeDir, ".codex", "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    await Promise.all(Array.from({ length: 401 }, async (_item, index) => {
+      await writeFile(join(sessionsDir, `rollout-${String(index).padStart(3, "0")}.jsonl`), JSON.stringify({
+        timestamp: "2026-06-10T01:00:00.000Z",
+        turn_id: `FAKE-turn-${index}`,
+        model: "gpt-5.6-sol",
+        payload: {
+          info: {
+            last_token_usage: {
+              input_tokens: 10,
+              cached_input_tokens: 2,
+              output_tokens: 5,
+              total_tokens: 15,
+            },
+          },
+        },
+      }), "utf8");
+    }));
+
+    const status = await readLocalAiCliStatus({
+      env: {
+        MONEYSIREN_CODEX_RATE_CARD_MODE: "token-based",
+        MONEYSIREN_CODEX_EXECUTION_MODE: "standard",
+      },
+      homeDir,
+      now: () => new Date("2026-06-10T05:00:00.000Z"),
+      providerKeys: ["codex-cli"],
+      runCommand: async (file) => ({ stdout: `${file} 1.2.3` }),
+    });
+    const codex = status.providers.find((provider) => provider.providerKey === "codex-cli");
+    const serialized = JSON.stringify(codex?.usage.codexLocal);
+
+    expect(codex?.usage).toMatchObject({
+      logFileCount: 400,
+      inputTokens: 4000,
+      cacheTokens: 800,
+      outputTokens: 2000,
+      totalTokens: 6000,
+      codexLocal: {
+        measurement: {
+          availability: "available",
+          accuracy: "bounded",
+          data: {
+            coverage: {
+              eligibleFileCount: 401,
+              scannedFileCount: 400,
+              truncated: true,
+            },
+          },
+        },
+        creditEstimate: {
+          accuracy: "bounded",
+          notOfficialAccountSpend: true,
+        },
+      },
+    });
+    expect(serialized).not.toContain(homeDir);
+    expect(serialized).not.toContain("FAKE-turn");
+  }, 60_000);
+
   it("uses MONEYSIREN_CODEX_SESSIONS_DIR before CODEX_HOME for Codex usage logs", async () => {
     const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-custom-codex-dir-"));
     const codexSessionsDir = join(homeDir, "custom-codex-sessions");
@@ -1006,8 +1068,8 @@ describe("local tool status", () => {
         totalTokens: 15,
         statusLine: {
           usageResetCredits: [
-            { label: "reset-1", expiresAt: "2026-06-20T00:00:00.000Z" },
-            { label: "reset-2", expiresAt: "2026-06-21T00:00:00.000Z" },
+            { label: null, expiresAt: "2026-06-20T00:00:00.000Z" },
+            { label: null, expiresAt: "2026-06-21T00:00:00.000Z" },
           ],
         },
       },

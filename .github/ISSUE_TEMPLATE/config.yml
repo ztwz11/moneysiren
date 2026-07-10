@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Private security report
-    url: https://github.com/ztwz11/moneysiren/security/policy
-    about: Please use the repository security policy instead of opening a public issue with exploit details or sensitive data.
+  - name: Report a vulnerability privately
+    url: https://github.com/ztwz11/moneysiren/security/advisories/new
+    about: Do not open a public issue with exploit details, credentials, identifiers, or sensitive data.
+  - name: Ask a support question
+    url: https://github.com/ztwz11/moneysiren/discussions/categories/q-a
+    about: Use GitHub Discussions for setup and usage questions that contain no sensitive data.
+  - name: Read the support guide
+    url: https://github.com/ztwz11/moneysiren/blob/main/SUPPORT.md
+    about: Check support boundaries and the safe diagnostic checklist before reporting a bug.

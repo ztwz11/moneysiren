@@ -1,73 +1,91 @@
 # MoneySiren App
 
-One-command installer for the MoneySiren initial public local release.
+Deterministic command package for the MoneySiren public local release.
 
-This is the recommended npm package for users who want all three local MoneySiren surfaces: CLI, web dashboard, and HUD. It bundles the MoneySiren CLI entrypoints and, on global npm installs, downloads the local web dashboard runtime from the matching GitHub Release. HUD artifacts require signed release metadata by default; unsigned HUD smoke testing requires explicit local opt-in.
+`@moneysiren/app` bundles the MoneySiren CLI entrypoint for users who want the
+CLI, web dashboard, and HUD. npm postinstall creates command shims only; it does
+not contact GitHub or claim that a remote runtime is ready.
 
 ## Install
 
 ```bash
 npm install -g @moneysiren/app
 msiren --version
+msiren install --status
+msiren install --web
+msiren install --status
 msiren start
-msiren hud
 ```
-
-Use the unqualified package name for the public local release.
 
 The package creates both global command shims during postinstall:
 
 - `moneysiren`
 - `msiren`
 
-If npm reports `EEXIST` for `moneysiren` or `msiren`, an older prerelease app package may still be installed. Remove the old global packages and reinstall:
+The shim writer can replace an existing MoneySiren-owned shim and preserves an
+unrelated command file. This avoids the historical npm `EEXIST` regression
+without deleting another tool's command.
+
+If an older prerelease package still owns conflicting npm-managed aliases,
+remove the old packages and reinstall:
 
 ```powershell
 npm uninstall -g @moneysiren/cli @moneysiren/app
 npm install -g @moneysiren/app --force
 ```
 
-Current app packages do not use npm's `bin` field for these aliases, so stale MoneySiren-owned command shims can be replaced during postinstall without tripping npm's bin conflict check.
+## Command package versus runtime
 
-If release asset download fails during postinstall, fix network or release access and rerun:
+Immediately after npm installation:
 
-```bash
-msiren install --web
-msiren install --status
-```
+- Commands: installed.
+- Remote runtime: not installed.
 
-## What It Installs
+`msiren install --web` is the explicit network operation. v0.1.6-and-newer
+assets require `moneysiren-release-manifest.json` with matching repository,
+tag, version, source commit, platform, size, SHA256, archive type, and signing
+state. Downloads are bounded and staged; archives are checked for traversal and
+symlink escape; activation is atomic; a failed update leaves the prior runtime
+in place.
 
-- CLI command surface.
-- Local web dashboard runtime.
-- HUD desktop artifact.
+The already-published v0.1.5 web runtime has a narrow compatibility path using
+its public release size and SHA256 file. That exception is limited to the
+official v0.1.5 web asset and reports source commit as unavailable. It does not
+apply to HUD, custom repositories, or newer releases.
 
-The Web/HUD artifacts are verified against published SHA256 checksums. Public release Windows HUD artifacts should include signature metadata; unsigned artifacts are for local smoke or prerelease review only.
+`msiren install --status` reports `ready`, `not-installed`, or `invalid`
+for the remote runtime independently from the command state.
 
-Temporary Windows HUD smoke testing before release signing is ready requires an explicit command opt-in:
+## HUD
+
+Public Windows HUD artifacts require matching Authenticode signer metadata.
+Unsigned HUD artifacts are rejected unless a tester explicitly opts in for one
+local smoke command:
 
 ```powershell
 msiren install --hud --allow-unsigned-hud
 msiren hud
 ```
 
-This does not remove Windows publisher warnings and does not change public release validation. `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for advanced npm postinstall or CI smoke paths.
+This does not make the artifact signed or remove publisher warnings.
+`MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for explicit CI smoke
+paths.
 
 For CLI-only automation, install `@moneysiren/cli` instead.
 
-## Opt Out
+## Skip command-shim setup
 
-To install only the package command and skip release asset download:
+Advanced packagers can skip postinstall command setup:
 
 ```bash
 MONEYSIREN_SKIP_APP_POSTINSTALL=1 npm install -g @moneysiren/app
-msiren install --all
 ```
 
-For local non-global package review, postinstall does not download release assets automatically. Run `msiren install --all` explicitly when needed.
+This variable no longer controls a runtime download because postinstall never
+performs one.
 
-## Public Local Release Channel
+## Security details
 
-```bash
-npm install -g @moneysiren/app
-```
+See
+[Release Supply-Chain Security](https://github.com/ztwz11/moneysiren/blob/main/docs/security/release-supply-chain.md)
+for manifest, redirect, byte-limit, archive, signing, and rollback boundaries.

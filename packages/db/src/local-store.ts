@@ -107,6 +107,33 @@ export interface LocalEmergencyActionRunRecord {
   metadataJson: Record<string, never>;
 }
 
+export type LocalProviderSyncStatus = "ok" | "partial" | "error";
+
+export type LocalProviderSyncErrorCode =
+  | "SYNC_PARTIAL"
+  | "SYNC_COLLECTION"
+  | "SYNC_NO_USABLE_DATA"
+  | "SYNC_CONFIGURATION"
+  | "SYNC_EXECUTION";
+
+export interface LocalProviderSyncRunRecord {
+  id: string;
+  providerKey: string;
+  attemptedAt: string;
+  completedAt?: string;
+  status: LocalProviderSyncStatus;
+  snapshotCount: number;
+  usageCount: number;
+  billingCount: number;
+  healthCount: number;
+  estimateCount: number;
+  alertCount: number;
+  errorCode?: LocalProviderSyncErrorCode;
+  sanitizedMessage?: string;
+  dataThrough?: string;
+  metadataJson: Record<string, never>;
+}
+
 export interface LocalStore {
   appliedMigrationIds: string[];
   providers: LocalProviderRecord[];
@@ -117,6 +144,7 @@ export interface LocalStore {
   alerts: LocalAlertRecord[];
   reportRuns: LocalReportRunRecord[];
   emergencyActionRuns: LocalEmergencyActionRunRecord[];
+  providerSyncRuns: LocalProviderSyncRunRecord[];
 }
 
 export interface LocalStoreOptions {
@@ -139,6 +167,21 @@ export interface LocalProviderCollectionInput {
     costEstimates: readonly LocalCostEstimateInput[];
   };
   alerts: readonly LocalAlertInput[];
+}
+
+export interface LocalProviderSyncRunInput {
+  dbPath: string;
+  providerKey: string;
+  attemptedAt: string;
+  completedAt?: string;
+  status: LocalProviderSyncStatus;
+  usageCount: number;
+  billingCount: number;
+  healthCount: number;
+  estimateCount: number;
+  alertCount: number;
+  dataThrough?: string;
+  errorCode?: LocalProviderSyncErrorCode;
 }
 
 export interface LocalUsageSnapshotInput {
@@ -220,6 +263,13 @@ export interface LocalEmergencyActionRunInput {
 
 const FORBIDDEN_KEY_PATTERN = /^(raw|rawPayload|rawResponse|providerPayload|providerResponse|billingProfile)$/i;
 const FORBIDDEN_STRING_PATTERN = /acct_|project_|invoice_|sk-|hooks\.slack|@/i;
+const SYNC_ERROR_MESSAGES: Readonly<Record<LocalProviderSyncErrorCode, string>> = {
+  SYNC_PARTIAL: "Provider sync completed with partial data.",
+  SYNC_COLLECTION: "Provider sync failed before usable data was collected.",
+  SYNC_NO_USABLE_DATA: "Provider sync returned no usable data.",
+  SYNC_CONFIGURATION: "Provider sync configuration is unavailable.",
+  SYNC_EXECUTION: "Provider sync could not be completed.",
+};
 
 export async function initializeLocalStore(options: LocalStoreOptions): Promise<MigrationRunResult> {
   const dbPath = normalizeDbPath(options.dbPath);
@@ -254,6 +304,7 @@ export async function readLocalStore(options: LocalStoreOptions): Promise<LocalS
     alerts: readAlerts(dbPath),
     reportRuns: readReportRuns(dbPath),
     emergencyActionRuns: readEmergencyActionRuns(dbPath),
+    providerSyncRuns: readProviderSyncRuns(dbPath),
   };
 }
 
@@ -264,6 +315,7 @@ export async function saveLocalProviderCollection(input: LocalProviderCollection
   const dbPath = normalizeDbPath(input.dbPath);
   const providerId = providerIdFor(input.provider.key);
   const providerAccountRefs = collectProviderAccountRefs(input);
+  const dataThrough = latestCollectionTimestamp(input);
   const statements: string[] = [
     upsertProviderSql({
       id: providerId,
@@ -302,7 +354,31 @@ export async function saveLocalProviderCollection(input: LocalProviderCollection
     statements.push(insertAlertSql(alert));
   }
 
+  statements.push(insertProviderSyncRunSql({
+    dbPath: input.dbPath,
+    providerKey: input.provider.key,
+    attemptedAt: input.collectedAt,
+    completedAt: input.collectedAt,
+    status: input.status,
+    usageCount: input.snapshots.usage.length,
+    billingCount: input.snapshots.billing.length,
+    healthCount: input.snapshots.serviceHealth.length,
+    estimateCount: input.snapshots.costEstimates.length,
+    alertCount: input.alerts.length,
+    ...(dataThrough === undefined ? {} : { dataThrough }),
+  }));
+
   executeSqliteTransaction(dbPath, statements);
+}
+
+export async function recordLocalProviderSyncRun(input: LocalProviderSyncRunInput): Promise<void> {
+  assertSafeForPersistence(input);
+  validateProviderSyncRunInput(input);
+  await initializeLocalStore({ dbPath: input.dbPath });
+
+  executeSqliteTransaction(normalizeDbPath(input.dbPath), [
+    insertProviderSyncRunSql(input),
+  ]);
 }
 
 export async function recordLocalReportRun(input: LocalReportRunInput): Promise<void> {
@@ -647,6 +723,51 @@ function readEmergencyActionRuns(dbPath: string): LocalEmergencyActionRunRecord[
   });
 }
 
+function readProviderSyncRuns(dbPath: string): LocalProviderSyncRunRecord[] {
+  if (!tableExists(dbPath, "provider_sync_runs")) {
+    return [];
+  }
+
+  return querySqliteRowsSync<ProviderSyncRunRow>(
+    dbPath,
+    `
+    SELECT
+      id,
+      provider_key AS providerKey,
+      attempted_at AS attemptedAt,
+      completed_at AS completedAt,
+      status,
+      usage_count AS usageCount,
+      billing_count AS billingCount,
+      health_count AS healthCount,
+      estimate_count AS estimateCount,
+      alert_count AS alertCount,
+      error_code AS errorCode,
+      error_message AS sanitizedMessage,
+      data_through AS dataThrough,
+      metadata_json AS metadataJson
+    FROM provider_sync_runs
+    ORDER BY attempted_at, id;
+    `,
+  ).map((row) => ({
+    id: row.id,
+    providerKey: row.providerKey,
+    attemptedAt: row.attemptedAt,
+    status: row.status,
+    snapshotCount: row.usageCount + row.billingCount + row.healthCount + row.estimateCount,
+    usageCount: row.usageCount,
+    billingCount: row.billingCount,
+    healthCount: row.healthCount,
+    estimateCount: row.estimateCount,
+    alertCount: row.alertCount,
+    metadataJson: emptyMetadata(row.metadataJson),
+    ...(row.completedAt === null ? {} : { completedAt: row.completedAt }),
+    ...(row.errorCode === null ? {} : { errorCode: row.errorCode }),
+    ...(row.sanitizedMessage === null ? {} : { sanitizedMessage: row.sanitizedMessage }),
+    ...(row.dataThrough === null ? {} : { dataThrough: row.dataThrough }),
+  }));
+}
+
 function upsertProviderSql(input: {
   id: string;
   key: string;
@@ -787,6 +908,36 @@ function insertAlertSql(alert: LocalAlertInput): string {
   `;
 }
 
+function insertProviderSyncRunSql(input: LocalProviderSyncRunInput): string {
+  validateProviderSyncRunInput(input);
+  const status = normalizedSyncStatus(input);
+  const errorCode = syncErrorCodeFor(input);
+  const sanitizedMessage = errorCode === undefined ? undefined : SYNC_ERROR_MESSAGES[errorCode];
+
+  return `
+  INSERT INTO provider_sync_runs (
+    id, provider_key, attempted_at, completed_at, status, usage_count, billing_count, health_count,
+    estimate_count, alert_count, error_code, error_message, data_through, metadata_json
+  )
+  VALUES (
+    ${sqlString(randomUUID())},
+    ${sqlString(input.providerKey)},
+    ${sqlString(input.attemptedAt)},
+    ${sqlNullableString(input.completedAt)},
+    ${sqlString(status)},
+    ${sqlInteger(input.usageCount)},
+    ${sqlInteger(input.billingCount)},
+    ${sqlInteger(input.healthCount)},
+    ${sqlInteger(input.estimateCount)},
+    ${sqlInteger(input.alertCount)},
+    ${sqlNullableString(errorCode)},
+    ${sqlNullableString(sanitizedMessage)},
+    ${sqlNullableString(input.dataThrough)},
+    ${sqlString(EMPTY_METADATA_JSON)}
+  );
+  `;
+}
+
 function insertEmergencyActionRunSql(input: LocalEmergencyActionRunInput): string {
   return `
   INSERT INTO emergency_action_runs (
@@ -822,6 +973,59 @@ function deleteProviderSyncAlertsSql(providerId: string): string {
   WHERE provider_id = ${sqlString(providerId)}
     AND category = 'provider-sync';
   `;
+}
+
+function latestCollectionTimestamp(input: LocalProviderCollectionInput): string | undefined {
+  const timestamps = [
+    ...input.snapshots.usage.map((snapshot) => snapshot.collectedAt),
+    ...input.snapshots.billing.map((snapshot) => snapshot.collectedAt),
+    ...input.snapshots.serviceHealth.map((snapshot) => snapshot.collectedAt),
+    ...input.snapshots.costEstimates.map((snapshot) => snapshot.collectedAt),
+  ];
+
+  return timestamps.sort().at(-1);
+}
+
+function syncErrorCodeFor(input: LocalProviderSyncRunInput): LocalProviderSyncErrorCode | undefined {
+  const status = normalizedSyncStatus(input);
+
+  if (status === "ok") {
+    return undefined;
+  }
+
+  if (input.status === "partial" && snapshotCountForSyncRun(input) === 0) {
+    return "SYNC_NO_USABLE_DATA";
+  }
+
+  return input.errorCode ?? (status === "partial" ? "SYNC_PARTIAL" : "SYNC_COLLECTION");
+}
+
+function normalizedSyncStatus(input: LocalProviderSyncRunInput): LocalProviderSyncStatus {
+  return input.status === "partial" && snapshotCountForSyncRun(input) === 0
+    ? "error"
+    : input.status;
+}
+
+function snapshotCountForSyncRun(input: LocalProviderSyncRunInput): number {
+  return input.usageCount + input.billingCount + input.healthCount + input.estimateCount;
+}
+
+function validateProviderSyncRunInput(input: LocalProviderSyncRunInput): void {
+  const counts = [
+    input.usageCount,
+    input.billingCount,
+    input.healthCount,
+    input.estimateCount,
+    input.alertCount,
+  ];
+
+  if (counts.some((count) => !Number.isSafeInteger(count) || count < 0)) {
+    throw new Error("Provider sync-run counts must be non-negative safe integers.");
+  }
+
+  if (input.status === "ok" && input.errorCode !== undefined) {
+    throw new Error("Successful provider sync runs cannot contain an error code.");
+  }
 }
 
 function collectProviderAccountRefs(input: LocalProviderCollectionInput): string[] {
@@ -1147,6 +1351,23 @@ interface ReportRunRow {
   language: "ko" | "en";
   deliveryTarget: "stdout" | "local-file" | "slack";
   status: "rendered" | "sent" | "error";
+  metadataJson: string;
+}
+
+interface ProviderSyncRunRow {
+  id: string;
+  providerKey: string;
+  attemptedAt: string;
+  completedAt: string | null;
+  status: LocalProviderSyncStatus;
+  usageCount: number;
+  billingCount: number;
+  healthCount: number;
+  estimateCount: number;
+  alertCount: number;
+  errorCode: LocalProviderSyncErrorCode | null;
+  sanitizedMessage: string | null;
+  dataThrough: string | null;
   metadataJson: string;
 }
 

@@ -141,6 +141,39 @@ describe("dashboard data adapter", () => {
         ],
         reportRuns: [],
         emergencyActionRuns: [],
+        providerSyncRuns: [
+          {
+            id: "sync-1",
+            providerKey: "aws",
+            attemptedAt: "2026-06-02T08:33:00.000Z",
+            completedAt: "2026-06-02T08:33:01.000Z",
+            status: "ok",
+            snapshotCount: 4,
+            usageCount: 1,
+            billingCount: 1,
+            healthCount: 1,
+            estimateCount: 1,
+            alertCount: 1,
+            dataThrough: "2026-06-02T08:32:00.000Z",
+            metadataJson: {},
+          },
+          {
+            id: "sync-2",
+            providerKey: "aws",
+            attemptedAt: "2026-06-02T08:50:00.000Z",
+            completedAt: "2026-06-02T08:50:01.000Z",
+            status: "error",
+            snapshotCount: 0,
+            usageCount: 0,
+            billingCount: 0,
+            healthCount: 0,
+            estimateCount: 0,
+            alertCount: 1,
+            errorCode: "SYNC_EXECUTION",
+            sanitizedMessage: "Provider sync could not be completed.",
+            metadataJson: {},
+          },
+        ],
       },
       {
         generatedAt: GENERATED_AT,
@@ -173,6 +206,14 @@ describe("dashboard data adapter", () => {
         alertCount: 1,
         riskLevel: "warning",
         latestCollectedAt: "2026-06-02T08:32:00.000Z",
+        freshness: expect.objectContaining({
+          status: "stale",
+          lastAttemptAt: "2026-06-02T08:50:00.000Z",
+          lastSuccessAt: "2026-06-02T08:33:01.000Z",
+          dataThrough: "2026-06-02T08:32:00.000Z",
+          lastRefreshFailed: true,
+          latestRunStatus: "error",
+        }),
       },
     ]);
     expect(snapshot.usage.topMetrics).toEqual([
@@ -304,6 +345,7 @@ describe("dashboard data adapter", () => {
         alerts: [],
         reportRuns: [],
         emergencyActionRuns: [],
+        providerSyncRuns: [],
       },
       {
         generatedAt: GENERATED_AT,
@@ -402,6 +444,11 @@ describe("dashboard data adapter", () => {
       estimatedAmountMinor: 1234,
       healthStatus: "ok",
       riskLevel: "low",
+      freshness: expect.objectContaining({
+        status: "live",
+        lastRefreshFailed: false,
+        dataThrough: "2026-06-02T08:02:00.000Z",
+      }),
     });
     expectDashboardPayloadIsRedacted(snapshot);
   }, 15000);

@@ -1,4 +1,5 @@
 import { runDashboardCommand } from "./commands/dashboard.js";
+import { runDemoCommand } from "./commands/demo.js";
 import { runDoctorCommand } from "./commands/doctor.js";
 import { runInitCommand } from "./commands/init.js";
 import { runInstallCommand } from "./commands/install.js";
@@ -26,6 +27,7 @@ import { resolveSlashCommand } from "./slash.js";
 import { createTheme, type Theme } from "./theme.js";
 import { CLI_VERSION } from "./version.js";
 import type { SlackReportTransport } from "../../../packages/report/src/index.js";
+import type { DesktopNotificationTransport } from "./notification-delivery.js";
 import type { AwsCostExplorerClientAdapter } from "../../../packages/connectors/aws/src/index.js";
 import type { CloudflareBillingUsageClient } from "../../../packages/connectors/cloudflare/src/index.js";
 import type { OpenAiUsageCostsClient } from "../../../packages/connectors/openai/src/index.js";
@@ -49,6 +51,7 @@ export interface CliRuntime {
   stdoutBuffer?: string[];
   stderrBuffer?: string[];
   slackTransport?: SlackReportTransport;
+  desktopNotification?: DesktopNotificationTransport;
   liveClients?: CliLiveClients;
   fetch?: typeof fetch;
   localRuntime?: CliLocalRuntimeAdapter;
@@ -70,6 +73,7 @@ export interface CliExecutionContext {
   stdout(line: string): void;
   stderr(line: string): void;
   slackTransport?: SlackReportTransport;
+  desktopNotification?: DesktopNotificationTransport;
   liveClients?: CliLiveClients;
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
   openUrl(url: string): Promise<void> | void;
@@ -146,6 +150,10 @@ export async function runCli(args: readonly string[], runtime: CliRuntime = {}):
     context.slackTransport = runtime.slackTransport;
   }
 
+  if (runtime.desktopNotification !== undefined) {
+    context.desktopNotification = runtime.desktopNotification;
+  }
+
   if (runtime.liveClients !== undefined) {
     context.liveClients = runtime.liveClients;
   }
@@ -210,6 +218,10 @@ async function dispatchCommand(args: readonly string[], context: CliExecutionCon
 
   if (command === "doctor") {
     return runDoctorCommand(rest, context);
+  }
+
+  if (command === "demo") {
+    return runDemoCommand(rest, context);
   }
 
   if (command === "modes") {

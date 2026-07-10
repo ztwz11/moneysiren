@@ -145,6 +145,24 @@ export interface Messages {
     reasoningTokens: string;
     noCurrentUsage: string;
     localCliUsageNote: string;
+    codexOfficialMeasurements: string;
+    codexLocalMeasurements: string;
+    codexCoverage: string;
+    codexSuppliedDetails: string;
+    codexCreditEstimate: string;
+    codexCreditEstimateNote: string;
+    codexUnavailable: string;
+    measurementOfficial: string;
+    measurementProviderReported: string;
+    measurementLocalEstimate: string;
+    measurementBounded: string;
+    codexReasonRateCardNotConfirmed: string;
+    codexReasonLegacyRateCard: string;
+    codexReasonExecutionModeNotConfirmed: string;
+    codexReasonFastModeUnavailable: string;
+    codexReasonUnknownModel: string;
+    codexReasonCacheWriteUnavailable: string;
+    codexReasonInvalidCachedInputSubset: string;
   };
   catalog: {
     title: string;
@@ -512,6 +530,24 @@ const baseMessages = {
       reasoningTokens: "Reasoning tokens",
       noCurrentUsage: "No current usage",
       localCliUsageNote: "Local CLI token usage from statusline and local session logs.",
+      codexOfficialMeasurements: "Official Codex App Server",
+      codexLocalMeasurements: "Local model estimate",
+      codexCoverage: "Scan coverage",
+      codexSuppliedDetails: "Supplied detail rows",
+      codexCreditEstimate: "Estimated Codex credits",
+      codexCreditEstimateNote: "Official dated rates × local token estimate; not official account spend.",
+      codexUnavailable: "Unavailable",
+      measurementOfficial: "Official",
+      measurementProviderReported: "Provider reported",
+      measurementLocalEstimate: "Local estimate",
+      measurementBounded: "Bounded",
+      codexReasonRateCardNotConfirmed: "Confirm that this workspace uses the token-based rate card",
+      codexReasonLegacyRateCard: "The legacy rate card cannot be applied to local tokens",
+      codexReasonExecutionModeNotConfirmed: "Confirm that the measured runs used standard mode",
+      codexReasonFastModeUnavailable: "No GPT-5.6 fast-mode credit rate is available",
+      codexReasonUnknownModel: "An unrated model is included",
+      codexReasonCacheWriteUnavailable: "No applicable cache-write credit rate is available",
+      codexReasonInvalidCachedInputSubset: "Cached input exceeds the measured input range",
     },
     catalog: {
       title: "Provider catalog",
@@ -914,6 +950,24 @@ const baseMessages = {
       reasoningTokens: "Reasoning 토큰",
       noCurrentUsage: "현재 사용량 없음",
       localCliUsageNote: "statusline과 로컬 세션 로그 기반 CLI 토큰 사용량입니다.",
+      codexOfficialMeasurements: "공식 Codex App Server",
+      codexLocalMeasurements: "로컬 모델 추정치",
+      codexCoverage: "스캔 범위",
+      codexSuppliedDetails: "제공된 상세 행",
+      codexCreditEstimate: "Codex 크레딧 추정치",
+      codexCreditEstimateNote: "날짜가 명시된 공식 요율 × 로컬 토큰 추정치이며 공식 계정 지출이 아닙니다.",
+      codexUnavailable: "확인 불가",
+      measurementOfficial: "공식",
+      measurementProviderReported: "제공자 보고값",
+      measurementLocalEstimate: "로컬 추정치",
+      measurementBounded: "제한된 범위",
+      codexReasonRateCardNotConfirmed: "이 워크스페이스가 토큰 기반 요율표를 사용하는지 확인하세요",
+      codexReasonLegacyRateCard: "레거시 요율표는 로컬 토큰에 적용할 수 없습니다",
+      codexReasonExecutionModeNotConfirmed: "측정된 실행이 standard 모드인지 확인하세요",
+      codexReasonFastModeUnavailable: "GPT-5.6 fast 모드의 크레딧 요율은 제공되지 않습니다",
+      codexReasonUnknownModel: "요율이 없는 모델이 포함되어 있습니다",
+      codexReasonCacheWriteUnavailable: "적용 가능한 캐시 쓰기 크레딧 요율이 없습니다",
+      codexReasonInvalidCachedInputSubset: "캐시 입력이 측정된 입력 범위를 초과합니다",
     },
     catalog: {
       title: "프로바이더 카탈로그",
@@ -1316,6 +1370,24 @@ const baseMessages = {
       reasoningTokens: "Reasoning トークン",
       noCurrentUsage: "現在の使用量なし",
       localCliUsageNote: "statusline とローカルセッションログに基づく CLI トークン使用量です。",
+      codexOfficialMeasurements: "公式 Codex App Server",
+      codexLocalMeasurements: "ローカルモデル推定",
+      codexCoverage: "スキャン範囲",
+      codexSuppliedDetails: "提供された詳細行",
+      codexCreditEstimate: "Codex クレジット推定",
+      codexCreditEstimateNote: "日付付き公式レート × ローカルトークン推定であり、公式アカウント支出ではありません。",
+      codexUnavailable: "利用不可",
+      measurementOfficial: "公式",
+      measurementProviderReported: "プロバイダー報告",
+      measurementLocalEstimate: "ローカル推定",
+      measurementBounded: "範囲限定",
+      codexReasonRateCardNotConfirmed: "このワークスペースがトークンベース料金表を使用するか確認してください",
+      codexReasonLegacyRateCard: "従来の料金表はローカルトークンに適用できません",
+      codexReasonExecutionModeNotConfirmed: "測定した実行が standard モードか確認してください",
+      codexReasonFastModeUnavailable: "GPT-5.6 fast モードのクレジット料金は提供されていません",
+      codexReasonUnknownModel: "料金未設定のモデルが含まれています",
+      codexReasonCacheWriteUnavailable: "適用可能なキャッシュ書き込み料金がありません",
+      codexReasonInvalidCachedInputSubset: "キャッシュ入力が測定入力範囲を超えています",
     },
     catalog: {
       title: "プロバイダーカタログ",

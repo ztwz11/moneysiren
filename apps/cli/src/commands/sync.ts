@@ -35,6 +35,13 @@ import {
 import { initializeLocalStore, saveLocalProviderCollection } from "../../../../packages/db/src/index.js";
 import type { CliExecutionContext } from "../cli.js";
 import { loadCliConfig, readFlag, resolveDbPath } from "./shared.js";
+import {
+  createCollectionSyncResult,
+  createSyncFailure,
+  renderSyncResult,
+  syncResultExitCode,
+  type SyncResult,
+} from "./sync-result.js";
 
 const AWS_COST_EXPLORER_FIXTURE_ENV_KEY = "MONEYSIREN_AWS_COST_EXPLORER_FIXTURE";
 const AWS_REGION_ENV_KEY = "MONEYSIREN_AWS_REGION";
@@ -60,18 +67,25 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
   }
 
   if (providerFlag.value !== "aws" && awsProfileOption.profile !== undefined) {
-    context.stderr("--profile is only supported for AWS sync.");
-    return 1;
+    return completeSync(
+      context,
+      createSyncFailure(
+        providerFlag.value,
+        "SYNC_ARGUMENT",
+        "--profile is only supported for AWS sync.",
+      ),
+    );
   }
 
-  const config = loadCliConfig(context.env);
+  try {
+    const config = loadCliConfig(context.env);
 
   if (providerFlag.value === "aws") {
     const awsEnv = applyAwsProfileOption(context.env, awsProfileOption.profile);
     const fixturePath = readConfiguredEnvValue(awsEnv[AWS_COST_EXPLORER_FIXTURE_ENV_KEY]);
 
     if (fixturePath !== undefined) {
-      return syncAwsProvider(
+      return await syncAwsProvider(
         context,
         config.dbPath,
         createStaticCostExplorerClient(await loadAwsFixture(context.cwd, fixturePath)),
@@ -79,15 +93,19 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
     }
 
     if (!isAwsLiveConfigured(awsEnv) && context.liveClients?.awsCostExplorer === undefined) {
-      context.stderr(
-        `AWS sync requires AWS_PROFILE, --profile <profile>, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or ` +
-          `${AWS_COST_EXPLORER_FIXTURE_ENV_KEY}. If you ran aws sso login --profile <profile>, pass ` +
-          `--profile <profile> or set AWS_PROFILE in this shell.`,
+      return completeSync(
+        context,
+        createSyncFailure(
+          "aws",
+          "SYNC_CONFIGURATION",
+          `AWS sync requires AWS_PROFILE, --profile <profile>, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or ` +
+            `${AWS_COST_EXPLORER_FIXTURE_ENV_KEY}. If you ran aws sso login --profile <profile>, pass ` +
+            `--profile <profile> or set AWS_PROFILE in this shell.`,
+        ),
       );
-      return 1;
     }
 
-    return withAwsProfileOnProcessEnv(
+    return await withAwsProfileOnProcessEnv(
       awsProfileOption.profile,
       () => syncAwsProvider(
         context,
@@ -105,13 +123,17 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
 
     if (usageFixturePath !== undefined || costsFixturePath !== undefined) {
       if (usageFixturePath === undefined || costsFixturePath === undefined) {
-        context.stderr(
-          `OpenAI fixture sync requires both ${OPENAI_USAGE_FIXTURE_ENV_KEY} and ${OPENAI_COSTS_FIXTURE_ENV_KEY}.`,
+        return completeSync(
+          context,
+          createSyncFailure(
+            "openai",
+            "SYNC_FIXTURE_CONFIGURATION",
+            `OpenAI fixture sync requires both ${OPENAI_USAGE_FIXTURE_ENV_KEY} and ${OPENAI_COSTS_FIXTURE_ENV_KEY}.`,
+          ),
         );
-        return 1;
       }
 
-      return syncOpenAiProvider(
+      return await syncOpenAiProvider(
         context,
         config.dbPath,
         createStaticOpenAiUsageCostsClient(
@@ -121,14 +143,18 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
     }
 
     if (!config.providers.openai.configured && context.liveClients?.openaiUsageCosts === undefined) {
-      context.stderr(
-        `OpenAI sync requires OPENAI_ADMIN_KEY or fixture mode with ${OPENAI_USAGE_FIXTURE_ENV_KEY} ` +
-          `and ${OPENAI_COSTS_FIXTURE_ENV_KEY}.`,
+      return completeSync(
+        context,
+        createSyncFailure(
+          "openai",
+          "SYNC_CONFIGURATION",
+          `OpenAI sync requires OPENAI_ADMIN_KEY or fixture mode with ${OPENAI_USAGE_FIXTURE_ENV_KEY} ` +
+            `and ${OPENAI_COSTS_FIXTURE_ENV_KEY}.`,
+        ),
       );
-      return 1;
     }
 
-    return syncOpenAiProvider(
+    return await syncOpenAiProvider(
       context,
       config.dbPath,
       context.liveClients?.openaiUsageCosts ?? createOpenAiUsageCostsClient({
@@ -141,7 +167,7 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
     const fixturePath = readConfiguredEnvValue(context.env[SUPABASE_FIXTURE_ENV_KEY]);
 
     if (fixturePath !== undefined) {
-      return syncSupabaseProvider(
+      return await syncSupabaseProvider(
         context,
         config.dbPath,
         createStaticSupabaseUsageHealthClient(await loadSupabaseFixture(context.cwd, fixturePath)),
@@ -149,14 +175,18 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
     }
 
     if (!config.providers.supabase.configured && context.liveClients?.supabaseUsageHealth === undefined) {
-      context.stderr(
-        `Supabase sync requires SUPABASE_ACCESS_TOKEN or ${SUPABASE_FIXTURE_ENV_KEY}. ` +
-          `Set ${SUPABASE_FIXTURE_ENV_KEY} for fixture mode.`,
+      return completeSync(
+        context,
+        createSyncFailure(
+          "supabase",
+          "SYNC_CONFIGURATION",
+          `Supabase sync requires SUPABASE_ACCESS_TOKEN or ${SUPABASE_FIXTURE_ENV_KEY}. ` +
+            `Set ${SUPABASE_FIXTURE_ENV_KEY} for fixture mode.`,
+        ),
       );
-      return 1;
     }
 
-    return syncSupabaseProvider(
+    return await syncSupabaseProvider(
       context,
       config.dbPath,
       context.liveClients?.supabaseUsageHealth ?? createSupabaseManagementClient({
@@ -169,7 +199,7 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
     const fixturePath = readConfiguredEnvValue(context.env[CLOUDFLARE_FIXTURE_ENV_KEY]);
 
     if (fixturePath !== undefined) {
-      return syncCloudflareProvider(
+      return await syncCloudflareProvider(
         context,
         config.dbPath,
         createStaticCloudflareBillingUsageClient(await loadCloudflareFixture(context.cwd, fixturePath)),
@@ -177,14 +207,18 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
     }
 
     if (!config.providers.cloudflare.configured && context.liveClients?.cloudflareBillingUsage === undefined) {
-      context.stderr(
-        `Cloudflare sync requires CLOUDFLARE_API_TOKEN and ${CLOUDFLARE_ACCOUNT_IDS_ENV_KEY}, or ${CLOUDFLARE_FIXTURE_ENV_KEY}. ` +
-          `Set ${CLOUDFLARE_FIXTURE_ENV_KEY} for fixture mode.`,
+      return completeSync(
+        context,
+        createSyncFailure(
+          "cloudflare",
+          "SYNC_CONFIGURATION",
+          `Cloudflare sync requires CLOUDFLARE_API_TOKEN and ${CLOUDFLARE_ACCOUNT_IDS_ENV_KEY}, or ${CLOUDFLARE_FIXTURE_ENV_KEY}. ` +
+            `Set ${CLOUDFLARE_FIXTURE_ENV_KEY} for fixture mode.`,
+        ),
       );
-      return 1;
     }
 
-    return syncCloudflareProvider(
+    return await syncCloudflareProvider(
       context,
       config.dbPath,
       context.liveClients?.cloudflareBillingUsage ?? createCloudflareBillingUsageClient({
@@ -194,7 +228,17 @@ export async function runSyncCommand(args: readonly string[], context: CliExecut
     );
   }
 
-  return syncMockProvider(context, config.dbPath);
+    return await syncMockProvider(context, config.dbPath);
+  } catch {
+    return completeSync(
+      context,
+      createSyncFailure(
+        providerFlag.value,
+        "SYNC_EXECUTION",
+        "Sync setup, fixture input, or local persistence failed.",
+      ),
+    );
+  }
 }
 
 type SupportedSyncProvider = "mock" | "aws" | "openai" | "supabase" | "cloudflare";
@@ -202,6 +246,21 @@ type SupportedSyncProvider = "mock" | "aws" | "openai" | "supabase" | "cloudflar
 function isSupportedSyncProvider(provider: string): provider is SupportedSyncProvider {
   return provider === "mock" || provider === "aws" || provider === "openai" || provider === "supabase" ||
     provider === "cloudflare";
+}
+
+function completeSync(
+  context: CliExecutionContext,
+  result: SyncResult,
+): number {
+  const rendered = renderSyncResult(result);
+
+  context.stdout(rendered.summary);
+
+  if (rendered.diagnostic !== undefined) {
+    context.stderr(rendered.diagnostic);
+  }
+
+  return syncResultExitCode(result);
 }
 
 async function syncMockProvider(context: CliExecutionContext, configuredDbPath: string): Promise<number> {
@@ -226,18 +285,10 @@ async function syncMockProvider(context: CliExecutionContext, configuredDbPath: 
     alerts: collection.alerts,
   });
 
-  context.stdout(
-    [
-      "Synced mock provider snapshots:",
-      `usage=${collection.snapshots.usage.length}`,
-      `billing=${collection.snapshots.billing.length}`,
-      `health=${collection.snapshots.serviceHealth.length}`,
-      `estimates=${collection.snapshots.costEstimates.length}`,
-      `alerts=${collection.alerts.length}`,
-    ].join(" "),
+  return completeSync(
+    context,
+    createCollectionSyncResult(collection),
   );
-
-  return 0;
 }
 
 async function syncAwsProvider(
@@ -268,23 +319,10 @@ async function syncAwsProvider(
     alerts: collection.alerts,
   });
 
-  context.stdout(
-    [
-      "Synced AWS Cost Explorer snapshots:",
-      `usage=${collection.snapshots.usage.length}`,
-      `billing=${collection.snapshots.billing.length}`,
-      `health=${collection.snapshots.serviceHealth.length}`,
-      `estimates=${collection.snapshots.costEstimates.length}`,
-      `alerts=${collection.alerts.length}`,
-    ].join(" "),
+  return completeSync(
+    context,
+    createCollectionSyncResult(collection),
   );
-
-  if (collection.status === "error") {
-    context.stderr(collection.errors?.[0] ?? collection.alerts[0]?.message ?? "AWS Cost Explorer sync failed.");
-    return 1;
-  }
-
-  return 0;
 }
 
 async function loadAwsFixture(cwd: string, fixturePath: string): Promise<AwsCostExplorerGetCostAndUsageOutput> {
@@ -321,18 +359,10 @@ async function syncOpenAiProvider(
     alerts: collection.alerts,
   });
 
-  context.stdout(
-    [
-      "Synced OpenAI usage and costs snapshots:",
-      `usage=${collection.snapshots.usage.length}`,
-      `billing=${collection.snapshots.billing.length}`,
-      `health=${collection.snapshots.serviceHealth.length}`,
-      `estimates=${collection.snapshots.costEstimates.length}`,
-      `alerts=${collection.alerts.length}`,
-    ].join(" "),
+  return completeSync(
+    context,
+    createCollectionSyncResult(collection),
   );
-
-  return 0;
 }
 
 async function loadOpenAiUsageCostsFixture(
@@ -394,18 +424,10 @@ async function syncSupabaseProvider(
     alerts: collection.alerts,
   });
 
-  context.stdout(
-    [
-      "Synced Supabase usage and health snapshots:",
-      `usage=${collection.snapshots.usage.length}`,
-      `billing=${collection.snapshots.billing.length}`,
-      `health=${collection.snapshots.serviceHealth.length}`,
-      `estimates=${collection.snapshots.costEstimates.length}`,
-      `alerts=${collection.alerts.length}`,
-    ].join(" "),
+  return completeSync(
+    context,
+    createCollectionSyncResult(collection),
   );
-
-  return 0;
 }
 
 async function loadSupabaseFixture(cwd: string, fixturePath: string): Promise<SupabaseUsageHealthPayload> {
@@ -442,18 +464,10 @@ async function syncCloudflareProvider(
     alerts: collection.alerts,
   });
 
-  context.stdout(
-    [
-      "Synced Cloudflare billing and usage snapshots:",
-      `usage=${collection.snapshots.usage.length}`,
-      `billing=${collection.snapshots.billing.length}`,
-      `health=${collection.snapshots.serviceHealth.length}`,
-      `estimates=${collection.snapshots.costEstimates.length}`,
-      `alerts=${collection.alerts.length}`,
-    ].join(" "),
+  return completeSync(
+    context,
+    createCollectionSyncResult(collection),
   );
-
-  return 0;
 }
 
 async function loadCloudflareFixture(cwd: string, fixturePath: string): Promise<CloudflareBillingUsagePayload> {

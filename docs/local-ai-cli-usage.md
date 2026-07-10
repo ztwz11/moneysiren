@@ -44,3 +44,31 @@ MoneySiren must not display or persist:
 ## Confidence
 
 Quota values should include source and confidence. If a CLI does not expose quota percentage, MoneySiren may calculate an estimate from configured non-secret token limits, but the UI should treat that value as an estimate.
+
+
+## Codex Measurement v2
+
+Codex has two independent measurement domains:
+
+- Official App Server: quota/reset from `account/rateLimits/read` and aggregate
+  account tokens from `account/usage/read`.
+- Local session metadata: per-model input, cached input, cache write, output,
+  reasoning, and total tokens with estimated or bounded accuracy.
+
+MoneySiren never sums the official account aggregate with local model totals.
+Sol, Terra, and Luna stay in separate buckets; `gpt-5.6` is the exact alias of
+`gpt-5.6-sol`.
+
+The Codex rate card verified on 2026-07-10 can produce a local credit estimate
+only when both non-secret applicability settings are explicit:
+
+    MONEYSIREN_CODEX_RATE_CARD_MODE=token-based
+    MONEYSIREN_CODEX_EXECUTION_MODE=standard
+
+The value is the dated official rate multiplied by local estimated/bounded
+tokens. It is not official account spend. Legacy/unknown cards, fast/unknown
+execution mode, unknown models, and positive cache-write counters fail closed
+without a number.
+
+Official rate source:
+https://help.openai.com/en/articles/20001106-codex-rate-card

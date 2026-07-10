@@ -1,4 +1,5 @@
 import { execFile, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { access, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -6,7 +7,14 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, join, posix, resolve, win32 } from "node:path";
 import { promisify } from "node:util";
 import type { CliExecutionContext } from "./cli.js";
+import { validateTarGzArchive } from "./release-archive.js";
 import { resolveReleaseInstallDir } from "./release-installer.js";
+import {
+  observedIdentityFromElapsedSeconds,
+  parsePosixElapsedTime,
+  verifyManagedProcessIdentity,
+  type ObservedProcessIdentity,
+} from "./process-identity.js";
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_WEB_PORT = 3000;
@@ -110,6 +118,8 @@ interface DesktopRuntimeState {
 interface ManagedDesktopProcess {
   pid: number;
   startedAt: string;
+  nonce?: string;
+  processExecutablePath?: string;
   port?: number;
   dashboardUrl?: string;
   executablePath?: string;
@@ -257,6 +267,8 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
         return startScript;
       }
 
+      const webStartedAt = new Date().toISOString();
+      const webNonce = randomUUID();
       const webProcess = await startHiddenWebRuntimeProcess({
         command: process.execPath,
         args: [startScript.path],
@@ -266,6 +278,7 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
           ...context.env,
           HOSTNAME: "127.0.0.1",
           PORT: String(port),
+          MONEYSIREN_RUNTIME_NONCE: webNonce,
         },
       });
 
@@ -302,7 +315,9 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
             pid: webProcess.pid as number,
             port,
             dashboardUrl,
-            startedAt: new Date().toISOString(),
+            startedAt: webStartedAt,
+            nonce: webNonce,
+            processExecutablePath: process.execPath,
           },
         }));
 
@@ -341,6 +356,8 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
         return executable;
       }
 
+      const hudStartedAt = new Date().toISOString();
+      const hudNonce = randomUUID();
       const child = spawn(executable.command, executable.args, {
         ...(executable.cwd === undefined ? {} : { cwd: executable.cwd }),
         ...desktopBackgroundSpawnOptions(),
@@ -348,6 +365,7 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
           ...process.env,
           ...context.env,
           MONEYSIREN_DESKTOP_MODE: "hud",
+          MONEYSIREN_RUNTIME_NONCE: hudNonce,
           MONEYSIREN_LOCALE: desktopLocale(context.env),
           MONEYSIREN_WEB_URL: `http://127.0.0.1:${options.port ?? configuredPort(context.env)}`,
         },
@@ -360,8 +378,10 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
           ...state,
           hud: {
             executablePath: executable.executablePath,
+            processExecutablePath: executable.command,
             pid: child.pid as number,
-            startedAt: new Date().toISOString(),
+            startedAt: hudStartedAt,
+            nonce: hudNonce,
           },
         }));
         const notes = ["Desktop HUD shell launched with MONEYSIREN_DESKTOP_MODE=hud."];
@@ -496,6 +516,25 @@ async function processStatus(input: {
     };
   }
 
+  const observedIdentity = await inspectManagedProcessIdentity(input.process.pid);
+  const identityVerification = observedIdentity === null
+    ? { status: "unverifiable" as const }
+    : verifyManagedProcessIdentity({
+        pid: input.process.pid,
+        startedAt: input.process.startedAt,
+        ...(input.process.processExecutablePath === undefined ? {} : { executablePath: input.process.processExecutablePath }),
+        ...(input.process.nonce === undefined ? {} : { nonce: input.process.nonce }),
+      }, observedIdentity);
+
+  if (identityVerification.status !== "verified") {
+    return {
+      target: input.target,
+      status: "stale",
+      pid: input.process.pid,
+      detail: "Recorded process identity no longer matches the running process.",
+    };
+  }
+
   if (input.target === "web" && input.healthUrl !== undefined && !await isWebRuntimeHealthy(input.healthUrl, input.context.fetch)) {
     return {
       target: input.target,
@@ -616,6 +655,25 @@ async function stopManagedProcess(
     };
   }
 
+  const observedIdentity = await inspectManagedProcessIdentity(processRecord.pid);
+  const identityVerification = observedIdentity === null
+    ? { status: "unverifiable" as const }
+    : verifyManagedProcessIdentity({
+        pid: processRecord.pid,
+        startedAt: processRecord.startedAt,
+        ...(processRecord.processExecutablePath === undefined ? {} : { executablePath: processRecord.processExecutablePath }),
+        ...(processRecord.nonce === undefined ? {} : { nonce: processRecord.nonce }),
+      }, observedIdentity);
+
+  if (identityVerification.status !== "verified") {
+    return {
+      target,
+      status: "stale",
+      pid: processRecord.pid,
+      detail: `Refusing to stop ${target}; the recorded process identity is stale or unverifiable.`,
+    };
+  }
+
   try {
     process.kill(processRecord.pid, "SIGTERM");
     await waitForProcessExit(processRecord.pid, STOP_TIMEOUT_MS);
@@ -649,7 +707,9 @@ async function stopManagedProcess(
       target,
       status: "failed",
       pid: processRecord.pid,
-      detail: error instanceof Error ? error.message : String(error),
+      detail: isNodeError(error) && typeof error.code === "string"
+        ? `${target} process stop failed (${error.code}).`
+        : `${target} process stop failed.`,
     };
   }
 }
@@ -723,6 +783,7 @@ async function resolveWebRuntimeStartScript(context: CliExecutionContext): Promi
   }
 
   try {
+    await validateTarGzArchive(webAsset.path);
     await mkdir(extractedRoot, { recursive: true });
     await execFileAsync("tar", ["-xzf", webAsset.path, "-C", extractedRoot], {
       windowsHide: true,
@@ -864,6 +925,12 @@ async function executableFromPath(path: string, allowInstaller: boolean): Promis
 
   if (process.platform === "darwin" && /\.tar\.gz$/i.test(path)) {
     const extractRoot = join(dirname(path), "desktop");
+
+    try {
+      await validateTarGzArchive(path);
+    } catch {
+      return null;
+    }
 
     await mkdir(extractRoot, { recursive: true });
     await execFileAsync("tar", ["-xzf", path, "-C", extractRoot], {
@@ -1174,6 +1241,71 @@ function resolveDesktopRuntimeStatePath(context: CliExecutionContext): string {
   );
 }
 
+async function inspectManagedProcessIdentity(pid: number): Promise<ObservedProcessIdentity | null> {
+  if (!Number.isSafeInteger(pid) || pid <= 0) {
+    return null;
+  }
+
+  try {
+    if (process.platform === "win32") {
+      const script = [
+        "$ErrorActionPreference = 'Stop'",
+        `$p = Get-Process -Id ${pid}`,
+        "[Console]::Out.WriteLine([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($p.Path)))",
+        "[Console]::Out.WriteLine($p.StartTime.ToUniversalTime().ToString('O'))",
+      ].join("\n");
+      const { stdout } = await execFileAsync("powershell.exe", [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        script,
+      ], {
+        encoding: "utf8",
+        timeout: 5_000,
+        windowsHide: true,
+      });
+      const [encodedPath, startedAt] = stdout.trim().split(/\r?\n/u);
+      if (encodedPath === undefined || startedAt === undefined) {
+        return null;
+      }
+
+      return {
+        pid,
+        executablePath: Buffer.from(encodedPath, "base64").toString("utf8"),
+        startedAt,
+      };
+    }
+
+    const { stdout } = await execFileAsync("ps", [
+      "-p",
+      String(pid),
+      "-o",
+      "etime=",
+      "-o",
+      "comm=",
+    ], {
+      encoding: "utf8",
+      timeout: 5_000,
+      windowsHide: true,
+    });
+    const match = stdout.trim().match(/^(\S+)\s+(.+)$/su);
+    const elapsedSeconds = match === null ? null : parsePosixElapsedTime(match[1] ?? "");
+    if (match === null || elapsedSeconds === null) {
+      return null;
+    }
+
+    return observedIdentityFromElapsedSeconds({
+      pid,
+      elapsedSeconds,
+      executablePath: match[2] ?? "",
+    });
+  } catch {
+    return null;
+  }
+}
+
 function parseDesktopRuntimeState(value: unknown): DesktopRuntimeState | null {
   if (!isRecord(value) || value.version !== 1 || typeof value.updatedAt !== "string") {
     return null;
@@ -1199,6 +1331,8 @@ function parseManagedDesktopProcess(value: unknown): ManagedDesktopProcess | und
     pid: value.pid,
     startedAt: value.startedAt,
     ...(typeof value.port === "number" && Number.isSafeInteger(value.port) ? { port: value.port } : {}),
+    ...(typeof value.nonce === "string" ? { nonce: value.nonce } : {}),
+    ...(typeof value.processExecutablePath === "string" ? { processExecutablePath: value.processExecutablePath } : {}),
     ...(typeof value.dashboardUrl === "string" ? { dashboardUrl: value.dashboardUrl } : {}),
     ...(typeof value.executablePath === "string" ? { executablePath: value.executablePath } : {}),
   };

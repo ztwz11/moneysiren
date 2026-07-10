@@ -2,29 +2,37 @@
 
 import { RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { ResetCreditApiFailure, ResetCreditApiResponse, ResetCreditStatus } from "../../lib/codex-reset-credits/types";
+import type {
+  ResetCreditApiFailure,
+  ResetCreditApiResponse,
+  ResetCreditStatus,
+} from "../../lib/codex-reset-credits/types";
 import { ResetCreditCard } from "./ResetCreditCard";
 import { ResetCreditError } from "./ResetCreditError";
 
 const AUTO_REFRESH_MS = 30 * 60 * 1000;
 const TEXT = {
-  eyebrow: "\u004d\u006f\u006e\u0065\u0079\u0053\u0069\u0072\u0065\u006e local Codex monitor",
-  title: "\u0043\u006f\u0064\u0065\u0078 \ucd08\uae30\ud654\uad8c \ub9cc\ub8cc\uc77c",
-  subtitle: "\ub85c\uceec Codex \ub85c\uadf8\uc778 \uc815\ubcf4\ub97c \uc11c\ubc84\uc5d0\uc11c\ub9cc \uc77d\uc5b4 \ucd08\uae30\ud654\uad8c \ub9cc\ub8cc \uc608\uc815 \uc2dc\uac04\uc744 \ud655\uc778\ud569\ub2c8\ub2e4.",
-  loading: "\uc870\ud68c \uc911",
-  refresh: "\uc0c8\ub85c\uace0\uce68",
-  available: "\ud604\uc7ac \ubcf4\uc720 \ucd08\uae30\ud654\uad8c",
-  total: "\ucd1d \uc9c0\uae09 \uac1c\uc218",
-  fetchedAt: "\ub9c8\uc9c0\ub9c9 \uc870\ud68c \uc2dc\uac01",
-  status: "\uc0c1\ud0dc",
-  unofficial: "\ube44\uacf5\uc2dd \ub0b4\ubd80 API",
-  loadingTitle: "\uc870\ud68c \uc911",
-  loadingBody: "\u0043\u006f\u0064\u0065\u0078 \ucd08\uae30\ud654\uad8c \uc815\ubcf4\ub97c \ubd88\ub7ec\uc624\uace0 \uc788\uc2b5\ub2c8\ub2e4.",
-  emptyTitle: "\ucd08\uae30\ud654\uad8c \uc815\ubcf4 \uc5c6\uc74c",
-  emptyBody: "\ud604\uc7ac API \uc751\ub2f5\uc5d0\uc11c \uac1c\ubcc4 \ucd08\uae30\ud654\uad8c \ub9cc\ub8cc \uc815\ubcf4\ub97c \ucc3e\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.",
-  footer: "\uc774 \uae30\ub2a5\uc740 \ubb38\uc11c\ud654\ub418\uc9c0 \uc54a\uc740 ChatGPT \ub0b4\ubd80 API\ub97c \uc0ac\uc6a9\ud558\ubbc0\ub85c \uc608\uace0 \uc5c6\uc774 \ub3d9\uc791\uc774 \ubcc0\uacbd\ub420 \uc218 \uc788\uc2b5\ub2c8\ub2e4.",
-  fallbackError: "\u0043\u006f\u0064\u0065\u0078 \ucd08\uae30\ud654\uad8c \uc815\ubcf4\ub97c \uc870\ud68c\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.",
-  countSuffix: "\uac1c",
+  eyebrow: "MoneySiren · Official Codex App Server",
+  title: "Codex 사용량 및 초기화권",
+  subtitle: "로컬 Codex App Server의 공식 측정값을 schema v2로 정규화해 표시합니다.",
+  loading: "조회 중",
+  refresh: "새로고침",
+  available: "사용 가능 (availableCount)",
+  suppliedDetails: "제공된 상세 (supplied details)",
+  coverage: "상세 범위 (coverage)",
+  fetchedAt: "마지막 조회 시각",
+  source: "측정 소스",
+  official: "Official App Server",
+  complete: "전체 제공 (complete)",
+  partial: "부분 제공 (partial)",
+  unavailable: "확인 불가",
+  loadingTitle: "조회 중",
+  loadingBody: "Codex App Server에서 공식 사용량 정보를 불러오고 있습니다.",
+  emptyTitle: "제공된 상세 항목 없음",
+  emptyBody: "App Server가 개별 상세 행을 제공하지 않았습니다. availableCount는 별도의 공식 값이며 MoneySiren은 누락된 행을 만들지 않습니다.",
+  footer: "availableCount는 App Server가 보고한 권위 있는 값입니다. supplied details는 제한되거나 부분 제공될 수 있으며 MoneySiren은 누락된 크레딧이나 총 지급량을 추정하지 않습니다.",
+  fallbackError: "Codex App Server 사용량 정보를 조회하지 못했습니다.",
+  countSuffix: "개",
 };
 
 type LoadState = "idle" | "loading" | "error";
@@ -34,6 +42,11 @@ export function ResetCreditDashboard() {
   const [error, setError] = useState<ResetCreditApiFailure["error"] | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const sortedCredits = useMemo(() => data?.credits ?? [], [data?.credits]);
+  const coverageValue = data === null
+    ? "-"
+    : data.detailsComplete
+      ? TEXT.complete
+      : TEXT.partial;
 
   useEffect(() => {
     let mounted = true;
@@ -75,11 +88,25 @@ export function ResetCreditDashboard() {
         </button>
       </header>
 
-      <section className="reset-credit-summary" aria-label="Codex reset credit summary">
+      <section className="reset-credit-summary" aria-label="Codex App Server rate-limit summary">
         <SummaryTile label={TEXT.available} value={formatCount(data?.availableCount)} />
-        <SummaryTile label={TEXT.total} value={formatCount(data?.totalEarnedCount)} />
-        <SummaryTile label={TEXT.fetchedAt} value={data === null ? "-" : formatDateTime(data.fetchedAtUtc)} />
-        <SummaryTile label={TEXT.status} value={TEXT.unofficial} emphasis />
+        <SummaryTile
+          label={TEXT.suppliedDetails}
+          value={data === null ? "-" : formatCount(sortedCredits.length)}
+        />
+        <SummaryTile
+          emphasis={data !== null && !data.detailsComplete}
+          label={TEXT.coverage}
+          value={coverageValue}
+        />
+        <SummaryTile
+          label={TEXT.fetchedAt}
+          value={data === null ? "-" : formatDateTime(data.fetchedAtUtc)}
+        />
+        <SummaryTile
+          label={TEXT.source}
+          value={data === null ? "-" : `${TEXT.official} · schema v${data.schemaVersion}`}
+        />
       </section>
 
       {loadState === "error" && error !== null ? (
@@ -101,7 +128,7 @@ export function ResetCreditDashboard() {
       ) : null}
 
       {sortedCredits.length > 0 ? (
-        <section className="reset-credit-list" aria-label="Codex reset credit expiry list">
+        <section className="reset-credit-list" aria-label="Codex reset-credit supplied details">
           {sortedCredits.map((credit) => (
             <ResetCreditCard credit={credit} key={`${credit.index}-${credit.expiresAtUtc ?? "unknown"}`} />
           ))}
@@ -153,9 +180,21 @@ async function load(): Promise<ResetCreditApiResponse> {
   }
 }
 
-function SummaryTile({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+function SummaryTile({
+  label,
+  value,
+  emphasis = false,
+}: {
+  label: string;
+  value: string;
+  emphasis?: boolean;
+}) {
   return (
-    <div className={emphasis ? "reset-credit-summary-tile reset-credit-summary-tile-warning" : "reset-credit-summary-tile"}>
+    <div
+      className={emphasis
+        ? "reset-credit-summary-tile reset-credit-summary-tile-warning"
+        : "reset-credit-summary-tile"}
+    >
       <span className="metric-label">{label}</span>
       <strong>{value}</strong>
     </div>

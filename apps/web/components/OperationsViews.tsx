@@ -7,6 +7,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import type { Messages, Locale } from "../lib/i18n";
+import { formatCodexCreditEstimateUnavailable } from "../lib/local-ai/codex/credit-estimate-presentation";
 import { BudgetSettings } from "./BudgetSettings";
 import { ConnectionCard } from "./ConnectionCard";
 import { DashboardDisplaySettings } from "./DashboardDisplaySettings";
@@ -2290,7 +2291,12 @@ function UsageSummaryBlock({
           <div className="metric-meta">{messages.services.currentPeriod}</div>
           {summary.metrics.map((metric, index) => (
             <div className="usage-metric" key={`${metric.key}:${index}`}>
-              <span>{usageMetricLabel(metric.key, messages)}</span>
+              <span>
+                {usageMetricLabel(metric.key, messages)}
+                {usageMetricMeasurementLabel(metric, messages) === null ? null : (
+                  <span className="metric-meta"> · {usageMetricMeasurementLabel(metric, messages)}</span>
+                )}
+              </span>
               <strong>{formatUsageMetricDisplayValue(metric, locale)}</strong>
             </div>
           ))}
@@ -2299,10 +2305,149 @@ function UsageSummaryBlock({
               {messages.services.topServices}: {summary.topServices.join(", ")}
             </div>
           )}
+          <CodexMeasurementDetails summary={summary} locale={locale} messages={messages} />
         </div>
       )}
     </div>
   );
+}
+
+function CodexMeasurementDetails({
+  summary,
+  locale,
+  messages,
+}: {
+  summary: NonNullable<OperationsProvider["currentUsageSummary"]>;
+  locale: Locale;
+  messages: Messages;
+}) {
+  const official = summary.codexOfficial;
+  const local = summary.codexLocal;
+
+  if (official === undefined && local === undefined) {
+    return null;
+  }
+
+  const officialAccountTokens = official?.accountUsage.availability === "available"
+    ? official.accountUsage.data.summary.lifetimeTokens
+    : null;
+  const officialResetCredits = official?.rateLimits.availability === "available"
+    ? official.rateLimits.data.resetCredits
+    : null;
+  const measurement = local?.measurement;
+  const localData = measurement?.availability === "available" ? measurement.data : null;
+  const creditEstimate = local?.creditEstimate;
+
+  return (
+    <div className="usage-summary">
+      {official === undefined ? null : (
+        <div>
+          <div className="metric-label">{messages.services.codexOfficialMeasurements}</div>
+          <div className="usage-metric">
+            <span>{messages.services.totalTokens}</span>
+            <strong>{officialAccountTokens === null
+              ? messages.services.codexUnavailable
+              : formatUsageMetric(officialAccountTokens, "tokens", locale)}</strong>
+          </div>
+          <div className="usage-metric">
+            <span>{messages.services.usageResetCredits}</span>
+            <strong>{officialResetCredits === null
+              ? messages.services.codexUnavailable
+              : new Intl.NumberFormat(locale).format(officialResetCredits.availableCount)}</strong>
+          </div>
+          <div className="usage-metric">
+            <span>{messages.services.codexSuppliedDetails}</span>
+            <strong>{officialResetCredits === null
+              ? messages.services.codexUnavailable
+              : new Intl.NumberFormat(locale).format(officialResetCredits.details.length)}</strong>
+          </div>
+        </div>
+      )}
+      {local === undefined ? null : (
+        <div>
+          <div className="metric-label">
+            {messages.services.codexLocalMeasurements} · {measurementAccuracyLabel(measurement?.accuracy, messages)}
+          </div>
+          {localData?.models.map((model) => (
+            <div className="usage-summary" key={model.canonicalModelId}>
+              <div className="metric-meta">{model.canonicalModelId}</div>
+              <div className="usage-metric">
+                <span>{messages.services.inputTokens}</span>
+                <strong>{formatUsageMetric(model.inputTokens, "tokens", locale)}</strong>
+              </div>
+              <div className="usage-metric">
+                <span>{messages.services.cacheTokens}</span>
+                <strong>{formatUsageMetric(model.cachedInputTokens, "tokens", locale)}</strong>
+              </div>
+              <div className="usage-metric">
+                <span>{messages.services.outputTokens}</span>
+                <strong>{formatUsageMetric(model.outputTokens, "tokens", locale)}</strong>
+              </div>
+              <div className="usage-metric">
+                <span>{messages.services.reasoningTokens}</span>
+                <strong>{formatUsageMetric(model.reasoningTokens, "tokens", locale)}</strong>
+              </div>
+            </div>
+          ))}
+          {localData === null ? null : (
+            <div className="metric-meta">
+              {messages.services.codexCoverage}: {localData.coverage.scannedFileCount}/{localData.coverage.eligibleFileCount}
+              {localData.coverage.truncated ? " · bounded" : ""}
+            </div>
+          )}
+          <div className="usage-metric">
+            <span>{messages.services.codexCreditEstimate}</span>
+            <strong>{creditEstimate?.estimatedCredits === null || creditEstimate === undefined
+              ? formatCodexCreditEstimateUnavailable(creditEstimate, {
+                  unavailable: messages.services.codexUnavailable,
+                  rateCardNotConfirmed: messages.services.codexReasonRateCardNotConfirmed,
+                  legacyRateCard: messages.services.codexReasonLegacyRateCard,
+                  executionModeNotConfirmed: messages.services.codexReasonExecutionModeNotConfirmed,
+                  fastModeUnavailable: messages.services.codexReasonFastModeUnavailable,
+                  unknownModel: messages.services.codexReasonUnknownModel,
+                  cacheWriteUnavailable: messages.services.codexReasonCacheWriteUnavailable,
+                  invalidCachedInputSubset: messages.services.codexReasonInvalidCachedInputSubset,
+                })
+              : `${new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(creditEstimate.estimatedCredits)} credits`}</strong>
+          </div>
+          <div className="metric-meta">{messages.services.codexCreditEstimateNote}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function usageMetricMeasurementLabel(metric: UsageMetric, messages: Messages): string | null {
+  const source = metric.source ?? "";
+
+  if (source.includes("codex-app-server") || source.includes("codex_reset_credit_api")) {
+    return messages.services.measurementOfficial;
+  }
+
+  if (source.includes("provider-reported")) {
+    return messages.services.measurementProviderReported;
+  }
+
+  return measurementAccuracyLabel(metric.accuracy, messages);
+}
+
+function measurementAccuracyLabel(
+  accuracy: UsageMetric["accuracy"] | "unavailable" | undefined,
+  messages: Messages,
+): string {
+  if (accuracy === "bounded") {
+    return messages.services.measurementBounded;
+  }
+
+  if (accuracy === "estimated") {
+    return messages.services.measurementLocalEstimate;
+  }
+
+  if (accuracy === "exact") {
+    return messages.services.measurementProviderReported;
+  }
+
+  return messages.services.codexUnavailable;
 }
 
 function BadgeLine({ messages, states }: { messages: Messages; states: readonly string[] }) {

@@ -1,83 +1,120 @@
 # Security Policy
 
-## Supported Versions
+## Supported versions
 
-MoneySiren is currently pre-1.0. Security fixes are prioritized on the default branch.
+MoneySiren is pre-1.0.
 
-## Security Model
+| Version | Security support |
+|---|---|
+| Default branch | Yes |
+| Latest published patch release | Yes |
+| Older releases | No; upgrade first |
 
-MoneySiren is local-first. It reads provider usage and cost data using read-only credentials and stores normalized snapshots locally.
+A fix may exist only on the default branch until a new patch is published.
 
-MoneySiren must not store credential material in SQLite.
+## Reporting a vulnerability
 
-MoneySiren must not persist raw provider payloads.
+Use GitHub private vulnerability reporting:
 
-MoneySiren must not expose secrets in:
+https://github.com/ztwz11/moneysiren/security/advisories/new
 
-- browser localStorage, sessionStorage, or readable cookies
-- dashboard JSON
-- reports
-- Slack payloads
-- logs
-- fixtures
-- test snapshots
-- screenshots
+Do not open a public issue, Discussion, or pull request containing exploit
+details, secrets, identifiers, private data, or reproduction artifacts.
 
-## Sensitive Data
+Include only:
 
-Do not share the following in public issues or pull requests:
+- affected MoneySiren version or commit;
+- affected provider, package, or product surface;
+- sanitized reproduction steps using fake or synthetic data;
+- expected security impact;
+- suggested mitigation if available.
 
-- API keys
-- OAuth tokens
-- webhook URLs
-- AWS account IDs
-- OpenAI organization IDs
-- Supabase project refs
-- Cloudflare account IDs
-- invoice IDs
-- card data
-- billing profile data
-- email addresses
-- local prompt text
-- shell command bodies
-- raw JSONL log lines
-- raw provider responses
-- local AI auth files
+Do not attach credentials, real payloads, databases, local AI logs, auth files,
+environment files, screenshots from real accounts, or signing material.
 
-## Public Repository Safeguards
+## Response targets
 
-The public repository is expected to contain source code, docs, fake fixtures, and generated mock screenshots only.
+These are best-effort targets, not a service-level agreement.
 
-Before pushing changes, run:
+- critical report acknowledgement: one business day;
+- other report acknowledgement: three business days;
+- initial severity and next-step assessment: seven business days.
 
-```bash
-npm run secret:scan
-```
+The maintainer coordinates validation, remediation, release, and disclosure.
+Public disclosure waits until affected users have a reasonable upgrade window.
 
-Before publishing or reviewing a public branch, run the full current-tree plus Git history scan:
+## Security model
 
-```bash
-npm run secret:scan:all
-```
+MoneySiren is local-first. Provider connectors use minimum read-only credentials
+and store normalized snapshots locally.
 
-GitHub Actions also runs the full secret scan with `fetch-depth: 0` so deleted secrets in earlier commits are checked, not just the latest checkout.
+MoneySiren must not:
 
-The scanner is intentionally conservative for MoneySiren's threat model. It blocks common provider tokens, Slack webhooks, GitHub tokens, Supabase PAT-style tokens, private key blocks, committed environment files, local SQLite databases, local runtime files, logs, and private key/certificate material. Fake examples must be clearly labeled with terms such as `fake`, `fixture`, `example`, `dummy`, or `do-not-use`.
+- store credentials in SQLite;
+- persist raw provider payloads;
+- upload local usage or billing data;
+- enable telemetry by default;
+- expose browser-readable secrets;
+- execute provider write actions.
 
-GitHub Dependabot is configured for npm and GitHub Actions updates. Keep GitHub Secret Scanning and Push Protection enabled for the repository when available.
+## Sensitive data
 
-## Reporting a Vulnerability
+MoneySiren must not expose the following in issues, pull requests, logs, reports,
+dashboard JSON, Slack payloads, fixtures, test snapshots, screenshots, or
+release artifacts:
 
-Please report security issues privately. Do not open a public issue with exploit details or secrets.
+- API keys, OAuth tokens, webhook URLs, or credential files;
+- provider account, organization, project, invoice, billing, card, or email
+  data;
+- real provider payloads or provider-account screenshots;
+- local prompt or assistant text, tool input, command bodies, shell history,
+  raw JSONL, full paths, session identifiers, or local AI auth files;
+- private keys, certificates, signing credentials, or real local databases.
 
-Include:
+Use clearly marked fake or synthetic examples.
 
-- affected version or commit
-- affected provider or package
-- reproduction steps using fake or synthetic data
-- expected impact
-- suggested fix if available
+## Local AI privacy
 
-## Local AI CLI Privacy
+Codex and Claude sources can contain prompt text, responses, tool input, shell
+commands, file context, tokens, and account metadata.
 
-Codex CLI and Claude CLI logs may contain prompt text, tool input, shell commands, and local file context. MoneySiren should only collect sanitized usage metadata such as token counts, quota percentages, reset times, model names, and timestamps.
+Allowed output is bounded to sanitized usage metadata such as token counts,
+percentages, reset times, model names, timestamps, freshness, and accuracy.
+
+Raw stdout, stderr, JSON-RPC envelopes, JSONL, opaque account or credit IDs, and
+auth files must not be logged, persisted, returned through APIs, or captured in
+screenshots.
+
+### Codex App Server child environment
+
+MoneySiren must not pass its complete environment to the Codex App Server
+process. The child receives only explicitly allowlisted process-execution,
+OS/home/config, `CODEX_HOME`, locale, proxy, and CA-certificate variables.
+Windows matching is case-insensitive and emits canonical keys; POSIX matching
+is exact. Prefix wildcards such as `LC_*` and `MONEYSIREN_*` are forbidden.
+
+Provider API keys, cloud credential variables, webhook or bot credentials,
+reset and cron secrets, OAuth or vault tokens, `NODE_OPTIONS`, debug/log
+controls, and SSH agent state must remain outside the child environment.
+Proxy and CA variables are narrow network-runtime exceptions and must never be
+logged or returned. `CODEX_HOME` may be passed so Codex can own its sign-in
+state, but MoneySiren must not read or expose its auth contents.
+
+## Public repository safeguards
+
+Before pushing:
+
+    npm run secret:scan
+
+Before publishing or reviewing a public branch:
+
+    npm run secret:scan:all
+
+CI performs a full-history secret scan with fetch-depth 0.
+
+Keep GitHub Secret Scanning, Push Protection, Dependabot, private vulnerability
+reporting, protected main, and immutable v* tag rules enabled.
+
+If sensitive data is accidentally committed, do not rely on deletion alone.
+Revoke or rotate it immediately, notify the Security Responder privately, and
+follow coordinated cleanup guidance.

@@ -18,6 +18,10 @@ import {
 } from "../../../packages/credentials/src/index";
 import { redactSensitiveString } from "../../../packages/security/src/index";
 import {
+  classifyProviderFreshness,
+  providerFreshnessPolicy,
+} from "../../../packages/view-model/src/index";
+import {
   readConnectionsStatus,
   type ConnectionState,
   type ConnectionsStatusPayload,
@@ -93,6 +97,8 @@ export interface LiveTodayUsageSummary {
   period: "current_month";
   metrics: readonly LiveTodayUsageMetric[];
   topServices: readonly string[];
+  codexOfficial?: NonNullable<LocalAiCliProviderStatus["usage"]["codexOfficial"]>;
+  codexLocal?: NonNullable<LocalAiCliProviderStatus["usage"]["codexLocal"]>;
 }
 
 export interface LiveTodayUsageMetric {
@@ -134,9 +140,6 @@ export interface LiveTodayOptions {
 }
 
 const DEFAULT_TTL_SECONDS = 60;
-const LOCAL_AI_CLI_TTL_SECONDS = 5;
-const LOCAL_AI_CLI_STALE_SECONDS = 120;
-const DEFAULT_STALE_SECONDS = 15 * 60;
 const AWS_REGION_ENV_KEY = "MONEYSIREN_AWS_REGION";
 const CLOUDFLARE_ACCOUNT_IDS_ENV_KEY = "CLOUDFLARE_ACCOUNT_IDS";
 const ENV_CONNECTION_ID = "env";
@@ -267,6 +270,15 @@ async function collectAndCacheLiveTodayTargetUncached(
       now: context.now,
       timezone: context.timezone,
     });
+    if (collected.status === "error") {
+      return recordFailedLiveTodayTarget(context, target, {
+        checkedAt: collected.checkedAt,
+        message: safeErrorMessage(new Error(collected.message ?? "Live provider check failed.")),
+        status: "error",
+        ttlSeconds,
+      });
+    }
+
     const cached: CachedLiveTodayProvider = {
       ...collected,
       ...(target.connectionId === undefined ? {} : { connectionId: target.connectionId }),
@@ -566,15 +578,24 @@ function freshnessFromCachedState(
     return state.lastError?.status === "error" ? "error" : freshnessWithoutCache(target.connectionState, granularity);
   }
 
-  if (state.freshUntil !== null && Date.parse(state.freshUntil) > now.getTime()) {
+  const freshness = classifyProviderFreshness({
+    latestRunStatus: state.lastError === null ? state.lastSuccess.status : "error",
+    hasUsableData: true,
+    latestRunHasData: state.lastError === null && state.lastSuccess.status === "partial",
+    referenceAt: state.lastSuccess.checkedAt,
+    now,
+    ttlSeconds: state.lastSuccess.ttlSeconds,
+  });
+
+  if (freshness === "live") {
     return "live";
   }
 
-  if (state.staleUntil !== null && Date.parse(state.staleUntil) > now.getTime()) {
-    return "stale";
+  if (freshness === "error") {
+    return "error";
   }
 
-  return state.lastError === null ? "stale" : "error";
+  return "stale";
 }
 
 function isCachedProviderStateFreshnessExpired(state: CachedLiveTodayProviderState, now: Date): boolean {
@@ -630,14 +651,12 @@ function isLocalAiCliProviderKey(providerKey: ProviderKey): providerKey is Local
 
 function liveTtlSecondsForTarget(target: LiveTodayConnectionTarget, defaultTtlSeconds: number): number {
   return isLocalAiCliProviderKey(target.providerKey)
-    ? Math.min(defaultTtlSeconds, LOCAL_AI_CLI_TTL_SECONDS)
+    ? Math.min(defaultTtlSeconds, providerFreshnessPolicy(target.providerKey).cacheTtlSeconds)
     : defaultTtlSeconds;
 }
 
 function liveStaleSecondsForTarget(target: LiveTodayConnectionTarget): number {
-  return isLocalAiCliProviderKey(target.providerKey)
-    ? LOCAL_AI_CLI_STALE_SECONDS
-    : DEFAULT_STALE_SECONDS;
+  return providerFreshnessPolicy(target.providerKey).staleTtlSeconds;
 }
 
 function createDefaultLiveTodayCollector(providerKey: ProviderKey): LiveTodayProviderCollector {
@@ -803,8 +822,14 @@ export function summarizeLocalAiCliUsage(
   extraMetrics: readonly LiveTodayUsageMetric[] = [],
 ): LiveTodayUsageSummary | null {
   const metrics = mergeLocalCliUsageMetrics(localCliUsageMetrics(provider), extraMetrics);
+  const codexOfficial = provider.usage.codexOfficial;
+  const codexLocal = provider.usage.codexLocal;
+  const hasOfficialMeasurement = codexOfficial !== undefined && (
+    codexOfficial.rateLimits.availability === "available" ||
+    codexOfficial.accountUsage.availability === "available"
+  );
 
-  if (metrics.length === 0) {
+  if (metrics.length === 0 && !hasOfficialMeasurement && codexLocal === undefined) {
     return null;
   }
 
@@ -815,6 +840,8 @@ export function summarizeLocalAiCliUsage(
     topServices: provider.usage.topModels.length === 0
       ? [provider.displayName]
       : provider.usage.topModels,
+    ...(codexOfficial === undefined ? {} : { codexOfficial }),
+    ...(codexLocal === undefined ? {} : { codexLocal }),
   };
 }
 
@@ -1016,7 +1043,46 @@ function localCliUsageMetrics(provider: LocalAiCliProviderStatus): LiveTodayUsag
     metrics.push({ key: "log_files", value: provider.usage.logFileCount, unit: "files" });
   }
 
-  return metrics;
+  return metrics.map((metric) => decorateLocalUsageMetric(metric, provider));
+}
+
+function decorateLocalUsageMetric(
+  metric: LiveTodayUsageMetric,
+  provider: LocalAiCliProviderStatus,
+): LiveTodayUsageMetric {
+  if (metric.accuracy !== undefined || metric.source !== undefined) {
+    return metric;
+  }
+
+  const officialRateLimitMetric = metric.key === "five_hour_limit_percent" ||
+    metric.key === "weekly_limit_percent" ||
+    metric.key === "five_hour_remaining_tokens" ||
+    metric.key === "weekly_remaining_tokens";
+  const officialRateLimitsAvailable =
+    provider.usage.codexOfficial?.rateLimits.availability === "available";
+
+  if (officialRateLimitMetric && officialRateLimitsAvailable) {
+    return {
+      ...metric,
+      accuracy: "exact",
+      source: "codex-app-server-rate-limits",
+    };
+  }
+
+  const localMeasurement = provider.usage.codexLocal?.measurement;
+  const accuracy = localMeasurement?.availability === "available"
+    ? localMeasurement.accuracy
+    : provider.usage.providerKind === "codex"
+      ? "unknown"
+      : "estimated";
+
+  return {
+    ...metric,
+    accuracy,
+    source: provider.usage.providerKind === "codex"
+      ? "codex-local-session-metadata"
+      : `${provider.usage.providerKind}-local-session-metadata`,
+  };
 }
 
 function summarizeResetCreditMetricAccuracy(
@@ -1163,7 +1229,7 @@ function summarizeAmount(
 function summarizeOpenAiCurrentUsage(
   usage: readonly {
     service: string;
-    metric: "input_tokens" | "output_tokens" | "model_requests";
+    metric: "input_tokens" | "cached_input_tokens" | "output_tokens" | "model_requests";
     value: number;
   }[],
 ): LiveTodayUsageSummary | undefined {
@@ -1172,12 +1238,18 @@ function summarizeOpenAiCurrentUsage(
   }
 
   const inputTokens = sumUsageMetric(usage, "input_tokens");
+  const cachedInputTokens = sumUsageMetric(usage, "cached_input_tokens");
   const outputTokens = sumUsageMetric(usage, "output_tokens");
   const modelRequests = sumUsageMetric(usage, "model_requests");
+  const providerReported = {
+    accuracy: "exact" as const,
+    source: "openai-provider-reported",
+  };
   const metricCandidates: LiveTodayUsageMetric[] = [
-    { key: "input_tokens", value: inputTokens, unit: "tokens" },
-    { key: "output_tokens", value: outputTokens, unit: "tokens" },
-    { key: "model_requests", value: modelRequests, unit: "requests" },
+    { key: "input_tokens", value: inputTokens, unit: "tokens", ...providerReported },
+    { key: "cache_tokens", value: cachedInputTokens, unit: "tokens", ...providerReported },
+    { key: "output_tokens", value: outputTokens, unit: "tokens", ...providerReported },
+    { key: "model_requests", value: modelRequests, unit: "requests", ...providerReported },
   ];
   const metrics = metricCandidates.filter((metric) => metric.value > 0);
 
@@ -1189,16 +1261,16 @@ function summarizeOpenAiCurrentUsage(
     kind: "llm_subscription",
     period: "current_month",
     metrics,
-    topServices: summarizeTopUsageServices(usage),
+    topServices: summarizeTopUsageServices(usage.filter((item) => item.metric !== "cached_input_tokens")),
   };
 }
 
 function sumUsageMetric(
   usage: readonly {
-    metric: "input_tokens" | "output_tokens" | "model_requests";
+    metric: "input_tokens" | "cached_input_tokens" | "output_tokens" | "model_requests";
     value: number;
   }[],
-  metric: "input_tokens" | "output_tokens" | "model_requests",
+  metric: "input_tokens" | "cached_input_tokens" | "output_tokens" | "model_requests",
 ): number {
   return usage
     .filter((item) => item.metric === metric)

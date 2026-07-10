@@ -6,6 +6,10 @@ import {
   type LocalServiceHealthSnapshotRecord,
   type LocalStore,
 } from "../../../packages/db/src/index";
+import {
+  calculateProviderFreshness,
+  type ProviderFreshness,
+} from "../../../packages/view-model/src/index";
 
 const DEFAULT_DASHBOARD_DB_PATH = ".moneysiren/moneysiren.sqlite";
 const DEFAULT_CURRENCY = "USD";
@@ -57,6 +61,7 @@ export interface DashboardProviderRow {
   alertCount: number;
   riskLevel: DashboardRiskLevel;
   latestCollectedAt: string | null;
+  freshness?: ProviderFreshness;
 }
 
 export interface DashboardUsageSummary {
@@ -149,6 +154,7 @@ export function buildDashboardSnapshot(
   store: LocalStore,
   options: BuildDashboardSnapshotOptions,
 ): DashboardSnapshot {
+  const generatedAt = new Date(options.generatedAt);
   const providerDisplayNames = new Map(store.providers.map((provider) => [provider.key, safeText(provider.displayName)]));
   const providerRows = store.providers.map((provider): DashboardProviderRow => {
     const usageSnapshots = store.usageSnapshots.filter((snapshot) => snapshot.providerKey === provider.key);
@@ -165,6 +171,11 @@ export function buildDashboardSnapshot(
       ...serviceHealthSnapshots.map((snapshot) => snapshot.collectedAt),
       ...costEstimates.map((snapshot) => snapshot.collectedAt),
     ]);
+    const freshness = calculateProviderFreshness(
+      provider.key,
+      store.providerSyncRuns ?? [],
+      Number.isNaN(generatedAt.getTime()) ? new Date() : generatedAt,
+    );
 
     return {
       providerKey: safeText(provider.key),
@@ -185,6 +196,7 @@ export function buildDashboardSnapshot(
         healthStatus,
       ),
       latestCollectedAt,
+      freshness,
     };
   });
   const alertItems = buildAlertItems(store.alerts, providerDisplayNames);

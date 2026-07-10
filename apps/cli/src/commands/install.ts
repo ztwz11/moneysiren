@@ -18,6 +18,7 @@ import {
   DEFAULT_RELEASE_REPOSITORY,
   DEFAULT_RELEASE_TAG,
   installReleaseAssets,
+  readReleaseRuntimeInstallStatus,
   type ReleaseInstallResult,
 } from "../release-installer.js";
 
@@ -91,13 +92,30 @@ async function writeInstallStatus(context: CliExecutionContext): Promise<number>
   });
   const selectedSurfaces = profile?.selectedSurfaces ?? DEFAULT_INSTALL_SURFACES;
 
-  context.stdout("MoneySiren install profile");
-  context.stdout(`Status: ${profile === null ? "not configured; using recommended default" : "configured"}`);
+  const runtime = await readReleaseRuntimeInstallStatus({
+    env: context.env,
+  });
+
+  context.stdout("MoneySiren install status");
+  context.stdout("Commands: installed (this CLI is running).");
+  context.stdout(`Install profile: ${profile === null ? "not configured; using recommended default" : "configured"}`);
   context.stdout(formatInstallSelectionLine(selectedSurfaces));
   context.stdout(`Recommended default: ${isDefaultSelection(selectedSurfaces) ? "yes" : "no"}`);
   context.stdout(`Profile path: ${resolveInstallProfilePath({ env: context.env })}`);
+  context.stdout(`Remote runtime: ${runtime.status}`);
+  context.stdout(`Runtime detail: ${runtime.message}`);
+  context.stdout(`Runtime install directory: ${runtime.installDir}`);
+
+  if (runtime.status === "ready") {
+    context.stdout(`Runtime release: ${runtime.repository}@${runtime.tag}`);
+    context.stdout(`Runtime version: ${runtime.version}`);
+    context.stdout(`Runtime source commit: ${runtime.sourceCommit ?? "unavailable for legacy v0.1.5"}`);
+  } else {
+    context.stdout("Runtime next step: run `msiren install --web`.");
+  }
+
   context.stdout("Secrets returned: false");
-  return 0;
+  return runtime.status === "invalid" ? 1 : 0;
 }
 
 async function selectedSurfacesFromPromptOrDefault(context: CliExecutionContext): Promise<readonly InstallSurface[]> {
@@ -307,7 +325,7 @@ async function installReleaseAssetsForSelectionSafely(input: {
 
     input.context.stderr(`Release asset installation failed: ${message}`);
     if (input.selectedSurfaces.includes("hud")) {
-      input.context.stderr("The selected HUD desktop artifact must be present, checksummed, and signed before MoneySiren will install it.");
+      input.context.stderr("The selected HUD desktop artifact must be present in the versioned release manifest, integrity-verified, and signed before MoneySiren will install it.");
       input.context.stderr("For now, use `moneysiren install --web` to install only the web runtime, or retry after a signed desktop release is published.");
       input.context.stderr("Temporary local smoke only: rerun `moneysiren install --hud --allow-unsigned-hud` to accept an unsigned HUD artifact explicitly.");
     }
@@ -336,6 +354,7 @@ function writeReleaseInstallResult(
 function writeReleaseInstallSummary(context: CliExecutionContext, result: ReleaseInstallResult): void {
   context.stdout(`Release: ${result.repository}@${result.tag}`);
   context.stdout(`Release URL: ${result.releaseUrl}`);
+  context.stdout(`Source commit: ${result.sourceCommit ?? "unavailable for legacy v0.1.5"}`);
   context.stdout(`Install directory: ${result.installDir}`);
 
   for (const asset of result.assets) {
@@ -358,5 +377,9 @@ function formatSignatureStatus(asset: ReleaseInstallResult["assets"][number]): s
     return "unsigned local smoke opt-in accepted";
   }
 
-  return "not required";
+  if (asset.signatureStatus === "signed-notarized-manifest") {
+    return "signed and notarized in release manifest";
+  }
+
+  return asset.signingState === "not-required" ? "not required" : asset.signatureStatus;
 }

@@ -1,4 +1,10 @@
-import { EMERGENCY_ACTION_RUNS_SQL, INITIAL_SCHEMA_SQL, READ_MODEL_INDEX_SQL } from "./schema.js";
+import {
+  EMERGENCY_ACTION_RUNS_SQL,
+  INITIAL_SCHEMA_SQL,
+  NOTIFICATION_STATE_SQL,
+  PROVIDER_SYNC_RUNS_SQL,
+  READ_MODEL_INDEX_SQL,
+} from "./schema.js";
 
 export interface Migration {
   id: string;
@@ -28,6 +34,14 @@ export const MIGRATIONS: readonly Migration[] = [
   {
     id: "0003_emergency_action_runs",
     sql: EMERGENCY_ACTION_RUNS_SQL,
+  },
+  {
+    id: "0004_provider_sync_runs",
+    sql: PROVIDER_SYNC_RUNS_SQL,
+  },
+  {
+    id: "0005_notification_state",
+    sql: NOTIFICATION_STATE_SQL,
   },
 ];
 

@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { EMERGENCY_ACTION_RUNS_SQL, INITIAL_SCHEMA_SQL, READ_MODEL_INDEX_SQL, REQUIRED_TABLES } from "./schema.js";
+import {
+  EMERGENCY_ACTION_RUNS_SQL,
+  INITIAL_SCHEMA_SQL,
+  NOTIFICATION_STATE_SQL,
+  PROVIDER_SYNC_RUNS_SQL,
+  READ_MODEL_INDEX_SQL,
+  REQUIRED_TABLES,
+} from "./schema.js";
 import { getPendingMigrations, runMigrations } from "./migrate.js";
 
 describe("initial SQLite schema", () => {
   it("declares the required v0.1 tables without raw provider payload storage", () => {
-    for (const tableName of REQUIRED_TABLES.filter((tableName) => tableName !== "emergency_action_runs")) {
+    for (const tableName of REQUIRED_TABLES.filter(
+      (tableName) => !["emergency_action_runs", "provider_sync_runs", "notification_scheduler_state", "notification_delivery_runs"].includes(tableName),
+    )) {
       expect(INITIAL_SCHEMA_SQL).toContain(`CREATE TABLE IF NOT EXISTS ${tableName}`);
     }
 
@@ -16,6 +25,25 @@ describe("initial SQLite schema", () => {
   it("declares read-model indexes for latest logical snapshot reads", () => {
     expect(READ_MODEL_INDEX_SQL).toContain("idx_billing_snapshots_latest_logical");
     expect(READ_MODEL_INDEX_SQL).toContain("idx_cost_estimates_latest_logical");
+  });
+
+  it("declares sanitized provider sync-run storage separately", () => {
+    expect(PROVIDER_SYNC_RUNS_SQL).toContain("CREATE TABLE IF NOT EXISTS provider_sync_runs");
+    expect(PROVIDER_SYNC_RUNS_SQL).toContain("status TEXT NOT NULL CHECK (status IN (\'ok\', \'partial\', \'error\'))");
+    expect(PROVIDER_SYNC_RUNS_SQL).toContain("usage_count INTEGER NOT NULL DEFAULT 0 CHECK (usage_count >= 0)");
+    expect(PROVIDER_SYNC_RUNS_SQL).toContain("alert_count INTEGER NOT NULL DEFAULT 0 CHECK (alert_count >= 0)");
+    expect(PROVIDER_SYNC_RUNS_SQL).toContain("error_code TEXT");
+    expect(PROVIDER_SYNC_RUNS_SQL).toContain("data_through TEXT");
+    expect(PROVIDER_SYNC_RUNS_SQL).not.toMatch(/\braw_?payload\b/i);
+    expect(PROVIDER_SYNC_RUNS_SQL).not.toMatch(/\braw_?response\b/i);
+  });
+
+  it("declares sanitized notification state with an ISO UTC seed", () => {
+    expect(NOTIFICATION_STATE_SQL).toContain("CREATE TABLE IF NOT EXISTS notification_scheduler_state");
+    expect(NOTIFICATION_STATE_SQL).toContain("CREATE TABLE IF NOT EXISTS notification_delivery_runs");
+    expect(NOTIFICATION_STATE_SQL).toContain("strftime('%Y-%m-%dT%H:%M:%fZ','now')");
+    expect(NOTIFICATION_STATE_SQL).not.toMatch(/\braw_?payload\b/i);
+    expect(NOTIFICATION_STATE_SQL).not.toMatch(/hooks\.slack/i);
   });
 
   it("declares sanitized emergency action audit storage separately", () => {
@@ -37,19 +65,25 @@ describe("migration runner", () => {
       "0001_init",
       "0002_read_model_indexes",
       "0003_emergency_action_runs",
+      "0004_provider_sync_runs",
+      "0005_notification_state",
     ]);
     expect(getPendingMigrations(["0001_init"]).map((migration) => migration.id)).toEqual([
       "0002_read_model_indexes",
       "0003_emergency_action_runs",
+      "0004_provider_sync_runs",
+      "0005_notification_state",
     ]);
     expect(getPendingMigrations(["0001_init", "0002_read_model_indexes"]).map((migration) => migration.id)).toEqual([
       "0003_emergency_action_runs",
+      "0004_provider_sync_runs",
+      "0005_notification_state",
     ]);
     expect(getPendingMigrations([
       "0001_init",
       "0002_read_model_indexes",
       "0003_emergency_action_runs",
-    ]).map((migration) => migration.id)).toEqual([]);
+    ]).map((migration) => migration.id)).toEqual(["0004_provider_sync_runs", "0005_notification_state"]);
   });
 
   it("runs pending migrations once and skips already-applied migrations", async () => {
@@ -68,11 +102,19 @@ describe("migration runner", () => {
       },
     });
 
-    expect(executedSql).toHaveLength(3);
+    expect(executedSql).toHaveLength(5);
     expect(executedSql[0]).toContain("CREATE TABLE IF NOT EXISTS providers");
     expect(executedSql[1]).toContain("idx_billing_snapshots_latest_logical");
     expect(executedSql[2]).toContain("CREATE TABLE IF NOT EXISTS emergency_action_runs");
-    expect(recordedIds).toEqual(["0001_init", "0002_read_model_indexes", "0003_emergency_action_runs"]);
+    expect(executedSql[3]).toContain("CREATE TABLE IF NOT EXISTS provider_sync_runs");
+    expect(executedSql[4]).toContain("CREATE TABLE IF NOT EXISTS notification_scheduler_state");
+    expect(recordedIds).toEqual([
+      "0001_init",
+      "0002_read_model_indexes",
+      "0003_emergency_action_runs",
+      "0004_provider_sync_runs",
+      "0005_notification_state",
+    ]);
 
     executedSql.length = 0;
 
@@ -89,6 +131,12 @@ describe("migration runner", () => {
     });
 
     expect(executedSql).toEqual([]);
-    expect(recordedIds).toEqual(["0001_init", "0002_read_model_indexes", "0003_emergency_action_runs"]);
+    expect(recordedIds).toEqual([
+      "0001_init",
+      "0002_read_model_indexes",
+      "0003_emergency_action_runs",
+      "0004_provider_sync_runs",
+      "0005_notification_state",
+    ]);
   });
 });

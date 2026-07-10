@@ -1,30 +1,36 @@
+import { CODEX_MEASUREMENT_SCHEMA_VERSION } from "../local-ai/codex/types";
+
+export const RESET_CREDIT_SCHEMA_VERSION = CODEX_MEASUREMENT_SCHEMA_VERSION;
 export const RESET_CREDIT_TIME_ZONE = "Asia/Seoul";
-export const RESET_CREDIT_SOURCE = "chatgpt-internal-api";
-export const RESET_CREDIT_UNOFFICIAL = true;
+export const RESET_CREDIT_SOURCE = "codex-app-server";
+export const RESET_CREDIT_ACCURACY = "official";
 
 export type ResetCreditStatusValue = "active" | "expiring-soon" | "expired" | "unknown";
 
 export interface ResetCreditStatus {
+  schemaVersion: typeof RESET_CREDIT_SCHEMA_VERSION;
+  source: typeof RESET_CREDIT_SOURCE;
+  accuracy: typeof RESET_CREDIT_ACCURACY;
   fetchedAtUtc: string;
   availableCount: number | null;
-  totalEarnedCount: number | null;
+  totalEarnedCount: null;
+  detailsComplete: boolean;
   credits: readonly ResetCredit[];
 }
 
 export interface ResetCredit {
   index: number;
+  resetType: "codexRateLimits" | "unknown";
+  providerStatus: "available" | "unknown";
+  grantedAtUtc: string | null;
   expiresAtUtc: string | null;
+  title: string | null;
+  description: string | null;
   remainingSeconds: number | null;
   status: ResetCreditStatusValue;
 }
 
 export type ResetCreditErrorCode =
-  | "LOCAL_CODEX_AUTH_UNAVAILABLE"
-  | "AUTH_FILE_NOT_FOUND"
-  | "AUTH_FILE_PERMISSION_DENIED"
-  | "AUTH_FILE_INVALID_JSON"
-  | "ACCESS_TOKEN_NOT_FOUND"
-  | "ACCOUNT_ID_NOT_FOUND"
   | "UPSTREAM_UNAUTHORIZED"
   | "UPSTREAM_FORBIDDEN"
   | "UPSTREAM_RATE_LIMITED"
@@ -37,12 +43,16 @@ export type ResetCreditErrorCode =
 
 export interface ResetCreditApiSuccess {
   ok: true;
+  schemaVersion: typeof RESET_CREDIT_SCHEMA_VERSION;
   data: ResetCreditStatus;
   meta: ResetCreditResponseMeta;
 }
 
 export interface ResetCreditApiFailure {
   ok: false;
+  // Optional only for the one-release browser fallback object. The API route
+  // always emits schemaVersion.
+  schemaVersion?: typeof RESET_CREDIT_SCHEMA_VERSION;
   error: {
     code: ResetCreditErrorCode;
     message: string;
@@ -52,9 +62,10 @@ export interface ResetCreditApiFailure {
 export type ResetCreditApiResponse = ResetCreditApiSuccess | ResetCreditApiFailure;
 
 export interface ResetCreditResponseMeta {
+  schemaVersion: typeof RESET_CREDIT_SCHEMA_VERSION;
   timeZone: typeof RESET_CREDIT_TIME_ZONE;
   source: typeof RESET_CREDIT_SOURCE;
-  unofficial: true;
+  accuracy: typeof RESET_CREDIT_ACCURACY;
 }
 
 export type AlertThreshold = "7d" | "3d" | "1d" | "6h" | "expired";
@@ -64,9 +75,4 @@ export interface CreditAlert {
   threshold: AlertThreshold;
   expiresAtUtc: string;
   message: string;
-}
-
-export interface CodexAuth {
-  accessToken: string;
-  accountId: string;
 }

@@ -23,6 +23,7 @@ export interface OpenAiUsageResult {
   object?: string;
   model?: string;
   input_tokens?: number;
+  input_cached_tokens?: number;
   output_tokens?: number;
   num_model_requests?: number;
 }
@@ -63,7 +64,7 @@ export interface OpenAiUsageSnapshot {
   provider: typeof OPENAI_PROVIDER;
   collectedAt: string;
   service: string;
-  metric: "input_tokens" | "output_tokens" | "model_requests";
+  metric: "input_tokens" | "cached_input_tokens" | "output_tokens" | "model_requests";
   unit: "tokens" | "requests";
   value: number;
 }
@@ -147,6 +148,7 @@ function normalizeUsage(page: OpenAiUsagePage, collectedAt: string): OpenAiUsage
     for (const result of bucket.results ?? []) {
       const service = `${usageServicePrefix(result)}:${requireModel(result)}`;
       const inputTokens = readOptionalFiniteNumber(result.input_tokens, `${service} input_tokens`);
+      const cachedInputTokens = readOptionalFiniteNumber(result.input_cached_tokens, `${service} input_cached_tokens`);
       const outputTokens = readOptionalFiniteNumber(result.output_tokens, `${service} output_tokens`);
       const modelRequests = readOptionalFiniteNumber(result.num_model_requests, `${service} num_model_requests`);
 
@@ -158,6 +160,17 @@ function normalizeUsage(page: OpenAiUsagePage, collectedAt: string): OpenAiUsage
           metric: "input_tokens",
           unit: "tokens",
           value: inputTokens,
+        });
+      }
+
+      if (cachedInputTokens !== undefined) {
+        usage.push({
+          provider: OPENAI_PROVIDER,
+          collectedAt,
+          service,
+          metric: "cached_input_tokens",
+          unit: "tokens",
+          value: cachedInputTokens,
         });
       }
 

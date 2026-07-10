@@ -44,8 +44,8 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                   <Td>{provider.usageSnapshotCount}</Td>
                   <Td>{provider.healthStatus}</Td>
                   <Td>
-                    {provider.freshness.status}
-                    {provider.freshness.lastRefreshFailed ? (
+                    {provider.freshness?.status ?? "never"}
+                    {provider.freshness?.lastRefreshFailed ? (
                       <>
                         <br />
                         <span style={mutedStyle}>last attempt failed</span>

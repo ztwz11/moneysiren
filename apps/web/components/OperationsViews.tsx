@@ -7,6 +7,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import type { Messages, Locale } from "../lib/i18n";
+import { formatCodexCreditEstimateUnavailable } from "../lib/local-ai/codex/credit-estimate-presentation";
 import { BudgetSettings } from "./BudgetSettings";
 import { ConnectionCard } from "./ConnectionCard";
 import { DashboardDisplaySettings } from "./DashboardDisplaySettings";
@@ -2397,7 +2398,16 @@ function CodexMeasurementDetails({
           <div className="usage-metric">
             <span>{messages.services.codexCreditEstimate}</span>
             <strong>{creditEstimate?.estimatedCredits === null || creditEstimate === undefined
-              ? creditEstimateUnavailableLabel(creditEstimate, messages)
+              ? formatCodexCreditEstimateUnavailable(creditEstimate, {
+                  unavailable: messages.services.codexUnavailable,
+                  rateCardNotConfirmed: messages.services.codexReasonRateCardNotConfirmed,
+                  legacyRateCard: messages.services.codexReasonLegacyRateCard,
+                  executionModeNotConfirmed: messages.services.codexReasonExecutionModeNotConfirmed,
+                  fastModeUnavailable: messages.services.codexReasonFastModeUnavailable,
+                  unknownModel: messages.services.codexReasonUnknownModel,
+                  cacheWriteUnavailable: messages.services.codexReasonCacheWriteUnavailable,
+                  invalidCachedInputSubset: messages.services.codexReasonInvalidCachedInputSubset,
+                })
               : `${new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(creditEstimate.estimatedCredits)} credits`}</strong>
           </div>
           <div className="metric-meta">{messages.services.codexCreditEstimateNote}</div>
@@ -2438,19 +2448,6 @@ function measurementAccuracyLabel(
   }
 
   return messages.services.codexUnavailable;
-}
-
-function creditEstimateUnavailableLabel(
-  estimate: NonNullable<NonNullable<OperationsProvider["currentUsageSummary"]>["codexLocal"]>["creditEstimate"] | undefined,
-  messages: Messages,
-): string {
-  const reasons = estimate?.models
-    .flatMap((model) => model.reason === null ? [] : [model.reason])
-    .filter((reason, index, values) => values.indexOf(reason) === index) ?? [];
-
-  return reasons.length === 0
-    ? messages.services.codexUnavailable
-    : `${messages.services.codexUnavailable} (${reasons.join(", ")})`;
 }
 
 function BadgeLine({ messages, states }: { messages: Messages; states: readonly string[] }) {

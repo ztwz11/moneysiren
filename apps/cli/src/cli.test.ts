@@ -1775,6 +1775,12 @@ describe("MoneySiren CLI", () => {
     expect(usage).toEqual([
       {
         service: "completions:gpt-4.1-mini",
+        metric: "cached_input_tokens",
+        unit: "tokens",
+        value: 400000,
+      },
+      {
+        service: "completions:gpt-4.1-mini",
         metric: "input_tokens",
         unit: "tokens",
         value: 2000000,

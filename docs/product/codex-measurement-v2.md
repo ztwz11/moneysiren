@@ -215,8 +215,9 @@ Applicability fails closed:
 - Enterprise, Edu, Gov, Health, Teachers, and unknown workspaces require
   explicit confirmation. OpenAI documents a small legacy Enterprise subset.
 - Legacy or unknown rate-card mode is unavailable.
-- Fast or unknown execution mode is unavailable because supported fast-mode
-  rates differ and are not present in sanitized session metadata.
+- Fast or unknown execution mode is unavailable. GPT-5.6 is not currently
+  listed as fast-mode supported in the official Speed documentation, so
+  MoneySiren infers neither a multiplier nor a rate.
 - Future safe model IDs remain visible but receive no guessed rate.
 
 The non-secret applicability settings are:

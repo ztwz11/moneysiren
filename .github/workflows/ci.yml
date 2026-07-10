@@ -34,6 +34,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: npm run typecheck
       - run: npm run test
+      - run: npm run test:release-metadata
+      - run: npm run release:metadata
       - run: npm run build
       - run: npm run tray:native:check
       - run: npm run secret:scan

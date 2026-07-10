@@ -5,6 +5,11 @@ const TAG_PATTERN = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z]+
 export function validateReleaseCandidate(manifest, options) {
   const errors = [];
   const channel = options.channel ?? "preview";
+
+  if (channel !== "preview" && channel !== "stable") {
+    return { ok: false, errors: ["release channel must be preview or stable"] };
+  }
+
   const tag = requireString(options.tag, "tag");
   const sourceCommit = requireString(options.sourceCommit, "sourceCommit").toLowerCase();
 
@@ -47,7 +52,6 @@ export function validateReleaseCandidate(manifest, options) {
 
   const names = new Set();
   let webCount = 0;
-  let windowsHudCount = 0;
 
   for (const value of assets) {
     if (!isRecord(value)) {
@@ -63,11 +67,11 @@ export function validateReleaseCandidate(manifest, options) {
     }
 
     if (!Number.isSafeInteger(value.size) || value.size <= 0) {
-      errors.push(`release asset ${safeName(name)} has an invalid size`);
+      errors.push(\`release asset \${safeName(name)} has an invalid size\`);
     }
 
     if (typeof value.sha256 !== "string" || !SHA256_PATTERN.test(value.sha256)) {
-      errors.push(`release asset ${safeName(name)} has an invalid SHA256`);
+      errors.push(\`release asset \${safeName(name)} has an invalid SHA256\`);
     }
 
     if (value.surface === "web") {
@@ -76,23 +80,20 @@ export function validateReleaseCandidate(manifest, options) {
         errors.push("web runtime must be an any-platform tar.gz asset");
       }
     } else if (value.surface === "hud") {
-      if (value.platform === "win32") {
-        windowsHudCount += 1;
-      }
       if (value.platform !== "win32" && value.platform !== "darwin") {
-        errors.push(`HUD asset ${safeName(name)} has an unsupported platform`);
+        errors.push(\`HUD asset \${safeName(name)} has an unsupported platform\`);
       }
     } else {
-      errors.push(`release asset ${safeName(name)} has an unsupported surface`);
+      errors.push(\`release asset \${safeName(name)} has an unsupported surface\`);
     }
 
     if (!isRecord(value.signing) || !["signed", "unsigned", "not-required"].includes(value.signing.state)) {
-      errors.push(`release asset ${safeName(name)} has invalid signing metadata`);
+      errors.push(\`release asset \${safeName(name)} has invalid signing metadata\`);
       continue;
     }
 
     if (channel === "stable" && value.surface === "hud" && value.signing.state !== "signed") {
-      errors.push(`stable HUD asset ${safeName(name)} is not signed`);
+      errors.push(\`stable HUD asset \${safeName(name)} is not signed\`);
     }
 
     if (
@@ -104,16 +105,20 @@ export function validateReleaseCandidate(manifest, options) {
         !/^[A-F0-9]{40,128}$/.test(value.signing.signerThumbprint)
       )
     ) {
-      errors.push(`stable Windows HUD asset ${safeName(name)} lacks expected Authenticode metadata`);
+      errors.push(\`stable Windows HUD asset \${safeName(name)} lacks expected Authenticode metadata\`);
+    }
+
+    if (
+      channel === "stable" &&
+      value.platform === "darwin" &&
+      value.signing.method !== "apple-codesign-notarized"
+    ) {
+      errors.push(\`stable macOS HUD asset \${safeName(name)} lacks code-signing and notarization metadata\`);
     }
   }
 
   if (webCount !== 1) {
     errors.push("release candidate must contain exactly one web runtime");
-  }
-
-  if (channel === "stable" && windowsHudCount === 0) {
-    errors.push("stable release candidate must contain a signed Windows HUD");
   }
 
   return {
@@ -122,7 +127,7 @@ export function validateReleaseCandidate(manifest, options) {
   };
 }
 
-export function validatePublishedReleaseIsImmutable(release, manifest) {
+export function validatePublishedReleaseIsImmutable(release, manifest, options = {}) {
   if (!isRecord(release)) {
     return { ok: false, errors: ["release state must be an object"] };
   }
@@ -131,30 +136,58 @@ export function validatePublishedReleaseIsImmutable(release, manifest) {
     return { ok: true, errors: [] };
   }
 
-  const publishedAssets = Array.isArray(release.assets) ? release.assets : [];
-  const expectedAssets = isRecord(manifest) && Array.isArray(manifest.assets)
-    ? manifest.assets
+  const publishedAssets = Array.isArray(release.assets) ? release.assets.filter(isRecord) : [];
+  const payloadAssets = isRecord(manifest) && Array.isArray(manifest.assets)
+    ? manifest.assets.filter(isRecord)
     : [];
-  const expectedNames = new Set(expectedAssets.filter(isRecord).map((asset) => asset.name));
-  const actualNames = new Set(publishedAssets.filter(isRecord).map((asset) => asset.name));
-  const sameNames = expectedNames.size === actualNames.size &&
-    [...expectedNames].every((name) => actualNames.has(name));
+  const supportAssets = Array.isArray(options.supportAssets)
+    ? options.supportAssets.filter(isRecord)
+    : [];
+  const expectedAssets = [...payloadAssets, ...supportAssets];
+  const expectedByName = new Map(expectedAssets.map((asset) => [asset.name, asset]));
+  const actualByName = new Map(publishedAssets.map((asset) => [asset.name, asset]));
+  const exactNames = expectedByName.size === actualByName.size &&
+    [...expectedByName.keys()].every((name) => actualByName.has(name));
 
-  return sameNames
-    ? { ok: true, errors: [] }
-    : { ok: false, errors: ["published release assets are immutable; create a new version instead"] };
+  if (!exactNames) {
+    return { ok: false, errors: ["published release assets are immutable; create a new version instead"] };
+  }
+
+  const errors = [];
+  for (const [name, expected] of expectedByName) {
+    const actual = actualByName.get(name);
+
+    if (!isRecord(actual)) {
+      errors.push("published release asset set changed");
+      continue;
+    }
+
+    if (Number.isSafeInteger(expected.size) && actual.size !== expected.size) {
+      errors.push(\`published release asset \${safeName(String(name))} size changed\`);
+    }
+
+    if (
+      typeof expected.sha256 === "string" &&
+      typeof actual.digest === "string" &&
+      actual.digest !== \`sha256:\${expected.sha256}\`
+    ) {
+      errors.push(\`published release asset \${safeName(String(name))} digest changed\`);
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
 }
 
 function requireString(value, label) {
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`${label} is required`);
+    throw new Error(\`\${label} is required\`);
   }
 
   return value.trim();
 }
 
 function basename(value) {
-  return value.replaceAll("\\", "/").split("/").at(-1) ?? "";
+  return value.replaceAll("\\\\", "/").split("/").at(-1) ?? "";
 }
 
 function safeName(value) {

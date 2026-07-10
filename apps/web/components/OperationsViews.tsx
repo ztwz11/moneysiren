@@ -2347,7 +2347,13 @@ function CodexMeasurementDetails({
             <span>{messages.services.usageResetCredits}</span>
             <strong>{officialResetCredits === null
               ? messages.services.codexUnavailable
-              : `${officialResetCredits.availableCount} / ${officialResetCredits.details.length}`}</strong>
+              : new Intl.NumberFormat(locale).format(officialResetCredits.availableCount)}</strong>
+          </div>
+          <div className="usage-metric">
+            <span>{messages.services.codexSuppliedDetails}</span>
+            <strong>{officialResetCredits === null
+              ? messages.services.codexUnavailable
+              : new Intl.NumberFormat(locale).format(officialResetCredits.details.length)}</strong>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
@@ -37,6 +37,51 @@ describe("notification scheduler runtime lock", () => {
       expect(await releaseNotificationSchedulerLock(first.lease)).toBe(true);
     }
     expect(await readNotificationSchedulerLock(options)).toBeNull();
+  });
+
+  it("does not delete an untrusted pre-existing file", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-notifier-lock-"));
+    const path = join(cwd, "scheduler.lock");
+    await writeFile(path, "not a MoneySiren lock", "utf8");
+
+    await expect(acquireNotificationSchedulerLock({
+      cwd,
+      lockPath: "scheduler.lock",
+    })).rejects.toThrow("NOTIFICATION_SCHEDULER_LOCK_UNTRUSTED");
+    expect(await readFile(path, "utf8")).toBe("not a MoneySiren lock");
+  });
+
+  it("allows exactly one winner when two processes clean a valid stale lock", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-notifier-lock-"));
+    const stale = await acquireNotificationSchedulerLock({
+      cwd,
+      lockPath: "scheduler.lock",
+      pid: 1234,
+      processAlive: () => true,
+    });
+    expect(stale.acquired).toBe(true);
+
+    const contenders = await Promise.all([
+      acquireNotificationSchedulerLock({
+        cwd,
+        lockPath: "scheduler.lock",
+        pid: 5678,
+        processAlive: (pid) => pid !== 1234,
+      }),
+      acquireNotificationSchedulerLock({
+        cwd,
+        lockPath: "scheduler.lock",
+        pid: 6789,
+        processAlive: (pid) => pid !== 1234,
+      }),
+    ]);
+    const winners = contenders.filter((result) => result.acquired);
+
+    expect(winners).toHaveLength(1);
+    const winner = winners[0];
+    if (winner?.acquired) {
+      expect(await releaseNotificationSchedulerLock(winner.lease)).toBe(true);
+    }
   });
 
   it("replaces a stale owner without exposing its contents", async () => {

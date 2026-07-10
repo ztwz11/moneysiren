@@ -50,7 +50,12 @@ describe("createOpenAiUsageCostsConnector", () => {
       },
     ]);
     expect(result.status).toBe("ok");
-    expect(result.snapshots.usage).toHaveLength(5);
+    expect(result.snapshots.usage).toHaveLength(6);
+    expect(result.snapshots.usage).toContainEqual(expect.objectContaining({
+      service: "completions:gpt-4.1-mini",
+      metric: "cached_input_tokens",
+      value: 400000,
+    }));
     expect(result.snapshots.billing).toHaveLength(1);
     expect(result.snapshots.costEstimates).toHaveLength(1);
     expect(JSON.stringify(result)).not.toMatch(

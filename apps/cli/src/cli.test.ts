@@ -1766,7 +1766,7 @@ describe("MoneySiren CLI", () => {
 
     expect(counts).toEqual({
       providers: 1,
-      usage_snapshots: 5,
+      usage_snapshots: 6,
       billing_snapshots: 1,
       service_health_snapshots: 0,
       cost_estimates: 1,

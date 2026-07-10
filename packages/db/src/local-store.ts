@@ -869,8 +869,7 @@ function executeSqliteTransaction(dbPath: string, statements: readonly string[])
     return;
   }
 
-  executeSqliteSync(dbPath, ["BEGIN;", ...statements, "COMMIT;"].join("
-"));
+  executeSqliteSync(dbPath, ["BEGIN;", ...statements, "COMMIT;"].join("\\n"));
 }
 
 async function executeSqlite(dbPath: string, sql: string): Promise<void> {

@@ -2290,7 +2290,12 @@ function UsageSummaryBlock({
           <div className="metric-meta">{messages.services.currentPeriod}</div>
           {summary.metrics.map((metric, index) => (
             <div className="usage-metric" key={`${metric.key}:${index}`}>
-              <span>{usageMetricLabel(metric.key, messages)}</span>
+              <span>
+                {usageMetricLabel(metric.key, messages)}
+                {usageMetricMeasurementLabel(metric, messages) === null ? null : (
+                  <span className="metric-meta"> · {usageMetricMeasurementLabel(metric, messages)}</span>
+                )}
+              </span>
               <strong>{formatUsageMetricDisplayValue(metric, locale)}</strong>
             </div>
           ))}
@@ -2360,7 +2365,7 @@ function CodexMeasurementDetails({
       {local === undefined ? null : (
         <div>
           <div className="metric-label">
-            {messages.services.codexLocalMeasurements} · {measurement?.accuracy ?? "unavailable"}
+            {messages.services.codexLocalMeasurements} · {measurementAccuracyLabel(measurement?.accuracy, messages)}
           </div>
           {localData?.models.map((model) => (
             <div className="usage-summary" key={model.canonicalModelId}>
@@ -2392,7 +2397,7 @@ function CodexMeasurementDetails({
           <div className="usage-metric">
             <span>{messages.services.codexCreditEstimate}</span>
             <strong>{creditEstimate?.estimatedCredits === null || creditEstimate === undefined
-              ? messages.services.codexUnavailable
+              ? creditEstimateUnavailableLabel(creditEstimate, messages)
               : `${new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(creditEstimate.estimatedCredits)} credits`}</strong>
           </div>
           <div className="metric-meta">{messages.services.codexCreditEstimateNote}</div>
@@ -2400,6 +2405,52 @@ function CodexMeasurementDetails({
       )}
     </div>
   );
+}
+
+function usageMetricMeasurementLabel(metric: UsageMetric, messages: Messages): string | null {
+  const source = metric.source ?? "";
+
+  if (source.includes("codex-app-server") || source.includes("codex_reset_credit_api")) {
+    return messages.services.measurementOfficial;
+  }
+
+  if (source.includes("provider-reported")) {
+    return messages.services.measurementProviderReported;
+  }
+
+  return measurementAccuracyLabel(metric.accuracy, messages);
+}
+
+function measurementAccuracyLabel(
+  accuracy: UsageMetric["accuracy"] | "unavailable" | undefined,
+  messages: Messages,
+): string {
+  if (accuracy === "bounded") {
+    return messages.services.measurementBounded;
+  }
+
+  if (accuracy === "estimated") {
+    return messages.services.measurementLocalEstimate;
+  }
+
+  if (accuracy === "exact") {
+    return messages.services.measurementProviderReported;
+  }
+
+  return messages.services.codexUnavailable;
+}
+
+function creditEstimateUnavailableLabel(
+  estimate: NonNullable<NonNullable<OperationsProvider["currentUsageSummary"]>["codexLocal"]>["creditEstimate"] | undefined,
+  messages: Messages,
+): string {
+  const reasons = estimate?.models
+    .flatMap((model) => model.reason === null ? [] : [model.reason])
+    .filter((reason, index, values) => values.indexOf(reason) === index) ?? [];
+
+  return reasons.length === 0
+    ? messages.services.codexUnavailable
+    : `${messages.services.codexUnavailable} (${reasons.join(", ")})`;
 }
 
 function BadgeLine({ messages, states }: { messages: Messages; states: readonly string[] }) {

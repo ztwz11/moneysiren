@@ -14,7 +14,7 @@ import {
 const FETCHED_AT = "2030-01-03T00:00:00.000Z";
 
 describe("Codex App Server process lifecycle", () => {
-  it("preserves the existing stdio invocation and cleans up after success", async () => {
+  it("uses the documented stdio listener and cleans up after success", async () => {
     const child = new FakeCodexProcess();
     const stdinLines: string[] = [];
     let command = "";
@@ -35,7 +35,7 @@ describe("Codex App Server process lifecycle", () => {
     });
 
     expect(command).toBe("codex");
-    expect(args).toEqual(["app-server", "--stdio"]);
+    expect(args).toEqual(["app-server", "--listen", "stdio://"]);
     expect(stdinLines.map(parseLine)[0]).toMatchObject({
       method: "initialize",
       id: 0,

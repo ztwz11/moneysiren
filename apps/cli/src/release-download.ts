@@ -5,6 +5,7 @@ export const DEFAULT_RELEASE_DOWNLOAD_TIMEOUT_MS = 30_000;
 export const MAX_RELEASE_REDIRECTS = 5;
 
 const TRUSTED_RELEASE_HOSTS = new Set([
+  "api.github.com",
   "github.com",
   "objects.githubusercontent.com",
   "release-assets.githubusercontent.com",
@@ -218,7 +219,7 @@ async function fetchWithTrustedRedirects(input: {
 
     if (!isRedirectStatus(response.status)) {
       if (!response.ok) {
-        throw new Error(`Release download failed with HTTP ${response.status}.`);
+        throw new ReleaseDownloadHttpError(response.status);
       }
 
       return response;
@@ -312,4 +313,14 @@ function isRedirectStatus(status: number): boolean {
     status === 303 ||
     status === 307 ||
     status === 308;
+}
+
+export class ReleaseDownloadHttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Release download failed with HTTP ${status}.`);
+    this.name = "ReleaseDownloadHttpError";
+    this.status = status;
+  }
 }

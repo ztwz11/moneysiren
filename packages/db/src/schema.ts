@@ -8,6 +8,7 @@ export const REQUIRED_TABLES = [
   "alerts",
   "report_runs",
   "emergency_action_runs",
+  "provider_sync_runs",
 ] as const;
 
 export type RequiredTable = (typeof REQUIRED_TABLES)[number];
@@ -121,6 +122,27 @@ CREATE INDEX IF NOT EXISTS idx_billing_snapshots_latest_logical
   ON billing_snapshots(provider_id, provider_account_id, period_start, period_end, currency, collected_at, id);
 CREATE INDEX IF NOT EXISTS idx_cost_estimates_latest_logical
   ON cost_estimates(provider_id, provider_account_id, period_start, period_end, currency, collected_at, id);
+`.trim();
+
+export const PROVIDER_SYNC_RUNS_SQL = `
+CREATE TABLE IF NOT EXISTS provider_sync_runs (
+  id TEXT PRIMARY KEY,
+  provider_key TEXT NOT NULL,
+  attempted_at TEXT NOT NULL,
+  completed_at TEXT,
+  status TEXT NOT NULL CHECK (status IN ('ok', 'partial', 'error')),
+  usage_count INTEGER NOT NULL DEFAULT 0 CHECK (usage_count >= 0),
+  billing_count INTEGER NOT NULL DEFAULT 0 CHECK (billing_count >= 0),
+  health_count INTEGER NOT NULL DEFAULT 0 CHECK (health_count >= 0),
+  estimate_count INTEGER NOT NULL DEFAULT 0 CHECK (estimate_count >= 0),
+  error_code TEXT,
+  error_message TEXT,
+  data_through TEXT,
+  metadata_json TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_sync_runs_provider_attempted
+  ON provider_sync_runs(provider_key, attempted_at, id);
 `.trim();
 
 export const EMERGENCY_ACTION_RUNS_SQL = `

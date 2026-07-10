@@ -24,14 +24,22 @@ export interface NotificationEvaluationPolicy {
   recent: readonly NotificationHistoryRecord[];
 }
 
-export interface NotificationEvaluation {
-  outcome: "deliver" | "suppressed";
-  reason: "deliver" | "notifications_disabled" | "no_alerts" | "quiet_hours" | "cooldown";
+interface NotificationEvaluationBase {
   fingerprint: string;
   title: string;
   body: string;
   severity: NotificationAlertSeverity;
 }
+
+export type NotificationEvaluation =
+  | (NotificationEvaluationBase & {
+      outcome: "deliver";
+      reason: "deliver";
+    })
+  | (NotificationEvaluationBase & {
+      outcome: "suppressed";
+      reason: "notifications_disabled" | "no_alerts" | "quiet_hours" | "cooldown";
+    });
 
 export function evaluateNormalizedNotification(
   alerts: readonly NormalizedNotificationAlert[],

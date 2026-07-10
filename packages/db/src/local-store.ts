@@ -143,7 +143,7 @@ export interface LocalStore {
   alerts: LocalAlertRecord[];
   reportRuns: LocalReportRunRecord[];
   emergencyActionRuns: LocalEmergencyActionRunRecord[];
-  providerSyncRuns: LocalProviderSyncRunRecord[];
+  providerSyncRuns?: LocalProviderSyncRunRecord[];
 }
 
 export interface LocalStoreOptions {

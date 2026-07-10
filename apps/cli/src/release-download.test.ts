@@ -14,7 +14,7 @@ describe("release downloads", () => {
     const root = await mkdtemp(join(tmpdir(), "moneysiren-download-"));
     const temporaryPath = join(root, "asset.partial");
     const content = Buffer.from("synthetic verified asset");
-    const fetchImpl = vi.fn(async () => new Response(content, {
+    const fetchImpl = vi.fn(async () => new Response(new Uint8Array(content), {
       status: 200,
     })) as unknown as typeof fetch;
 
@@ -66,7 +66,7 @@ describe("release downloads", () => {
       },
     ]) {
       const temporaryPath = join(root, `${scenario.label}.partial`);
-      const fetchImpl = vi.fn(async () => new Response(scenario.content, {
+      const fetchImpl = vi.fn(async () => new Response(new Uint8Array(scenario.content), {
         status: 200,
       })) as unknown as typeof fetch;
 
@@ -96,7 +96,7 @@ describe("release downloads", () => {
         });
       }
 
-      return new Response(content, {
+      return new Response(new Uint8Array(content), {
         status: 200,
       });
     }) as unknown as typeof fetch;
@@ -122,7 +122,7 @@ describe("release downloads", () => {
   });
 
   it("enforces the manifest byte limit and timeout", async () => {
-    const oversizedFetch = vi.fn(async () => new Response(Buffer.alloc(33), {
+    const oversizedFetch = vi.fn(async () => new Response(new Uint8Array(Buffer.alloc(33)), {
       status: 200,
     })) as unknown as typeof fetch;
 

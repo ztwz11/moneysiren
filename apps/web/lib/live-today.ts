@@ -1241,11 +1241,15 @@ function summarizeOpenAiCurrentUsage(
   const cachedInputTokens = sumUsageMetric(usage, "cached_input_tokens");
   const outputTokens = sumUsageMetric(usage, "output_tokens");
   const modelRequests = sumUsageMetric(usage, "model_requests");
+  const providerReported = {
+    accuracy: "exact" as const,
+    source: "openai-provider-reported",
+  };
   const metricCandidates: LiveTodayUsageMetric[] = [
-    { key: "input_tokens", value: inputTokens, unit: "tokens" },
-    { key: "cache_tokens", value: cachedInputTokens, unit: "tokens" },
-    { key: "output_tokens", value: outputTokens, unit: "tokens" },
-    { key: "model_requests", value: modelRequests, unit: "requests" },
+    { key: "input_tokens", value: inputTokens, unit: "tokens", ...providerReported },
+    { key: "cache_tokens", value: cachedInputTokens, unit: "tokens", ...providerReported },
+    { key: "output_tokens", value: outputTokens, unit: "tokens", ...providerReported },
+    { key: "model_requests", value: modelRequests, unit: "requests", ...providerReported },
   ];
   const metrics = metricCandidates.filter((metric) => metric.value > 0);
 

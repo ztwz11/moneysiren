@@ -156,6 +156,13 @@ export interface Messages {
     measurementProviderReported: string;
     measurementLocalEstimate: string;
     measurementBounded: string;
+    codexReasonRateCardNotConfirmed: string;
+    codexReasonLegacyRateCard: string;
+    codexReasonExecutionModeNotConfirmed: string;
+    codexReasonFastModeUnavailable: string;
+    codexReasonUnknownModel: string;
+    codexReasonCacheWriteUnavailable: string;
+    codexReasonInvalidCachedInputSubset: string;
   };
   catalog: {
     title: string;
@@ -534,6 +541,13 @@ const baseMessages = {
       measurementProviderReported: "Provider reported",
       measurementLocalEstimate: "Local estimate",
       measurementBounded: "Bounded",
+      codexReasonRateCardNotConfirmed: "Confirm that this workspace uses the token-based rate card",
+      codexReasonLegacyRateCard: "The legacy rate card cannot be applied to local tokens",
+      codexReasonExecutionModeNotConfirmed: "Confirm that the measured runs used standard mode",
+      codexReasonFastModeUnavailable: "No GPT-5.6 fast-mode credit rate is available",
+      codexReasonUnknownModel: "An unrated model is included",
+      codexReasonCacheWriteUnavailable: "No applicable cache-write credit rate is available",
+      codexReasonInvalidCachedInputSubset: "Cached input exceeds the measured input range",
     },
     catalog: {
       title: "Provider catalog",
@@ -947,6 +961,13 @@ const baseMessages = {
       measurementProviderReported: "제공자 보고값",
       measurementLocalEstimate: "로컬 추정치",
       measurementBounded: "제한된 범위",
+      codexReasonRateCardNotConfirmed: "이 워크스페이스가 토큰 기반 요율표를 사용하는지 확인하세요",
+      codexReasonLegacyRateCard: "레거시 요율표는 로컬 토큰에 적용할 수 없습니다",
+      codexReasonExecutionModeNotConfirmed: "측정된 실행이 standard 모드인지 확인하세요",
+      codexReasonFastModeUnavailable: "GPT-5.6 fast 모드의 크레딧 요율은 제공되지 않습니다",
+      codexReasonUnknownModel: "요율이 없는 모델이 포함되어 있습니다",
+      codexReasonCacheWriteUnavailable: "적용 가능한 캐시 쓰기 크레딧 요율이 없습니다",
+      codexReasonInvalidCachedInputSubset: "캐시 입력이 측정된 입력 범위를 초과합니다",
     },
     catalog: {
       title: "프로바이더 카탈로그",
@@ -1360,6 +1381,13 @@ const baseMessages = {
       measurementProviderReported: "プロバイダー報告",
       measurementLocalEstimate: "ローカル推定",
       measurementBounded: "範囲限定",
+      codexReasonRateCardNotConfirmed: "このワークスペースがトークンベース料金表を使用するか確認してください",
+      codexReasonLegacyRateCard: "従来の料金表はローカルトークンに適用できません",
+      codexReasonExecutionModeNotConfirmed: "測定した実行が standard モードか確認してください",
+      codexReasonFastModeUnavailable: "GPT-5.6 fast モードのクレジット料金は提供されていません",
+      codexReasonUnknownModel: "料金未設定のモデルが含まれています",
+      codexReasonCacheWriteUnavailable: "適用可能なキャッシュ書き込み料金がありません",
+      codexReasonInvalidCachedInputSubset: "キャッシュ入力が測定入力範囲を超えています",
     },
     catalog: {
       title: "プロバイダーカタログ",

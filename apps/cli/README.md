@@ -102,6 +102,22 @@ Do not create `.env`, paste real API keys, or write Slack webhook URLs into loca
 
 Live provider sync is read-only and env-only. Use fixture mode for no-credentials review; export live credentials only in the shell for one run.
 
+### Sync exit codes
+
+MoneySiren emits one stable result line:
+
+```text
+Sync <provider>: <ok|partial|error>
+```
+
+- `0`: collection and local persistence succeeded.
+- `2`: usable normalized data was saved, but one or more provider surfaces were unavailable.
+- `1`: argument, configuration, authentication, fixture, collection, or local persistence failed.
+
+Partial sync is intentionally non-zero for automation. Diagnostic output contains
+only MoneySiren error codes and sanitized messages; it does not include raw
+upstream responses, credential values, or full local paths.
+
 ## Publishing
 
 From the repository root:

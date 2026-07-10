@@ -358,6 +358,24 @@ jobs:
           xcrun stapler validate "$app_path"
           spctl -a -vv -t exec "$app_path"
 
+          archive_path="$(find dist/desktop-release -maxdepth 1 -name '*-macos-*.tar.gz' -type f | head -n 1)"
+          if [ -z "$archive_path" ]; then
+            echo "No macOS archive found for signature metadata." >&2
+            exit 1
+          fi
+          ASSET_NAME="$(basename "$archive_path")" node --input-type=module -e '
+            import { writeFileSync } from "node:fs";
+            writeFileSync(
+              "dist/desktop-release/moneysiren-tray-macos-SIGNATURE.json",
+              JSON.stringify({
+                assetName: process.env.ASSET_NAME,
+                signatureStatus: "Valid",
+                notarizationStatus: "Valid",
+              }, null, 2) + "\n",
+              "utf8",
+            );
+          '
+
       - uses: actions/upload-artifact@v7
         if: (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name) && (runner.os != 'macOS' || env.APPLE_SIGNING_READY == 'true')
         with:
@@ -401,6 +419,23 @@ jobs:
           if [ "$DESKTOP_RESULT" != "success" ]; then
             echo "Desktop artifact job result: $DESKTOP_RESULT. Publishing available web runtime assets so source-free dashboard installs are not blocked."
           fi
+
+      - name: Create deterministic release manifest
+        shell: bash
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            tag="${DISPATCH_TAG}"
+          fi
+          source_commit="$(git rev-parse HEAD)"
+          node tools/scripts/create-release-manifest.mjs \
+            --assets-dir dist/release-assets \
+            --repository "${GITHUB_REPOSITORY}" \
+            --tag "$tag" \
+            --source-commit "$source_commit"
 
       - name: Create or update GitHub Release
         shell: bash
@@ -447,7 +482,7 @@ jobs:
               --notes-file "$notes_file"
             while IFS= read -r asset_name; do
               case "$asset_name" in
-                moneysiren-web-runtime-*.tar.gz|moneysiren-web-runtime-SHA256SUMS.txt|MoneySiren.Tray*.exe|MoneySiren.Tray*.msi|*macos*|moneysiren-tray-windows-SHA256SUMS.txt|moneysiren-tray-windows-SIGNATURE.json|moneysiren-tray-macos-SHA256SUMS.txt)
+                moneysiren-web-runtime-*.tar.gz|moneysiren-web-runtime-SHA256SUMS.txt|MoneySiren.Tray*.exe|MoneySiren.Tray*.msi|*macos*|moneysiren-tray-windows-SHA256SUMS.txt|moneysiren-tray-windows-SIGNATURE.json|moneysiren-tray-macos-SHA256SUMS.txt|moneysiren-tray-macos-SIGNATURE.json|moneysiren-release-manifest.json)
                   gh release delete-asset "$tag" "$asset_name" -y || true
                   ;;
               esac

@@ -1,71 +1,60 @@
 #!/usr/bin/env node
 
-import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, dirname, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const packageRoot = resolve(scriptDir, "..");
-const cliEntry = resolve(packageRoot, "dist", "apps", "cli", "src", "index.js");
-const isGlobal = isGlobalInstall();
+const scriptPath = fileURLToPath(import.meta.url);
 
-if (isTruthy(process.env.MONEYSIREN_SKIP_APP_POSTINSTALL)) {
-  console.log("MoneySiren app asset installation skipped by MONEYSIREN_SKIP_APP_POSTINSTALL.");
-  process.exit(0);
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === resolve(scriptPath)) {
+  runPostinstall();
 }
 
-if (!existsSync(cliEntry)) {
-  console.warn("MoneySiren app package is missing its bundled CLI entrypoint.");
-  console.warn("Run `msiren install --web` after installation if the command is available.");
-  process.exit(0);
+export function runPostinstall(input = {}) {
+  const env = input.env ?? process.env;
+  const platform = input.platform ?? process.platform;
+  const scriptDir = dirname(scriptPath);
+  const packageRoot = input.packageRoot ?? resolve(scriptDir, "..");
+  const cliEntry = resolve(packageRoot, "dist", "apps", "cli", "src", "index.js");
+
+  if (isTruthy(env.MONEYSIREN_SKIP_APP_POSTINSTALL)) {
+    console.log("MoneySiren app command setup skipped by MONEYSIREN_SKIP_APP_POSTINSTALL.");
+    return;
+  }
+
+  if (!existsSync(cliEntry)) {
+    console.warn("MoneySiren app package is missing its bundled CLI entrypoint.");
+    console.warn("No remote runtime download was attempted.");
+    return;
+  }
+
+  if (isGlobalInstall(env) || isTruthy(env.MONEYSIREN_APP_INSTALL_GLOBAL_SHIMS)) {
+    installGlobalCommandShims(cliEntry, {
+      env,
+      platform,
+    });
+  }
+
+  console.log("MoneySiren commands installed.");
+  console.log("Remote runtime: not installed by npm.");
+  console.log("Run `msiren install --web` to download and verify the matching release runtime.");
+  console.log("HUD artifacts remain explicit: `msiren install --hud`.");
 }
 
-if (isGlobal || isTruthy(process.env.MONEYSIREN_APP_INSTALL_GLOBAL_SHIMS)) {
-  installGlobalCommandShims(cliEntry);
-}
-
-if (!shouldInstallReleaseAssets()) {
-  console.log("MoneySiren app package installed.");
-  console.log("Run `msiren install --web` to download the local web dashboard runtime.");
-  console.log("For temporary unsigned HUD smoke testing, run `msiren install --hud --allow-unsigned-hud`.");
-  process.exit(0);
-}
-
-console.log("MoneySiren app package installed.");
-if (isTruthy(process.env.MONEYSIREN_ALLOW_UNSIGNED_HUD)) {
-  console.log("Installing local web dashboard and HUD artifacts...");
-  runCliInstall(["install", "--all"]);
-} else {
-  console.log("Installing local web dashboard runtime...");
-  console.log("Unsigned Windows HUD artifacts require explicit opt-in after install: `msiren install --hud --allow-unsigned-hud`.");
-  runCliInstall(["install", "--web"]);
-  runCliInstall(["install", "--all", "--profile-only"]);
-}
-
-function runCliInstall(args) {
-  const result = spawnSync(process.execPath, [cliEntry, ...args], {
-    cwd: process.env.INIT_CWD || process.cwd(),
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      MONEYSIREN_APP_POSTINSTALL: "1",
-    },
-    stdio: "inherit",
-    windowsHide: true,
+export function installGlobalCommandShims(entrypoint, input = {}) {
+  const env = input.env ?? process.env;
+  const platform = input.platform ?? process.platform;
+  const binDirs = getGlobalBinDirs({
+    env,
+    platform,
   });
-
-  if (result.error !== undefined) {
-    handleAssetInstallFailure(`MoneySiren app asset installation failed: ${result.error.message}`);
-  }
-
-  if (result.status !== 0) {
-    handleAssetInstallFailure("MoneySiren app asset installation failed.");
-  }
-}
-
-function installGlobalCommandShims(entrypoint) {
-  const binDirs = getGlobalBinDirs();
   const installed = [];
 
   for (const binDir of binDirs) {
@@ -75,7 +64,7 @@ function installGlobalCommandShims(entrypoint) {
       });
 
       for (const command of ["moneysiren", "msiren"]) {
-        installed.push(...writeCommandShim(binDir, command, entrypoint));
+        installed.push(...writeCommandShim(binDir, command, entrypoint, platform));
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -86,44 +75,12 @@ function installGlobalCommandShims(entrypoint) {
   if (installed.length > 0) {
     console.log(`MoneySiren command shim(s) ready: ${Array.from(new Set(installed)).join(", ")}`);
   }
+
+  return installed;
 }
 
-function getGlobalBinDirs() {
-  const candidates = [process.env.npm_config_prefix ?? dirname(process.execPath)];
-  const dirs = [];
-
-  for (const candidate of candidates) {
-    if (!candidate) {
-      continue;
-    }
-
-    addBinDir(dirs, candidate);
-
-    try {
-      addBinDir(dirs, realpathSync(candidate));
-    } catch {
-      // Best effort only. The original candidate is still useful.
-    }
-  }
-
-  return dirs;
-}
-
-function addBinDir(dirs, candidate) {
-  const binDir = process.platform === "win32"
-    ? resolve(candidate)
-    : basename(candidate) === "bin"
-      ? resolve(candidate)
-      : resolve(candidate, "bin");
-  const normalized = binDir.toLowerCase();
-
-  if (!dirs.some((dir) => dir.toLowerCase() === normalized)) {
-    dirs.push(binDir);
-  }
-}
-
-function writeCommandShim(binDir, command, entrypoint) {
-  if (process.platform === "win32") {
+export function writeCommandShim(binDir, command, entrypoint, platform = process.platform) {
+  if (platform === "win32") {
     return [
       writeShimFile(resolve(binDir, command), createPosixShim(entrypoint), true),
       writeShimFile(resolve(binDir, `${command}.cmd`), createCmdShim(entrypoint), false),
@@ -136,13 +93,50 @@ function writeCommandShim(binDir, command, entrypoint) {
   ].filter(Boolean);
 }
 
+function getGlobalBinDirs(input) {
+  const candidates = [input.env.npm_config_prefix ?? dirname(process.execPath)];
+  const dirs = [];
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
+    addBinDir(dirs, candidate, input.platform);
+
+    try {
+      addBinDir(dirs, realpathSync(candidate), input.platform);
+    } catch {
+      // The original candidate remains usable when realpath is unavailable.
+    }
+  }
+
+  return dirs;
+}
+
+function addBinDir(dirs, candidate, platform) {
+  const binDir = platform === "win32"
+    ? resolve(candidate)
+    : basename(candidate) === "bin"
+      ? resolve(candidate)
+      : resolve(candidate, "bin");
+  const normalized = platform === "win32" ? binDir.toLowerCase() : binDir;
+
+  if (!dirs.some((dir) => (platform === "win32" ? dir.toLowerCase() : dir) === normalized)) {
+    dirs.push(binDir);
+  }
+}
+
 function writeShimFile(filePath, content, executable) {
   if (existsSync(filePath) && !isMoneySirenShim(filePath)) {
     console.warn(`MoneySiren app command shim not replaced because it is not MoneySiren-owned: ${filePath}`);
     return null;
   }
 
-  writeFileSync(filePath, content, "utf8");
+  writeFileSync(filePath, content, {
+    encoding: "utf8",
+    flag: "w",
+  });
 
   if (executable) {
     try {
@@ -155,23 +149,11 @@ function writeShimFile(filePath, content, executable) {
   return filePath;
 }
 
-function handleAssetInstallFailure(message) {
-  console.warn(message);
-  console.warn("MoneySiren commands were installed. Retry web asset installation with `msiren install --web` after npm finishes.");
-  console.warn("For temporary unsigned HUD smoke testing, run `msiren install --hud --allow-unsigned-hud`.");
-
-  if (isTruthy(process.env.MONEYSIREN_APP_STRICT_POSTINSTALL)) {
-    process.exit(1);
-  }
-
-  process.exit(0);
-}
-
-function isMoneySirenShim(filePath) {
+export function isMoneySirenShim(filePath) {
   try {
     const source = readFileSync(filePath, "utf8");
 
-    return /@moneysiren[\\/]app|@moneysiren[\\/]cli|moneysiren-app|moneysiren-cli|MoneySiren app command shim/i.test(source);
+    return /@moneysiren[\\/]app|@moneysiren[\\/]cli|moneysiren-app|moneysiren-cli|MoneySiren app command shim|dist[\\/]apps[\\/]cli[\\/]src[\\/]index\.js/i.test(source);
   } catch {
     return false;
   }
@@ -180,6 +162,7 @@ function isMoneySirenShim(filePath) {
 function createPosixShim(entrypoint) {
   return [
     "#!/bin/sh",
+    "# MoneySiren app command shim",
     "basedir=$(dirname \"$(echo \"$0\" | sed -e 's,\\\\,/,g')\")",
     "",
     "case `uname` in",
@@ -202,6 +185,7 @@ function createPosixShim(entrypoint) {
 function createCmdShim(entrypoint) {
   return [
     "@ECHO off",
+    "REM MoneySiren app command shim",
     "SETLOCAL",
     "IF EXIST \"%~dp0\\node.exe\" (",
     "  SET \"_prog=%~dp0\\node.exe\"",
@@ -219,6 +203,7 @@ function createPowerShellShim(entrypoint) {
 
   return [
     "#!/usr/bin/env pwsh",
+    "# MoneySiren app command shim",
     "$basedir = Split-Path $MyInvocation.MyCommand.Definition -Parent",
     "$exe = \"\"",
     "if ($PSVersionTable.PSVersion -lt \"6.0\" -or $IsWindows) {",
@@ -244,14 +229,9 @@ function shellQuote(value) {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-function shouldInstallReleaseAssets() {
-  return isTruthy(process.env.MONEYSIREN_APP_INSTALL_ALL) ||
-    isGlobal;
-}
-
-function isGlobalInstall() {
-  return process.env.npm_config_global === "true" ||
-    process.env.npm_config_location === "global";
+function isGlobalInstall(env) {
+  return env.npm_config_global === "true" ||
+    env.npm_config_location === "global";
 }
 
 function isTruthy(value) {
@@ -261,5 +241,8 @@ function isTruthy(value) {
 
   const normalized = value.trim().toLowerCase();
 
-  return normalized.length > 0 && normalized !== "0" && normalized !== "false" && normalized !== "no";
+  return normalized.length > 0 &&
+    normalized !== "0" &&
+    normalized !== "false" &&
+    normalized !== "no";
 }

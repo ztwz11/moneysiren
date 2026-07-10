@@ -153,6 +153,20 @@ test("rejects asset/tag mismatches and incomplete source commits", async () => {
     }),
     /full 40-character SHA/,
   );
+
+  const windowsDir = await temporaryDirectory();
+  await writeFile(join(windowsDir, `moneysiren-web-runtime-${TAG}.tar.gz`), "web");
+  await writeFile(join(windowsDir, "MoneySiren.Tray_0.1.5_x64-portable.exe"), "hud");
+
+  await assert.rejects(
+    createReleaseManifest({
+      assetsDir: windowsDir,
+      repository: "ztwz11/moneysiren",
+      tag: TAG,
+      sourceCommit: SOURCE_COMMIT,
+    }),
+    /Windows desktop asset version mismatch/,
+  );
 });
 
 test("rejects malformed or duplicate signing metadata", async () => {

@@ -135,6 +135,7 @@ CREATE TABLE IF NOT EXISTS provider_sync_runs (
   billing_count INTEGER NOT NULL DEFAULT 0 CHECK (billing_count >= 0),
   health_count INTEGER NOT NULL DEFAULT 0 CHECK (health_count >= 0),
   estimate_count INTEGER NOT NULL DEFAULT 0 CHECK (estimate_count >= 0),
+  alert_count INTEGER NOT NULL DEFAULT 0 CHECK (alert_count >= 0),
   error_code TEXT,
   error_message TEXT,
   data_through TEXT,

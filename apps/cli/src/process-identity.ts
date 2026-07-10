@@ -21,6 +21,32 @@ export type ProcessIdentityVerification =
 const NONCE_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DEFAULT_START_TIME_TOLERANCE_MS = 2_500;
 
+export function parsePosixElapsedTime(value: string): number | null {
+  const match = value.trim().match(/^(?:(\d+)-)?(?:(\d{1,2}):)?(\d{1,2}):(\d{2})$/u);
+  if (match === null) {
+    return null;
+  }
+
+  const days = Number(match[1] ?? 0);
+  const hours = Number(match[2] ?? 0);
+  const minutes = Number(match[3]);
+  const seconds = Number(match[4]);
+
+  if (
+    !Number.isSafeInteger(days) ||
+    !Number.isSafeInteger(hours) ||
+    !Number.isSafeInteger(minutes) ||
+    !Number.isSafeInteger(seconds) ||
+    hours > 23 ||
+    minutes > 59 ||
+    seconds > 59
+  ) {
+    return null;
+  }
+
+  return (((days * 24) + hours) * 60 + minutes) * 60 + seconds;
+}
+
 export function observedIdentityFromElapsedSeconds(input: {
   pid: number;
   elapsedSeconds: number;

@@ -342,6 +342,7 @@ describe("MoneySiren CLI", () => {
       { id: "0002_read_model_indexes" },
       { id: "0003_emergency_action_runs" },
       { id: "0004_provider_sync_runs" },
+      { id: "0005_notification_state" },
     ]);
     expect(persistedText).not.toContain("sqlite-placeholder-v1");
     expect(persistedText).not.toMatch(/sk-|hooks\.slack|@/i);

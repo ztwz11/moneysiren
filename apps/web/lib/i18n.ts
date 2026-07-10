@@ -145,6 +145,12 @@ export interface Messages {
     reasoningTokens: string;
     noCurrentUsage: string;
     localCliUsageNote: string;
+    codexOfficialMeasurements: string;
+    codexLocalMeasurements: string;
+    codexCoverage: string;
+    codexCreditEstimate: string;
+    codexCreditEstimateNote: string;
+    codexUnavailable: string;
   };
   catalog: {
     title: string;
@@ -512,6 +518,12 @@ const baseMessages = {
       reasoningTokens: "Reasoning tokens",
       noCurrentUsage: "No current usage",
       localCliUsageNote: "Local CLI token usage from statusline and local session logs.",
+      codexOfficialMeasurements: "Official Codex App Server",
+      codexLocalMeasurements: "Local model estimate",
+      codexCoverage: "Scan coverage",
+      codexCreditEstimate: "Estimated Codex credits",
+      codexCreditEstimateNote: "Official dated rates × local token estimate; not official account spend.",
+      codexUnavailable: "Unavailable",
     },
     catalog: {
       title: "Provider catalog",
@@ -914,6 +926,12 @@ const baseMessages = {
       reasoningTokens: "Reasoning 토큰",
       noCurrentUsage: "현재 사용량 없음",
       localCliUsageNote: "statusline과 로컬 세션 로그 기반 CLI 토큰 사용량입니다.",
+      codexOfficialMeasurements: "공식 Codex App Server",
+      codexLocalMeasurements: "로컬 모델 추정치",
+      codexCoverage: "스캔 범위",
+      codexCreditEstimate: "Codex 크레딧 추정치",
+      codexCreditEstimateNote: "날짜가 명시된 공식 요율 × 로컬 토큰 추정치이며 공식 계정 지출이 아닙니다.",
+      codexUnavailable: "확인 불가",
     },
     catalog: {
       title: "프로바이더 카탈로그",
@@ -1316,6 +1334,12 @@ const baseMessages = {
       reasoningTokens: "Reasoning トークン",
       noCurrentUsage: "現在の使用量なし",
       localCliUsageNote: "statusline とローカルセッションログに基づく CLI トークン使用量です。",
+      codexOfficialMeasurements: "公式 Codex App Server",
+      codexLocalMeasurements: "ローカルモデル推定",
+      codexCoverage: "スキャン範囲",
+      codexCreditEstimate: "Codex クレジット推定",
+      codexCreditEstimateNote: "日付付き公式レート × ローカルトークン推定であり、公式アカウント支出ではありません。",
+      codexUnavailable: "利用不可",
     },
     catalog: {
       title: "プロバイダーカタログ",

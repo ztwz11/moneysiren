@@ -15,7 +15,7 @@ as separate states.
 
 ## Versioned release manifest
 
-Every source-free release must include
+Every v0.1.6-and-newer source-free release must include
 `moneysiren-release-manifest.json`. The release workflow creates it from the
 downloadable artifacts with
 `tools/scripts/create-release-manifest.mjs`. The JSON is deterministic: it has
@@ -32,6 +32,8 @@ Schema version 1 records:
 - archive type;
 - signing state and mechanism.
 
+Windows artifact filenames also carry a semantic version, and both the builder and installer require it to equal the release tag. Current macOS archive filenames do not carry a version; their identity is therefore bound by the manifest tag, full source commit, exact size, and SHA256.
+
 The installer rejects unknown schemas, unexpected fields, duplicate or unsafe
 asset names, missing web runtime metadata, version/tag/repository mismatch,
 incomplete commit IDs, impossible sizes, malformed hashes, and inconsistent
@@ -41,6 +43,21 @@ the manifest does not authorize it.
 The manifest is release metadata delivered by GitHub. It is not a replacement
 for protected tags, restricted release permissions, provenance, or code
 signing. Those controls remain release gates.
+
+## Historical v0.1.5 compatibility
+
+The already-published v0.1.5 release predates the versioned manifest. While
+v0.1.5 remains the stable default, the installer has one narrow compatibility
+path for the official `ztwz11/moneysiren@v0.1.5` web runtime only. It reads the
+bounded public GitHub release metadata and legacy SHA256 file, then applies the
+same timeout, host allowlist, exact-size, hash, archive-validation, staging, and
+rollback controls.
+
+This exception does not permit a legacy HUD install, a custom repository, or
+any other tag. Its local provenance is `legacy-v0.1.5`, and source commit is
+reported as unavailable rather than invented. A missing manifest for v0.1.6 or
+newer always fails closed. The default tag should move to v0.1.6 only after
+those immutable assets are actually published.
 
 ## Download boundary
 

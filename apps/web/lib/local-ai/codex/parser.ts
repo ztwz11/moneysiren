@@ -74,7 +74,10 @@ export function parseCodexUsageValue(value: unknown): CodexUsageParseResult {
       ? candidateFrom(record.usage, semanticsFrom(record), record, payload, info)
       : []),
     ...candidateFrom(record.token_usage, semanticsFrom(record), record, payload, info),
-    ...(payloadType === "response" || payloadType === "message" || payloadType === "function_call"
+    ...(recordType === "response_item" ||
+      payloadType === "response" ||
+      payloadType === "message" ||
+      payloadType === "function_call"
       ? candidateFrom(payload?.usage, semanticsFrom(payload), record, payload, info)
       : []),
     ...candidateFrom(payload?.token_usage, semanticsFrom(payload), record, payload, info),

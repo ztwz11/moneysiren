@@ -14,6 +14,7 @@ export {
 export {
   EMERGENCY_ACTION_RUNS_SQL,
   INITIAL_SCHEMA_SQL,
+  NOTIFICATION_STATE_SQL,
   PROVIDER_SYNC_RUNS_SQL,
   READ_MODEL_INDEX_SQL,
   REQUIRED_TABLES,
@@ -50,3 +51,18 @@ export {
   type LocalUsageSnapshotInput,
   type LocalUsageSnapshotRecord,
 } from "./local-store.js";
+
+export {
+  readNotificationSchedulerState,
+  readRecentNotificationDeliveries,
+  recordNotificationDelivery,
+  writeNotificationSchedulerState,
+  type NotificationDeliveryInput,
+  type NotificationDeliveryOutcome,
+  type NotificationDeliveryReasonCode,
+  type NotificationDeliveryRecord,
+  type NotificationDeliveryTarget,
+  type NotificationSchedulerErrorCode,
+  type NotificationSchedulerState,
+  type NotificationSchedulerStateInput,
+} from "./notification-store.js";

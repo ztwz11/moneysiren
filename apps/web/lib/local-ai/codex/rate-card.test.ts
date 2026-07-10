@@ -104,6 +104,31 @@ describe("GPT-5.6 Codex rate card", () => {
     expect(estimate.estimatedCredits).toBeNull();
   });
 
+  it("fails the overall total closed when any mixed model is unrated", () => {
+    const estimate = estimateCodexCredits([
+      model("gpt-5.6-sol"),
+      model(null, { canonicalModelId: "future-model" as CodexSafeModelId }),
+    ], "estimated", {
+      rateCardMode: "token-based",
+      executionMode: "standard",
+    });
+
+    expect(estimate.models).toMatchObject([
+      {
+        availability: "available",
+        estimatedCredits: 887.5,
+        reason: null,
+      },
+      {
+        availability: "unavailable",
+        estimatedCredits: null,
+        reason: "unknown-model",
+      },
+    ]);
+    expect(estimate.estimatedCredits).toBeNull();
+    expect(estimate.accuracy).toBe("unavailable");
+  });
+
   it("requires explicit non-secret local applicability settings", () => {
     expect(readCodexCreditEstimateApplicability({
       MONEYSIREN_CODEX_RATE_CARD_MODE: "token-based",

@@ -10,6 +10,7 @@ import type { CliExecutionContext } from "./cli.js";
 import { resolveReleaseInstallDir } from "./release-installer.js";
 import {
   observedIdentityFromElapsedSeconds,
+  parsePosixElapsedTime,
   verifyManagedProcessIdentity,
   type ObservedProcessIdentity,
 } from "./process-identity.js";
@@ -1273,7 +1274,7 @@ async function inspectManagedProcessIdentity(pid: number): Promise<ObservedProce
       "-p",
       String(pid),
       "-o",
-      "etimes=",
+      "etime=",
       "-o",
       "comm=",
     ], {
@@ -1281,14 +1282,15 @@ async function inspectManagedProcessIdentity(pid: number): Promise<ObservedProce
       timeout: 5_000,
       windowsHide: true,
     });
-    const match = stdout.trim().match(/^(\d+)\s+(.+)$/su);
-    if (match === null) {
+    const match = stdout.trim().match(/^(\S+)\s+(.+)$/su);
+    const elapsedSeconds = match === null ? null : parsePosixElapsedTime(match[1] ?? "");
+    if (match === null || elapsedSeconds === null) {
       return null;
     }
 
     return observedIdentityFromElapsedSeconds({
       pid,
-      elapsedSeconds: Number(match[1]),
+      elapsedSeconds,
       executablePath: match[2] ?? "",
     });
   } catch {

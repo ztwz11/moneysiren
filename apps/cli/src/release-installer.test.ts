@@ -385,7 +385,7 @@ function releaseFetch(
       ? new Response("missing", {
           status: 404,
         })
-      : new Response(asset, {
+      : new Response(new Uint8Array(asset), {
           status: 200,
         });
   }) as unknown as typeof fetch;

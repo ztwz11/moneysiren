@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   initializeLocalStore,
   recordEmergencyActionRun,
+  recordLocalProviderSyncRun,
   recordLocalReportRun,
   readLocalStore,
   saveLocalProviderCollection,
@@ -33,7 +34,12 @@ describe("local SQLite store", () => {
     ).map((row) => row.name);
     const migrations = querySqlite<{ id: string }>(dbPath, "SELECT id FROM schema_migrations ORDER BY id;");
 
-    expect(result.appliedMigrationIds).toEqual(["0001_init", "0002_read_model_indexes", "0003_emergency_action_runs"]);
+    expect(result.appliedMigrationIds).toEqual([
+      "0001_init",
+      "0002_read_model_indexes",
+      "0003_emergency_action_runs",
+      "0004_provider_sync_runs",
+    ]);
     expect(result.skippedMigrationIds).toEqual([]);
     expect(await fileExists(dbPath)).toBe(true);
     expect(tables).toEqual(expect.arrayContaining(["schema_migrations", ...REQUIRED_TABLES]));
@@ -41,6 +47,7 @@ describe("local SQLite store", () => {
       { id: "0001_init" },
       { id: "0002_read_model_indexes" },
       { id: "0003_emergency_action_runs" },
+      { id: "0004_provider_sync_runs" },
     ]);
     expect(await fileExists(join(rootDir, ".env"))).toBe(false);
   });
@@ -60,6 +67,7 @@ describe("local SQLite store", () => {
 
     expect(store.appliedMigrationIds).toEqual(["0001_init", "0002_read_model_indexes"]);
     expect(store.emergencyActionRuns).toEqual([]);
+    expect(store.providerSyncRuns).toEqual([]);
   });
 
   it("persists normalized mock snapshots and report_runs without raw payload fields", async () => {
@@ -144,6 +152,93 @@ describe("local SQLite store", () => {
     ).toBe(0);
     expect(persistedText).not.toContain("sqlite-placeholder-v1");
     expect(persistedText).not.toMatch(/rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@/i);
+  });
+
+  it("persists sanitized sync-run history and retains the prior successful data timestamp", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
+    const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
+
+    await saveLocalProviderCollection({
+      dbPath,
+      provider: {
+        key: "mock",
+        displayName: "Mock Provider",
+        connectorVersion: "0.1.0",
+      },
+      collectedAt: FIXED_NOW,
+      status: "ok",
+      snapshots: {
+        usage: [
+          {
+            provider: "mock",
+            collectedAt: FIXED_NOW,
+            service: "mock-api",
+            metric: "requests",
+            unit: "count",
+            value: 1200,
+          },
+        ],
+        billing: [],
+        serviceHealth: [],
+        costEstimates: [],
+      },
+      alerts: [],
+    });
+
+    await recordLocalProviderSyncRun({
+      dbPath,
+      providerKey: "mock",
+      attemptedAt: "2026-06-02T09:10:00.000Z",
+      completedAt: "2026-06-02T09:10:01.000Z",
+      status: "error",
+      usageCount: 0,
+      billingCount: 0,
+      healthCount: 0,
+      estimateCount: 0,
+      alertCount: 1,
+      errorCode: "SYNC_EXECUTION",
+    });
+
+    const store = await readLocalStore({ dbPath });
+
+    expect(store.providerSyncRuns).toEqual([
+      expect.objectContaining({
+        providerKey: "mock",
+        attemptedAt: FIXED_NOW,
+        completedAt: FIXED_NOW,
+        status: "ok",
+        snapshotCount: 1,
+        usageCount: 1,
+        alertCount: 0,
+        dataThrough: FIXED_NOW,
+      }),
+      expect.objectContaining({
+        providerKey: "mock",
+        attemptedAt: "2026-06-02T09:10:00.000Z",
+        completedAt: "2026-06-02T09:10:01.000Z",
+        status: "error",
+        snapshotCount: 0,
+        alertCount: 1,
+        errorCode: "SYNC_EXECUTION",
+        sanitizedMessage: "Provider sync could not be completed.",
+      }),
+    ]);
+    expect(store.providerSyncRuns[1]).not.toHaveProperty("dataThrough");
+    expect(dumpPersistedProviderDataText(dbPath)).not.toMatch(
+      /rawPayload|rawResponse|providerPayload|billingProfile|acct_|project_|invoice_|sk-|hooks\.slack|@/i,
+    );
+
+    await expect(recordLocalProviderSyncRun({
+      dbPath,
+      providerKey: "mock",
+      attemptedAt: "2026-06-02T09:20:00.000Z",
+      status: "ok",
+      usageCount: -1,
+      billingCount: 0,
+      healthCount: 0,
+      estimateCount: 0,
+      alertCount: 0,
+    })).rejects.toThrow("non-negative safe integers");
   });
 
   it("clears stale provider-sync alerts after a successful provider collection", async () => {
@@ -565,6 +660,10 @@ function dumpPersistedProviderDataText(dbPath: string): string {
     ...querySqlite<SqliteValueRow>(
       dbPath,
       "SELECT provider_key, action_key, mode, readiness, status, reason_code, target_label_redacted, target_hash, result_summary, metadata_json FROM emergency_action_runs ORDER BY requested_at, id;",
+    ),
+    ...querySqlite<SqliteValueRow>(
+      dbPath,
+      "SELECT provider_key, attempted_at, completed_at, status, usage_count, billing_count, health_count, estimate_count, alert_count, error_code, error_message, data_through, metadata_json FROM provider_sync_runs ORDER BY attempted_at, id;",
     ),
   ];
 

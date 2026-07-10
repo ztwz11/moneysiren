@@ -48,6 +48,17 @@ codex bucket is absent.
 Provider values always outrank local estimates. A failed official read does not
 promote local token counts into an official quota value.
 
+## App Server transport
+
+MoneySiren starts the official local stdio listener explicitly:
+
+    codex app-server --listen stdio://
+
+The child process is launched without a shell. Stdout is treated as bounded
+newline-delimited JSON-RPC, stderr is discarded, and only allowlisted normalized
+measurements may leave the transport boundary. The undocumented `--stdio` flag
+is not used.
+
 ## Availability and accuracy
 
 Each domain is a discriminated available or unavailable measurement.

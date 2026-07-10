@@ -265,14 +265,17 @@ function assertAssetShape(input: {
   }
 
   if (input.platform === "win32") {
+    const versionMatch = /^MoneySiren\.Tray_([^_]+)_.+\.(?:exe|msi)$/i.exec(input.name);
+
     if (
       input.archive !== "none" ||
       input.signing.method !== "authenticode" ||
       input.signing.state === "not-required" ||
-      !/^MoneySiren\.Tray_.+\.(?:exe|msi)$/i.test(input.name) ||
+      versionMatch === null ||
+      versionMatch[1] !== input.tag.slice(1) ||
       (input.signing.state === "signed") !== (input.signing.signerThumbprint !== undefined)
     ) {
-      throw new Error(`Release manifest Windows asset ${input.name} has inconsistent metadata.`);
+      throw new Error(`Release manifest Windows asset ${input.name} has inconsistent metadata or version.`);
     }
 
     return;

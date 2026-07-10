@@ -14,7 +14,7 @@ import {
 const MAX_RESET_CREDIT_DETAILS = 100;
 const MAX_DAILY_USAGE_BUCKETS = 400;
 const SAFE_CLASSIFICATION = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
-const SAFE_PROVIDER_TEXT = /^[\p{L}\p{N} .,;:!?()/_'\-]{1,240}$/u;
+const SAFE_PROVIDER_TEXT = /^[\\p{L}\\p{N} .,;:!?()_'\\-]{1,240}$/u;
 const SENSITIVE_PROVIDER_TEXT =
   /(Bearer\s|sk-[A-Za-z0-9]|authorization|access[_ -]?token|refresh[_ -]?token|auth\.json|[A-Z]:\\|\/Users\/|\/home\/|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,})/i;
 

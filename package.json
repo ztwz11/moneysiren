@@ -66,8 +66,10 @@
     "test:release-metadata": "node --test tools/scripts/lib/release-metadata.test.mjs",
     "release:manifest": "node tools/scripts/create-release-manifest.mjs",
     "test:release-manifest": "node --test tools/scripts/lib/release-manifest.test.mjs",
+    "test:community-health": "node --test tools/scripts/lib/community-health.test.mjs",
     "release:candidate": "node tools/scripts/check-release-candidate.mjs",
-    "test:release-candidate": "node --test tools/scripts/lib/release-candidate.test.mjs",
+    "release:published-assets": "node tools/scripts/check-published-release-assets.mjs",
+    "test:release-candidate": "node --test tools/scripts/lib/release-candidate.test.mjs tools/scripts/lib/release-candidate-directory.test.mjs tools/scripts/lib/check-published-release-assets.test.mjs",
     "smoke:installed-package": "node tools/scripts/smoke-installed-package.mjs",
     "e2e": "pnpm dlx @playwright/test@1.54.2 test --config playwright.config.mjs"
   },

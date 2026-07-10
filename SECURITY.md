@@ -85,6 +85,21 @@ Raw stdout, stderr, JSON-RPC envelopes, JSONL, opaque account or credit IDs, and
 auth files must not be logged, persisted, returned through APIs, or captured in
 screenshots.
 
+### Codex App Server child environment
+
+MoneySiren must not pass its complete environment to the Codex App Server
+process. The child receives only explicitly allowlisted process-execution,
+OS/home/config, `CODEX_HOME`, locale, proxy, and CA-certificate variables.
+Windows matching is case-insensitive and emits canonical keys; POSIX matching
+is exact. Prefix wildcards such as `LC_*` and `MONEYSIREN_*` are forbidden.
+
+Provider API keys, cloud credential variables, webhook or bot credentials,
+reset and cron secrets, OAuth or vault tokens, `NODE_OPTIONS`, debug/log
+controls, and SSH agent state must remain outside the child environment.
+Proxy and CA variables are narrow network-runtime exceptions and must never be
+logged or returned. `CODEX_HOME` may be passed so Codex can own its sign-in
+state, but MoneySiren must not read or expose its auth contents.
+
 ## Public repository safeguards
 
 Before pushing:

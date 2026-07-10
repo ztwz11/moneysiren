@@ -7,7 +7,7 @@ import {
 
 function actions(overrides: Partial<GuidedDemoActions> = {}): GuidedDemoActions {
   return {
-    runtimeStatus: vi.fn(async () => "needs-install"),
+    runtimeStatus: vi.fn(async (): Promise<"needs-install"> => "needs-install"),
     installWeb: vi.fn(async () => 0),
     initialize: vi.fn(async () => 0),
     syncMock: vi.fn(async () => 0),
@@ -20,7 +20,7 @@ describe("guided credential-free demo", () => {
   it("installs missing web runtime, seeds mock data, and starts the dashboard in order", async () => {
     const order: string[] = [];
     const demoActions = actions({
-      runtimeStatus: vi.fn(async () => "needs-install"),
+      runtimeStatus: vi.fn(async (): Promise<"needs-install"> => "needs-install"),
       installWeb: vi.fn(async () => { order.push("install"); return 0; }),
       initialize: vi.fn(async () => { order.push("init"); return 0; }),
       syncMock: vi.fn(async () => { order.push("sync"); return 0; }),
@@ -46,7 +46,7 @@ describe("guided credential-free demo", () => {
 
   it("is resumable and reuses an already verified runtime", async () => {
     const demoActions = actions({
-      runtimeStatus: vi.fn(async () => "ready"),
+      runtimeStatus: vi.fn(async (): Promise<"ready"> => "ready"),
     });
 
     expect(await runGuidedDemo(

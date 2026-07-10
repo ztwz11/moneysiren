@@ -29,6 +29,22 @@ body:
         - Other
     validations:
       required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Affected provider
+      description: Select Not provider-specific for install, dashboard shell, or documentation defects.
+      options:
+        - Not provider-specific
+        - Mock or synthetic provider
+        - Codex App or CLI
+        - OpenAI Platform
+        - AWS Cost Explorer
+        - Supabase
+        - Cloudflare
+        - Other
+    validations:
+      required: true
   - type: input
     id: version
     attributes:
@@ -60,6 +76,14 @@ body:
         - Source checkout
         - Docker or Compose
         - Other
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: MoneySiren command or UI route
+      description: Name only the MoneySiren subcommand or local UI route. Remove arguments containing credentials, tokens, identifiers, paths, or other sensitive values.
+      placeholder: "msiren demo, msiren sync, /, or HUD settings"
     validations:
       required: true
   - type: textarea

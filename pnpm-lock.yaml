@@ -95,6 +95,8 @@ importers:
 
   packages/local-api: {}
 
+  packages/notifier: {}
+
   packages/report: {}
 
   packages/runtime: {}

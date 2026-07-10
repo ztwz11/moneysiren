@@ -1,6 +1,8 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 import {
   acquireNotificationSchedulerLock,
@@ -82,6 +84,82 @@ describe("notification scheduler runtime lock", () => {
     if (winner?.acquired) {
       expect(await releaseNotificationSchedulerLock(winner.lease)).toBe(true);
     }
+  });
+
+  it("does not let an old lease delete a successor while release waits on the mutation guard", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-notifier-lock-"));
+    const first = await acquireNotificationSchedulerLock({
+      cwd,
+      lockPath: "scheduler.lock",
+      pid: 1234,
+      processAlive: () => true,
+    });
+    expect(first.acquired).toBe(true);
+    if (!first.acquired) throw new Error("Expected initial scheduler lease.");
+
+    const mutationGuard = `${first.lease.path}.mutation`;
+    await writeFile(mutationGuard, "", { flag: "wx" });
+    const releasing = releaseNotificationSchedulerLock(first.lease);
+    const initialState = await Promise.race([
+      releasing.then(
+        () => "settled",
+        () => "settled",
+      ),
+      delay(20).then(() => "pending"),
+    ]);
+    expect(initialState).toBe("pending");
+
+    const successorNonce = "synthetic-successor-nonce";
+    await writeFile(
+      first.lease.path,
+      `${JSON.stringify({
+        kind: "moneysiren-notification-scheduler-lock-v1",
+        pid: 5678,
+        acquiredAt: "2026-07-10T06:00:00.000Z",
+        nonceHash: createHash("sha256").update(successorNonce).digest("hex"),
+      }, null, 2)}\n`,
+      "utf8",
+    );
+    await rm(mutationGuard);
+
+    expect(await releasing).toBe(false);
+    expect(await readNotificationSchedulerLock({
+      cwd,
+      lockPath: "scheduler.lock",
+    })).toMatchObject({ pid: 5678 });
+    expect(await releaseNotificationSchedulerLock({
+      path: first.lease.path,
+      nonce: successorNonce,
+    })).toBe(true);
+  });
+
+  it("fails closed when the mutation guard remains occupied", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-notifier-lock-"));
+    const first = await acquireNotificationSchedulerLock({
+      cwd,
+      lockPath: "scheduler.lock",
+      pid: 1234,
+      processAlive: () => true,
+    });
+    expect(first.acquired).toBe(true);
+    if (!first.acquired) throw new Error("Expected initial scheduler lease.");
+
+    const mutationGuard = `${first.lease.path}.mutation`;
+    await writeFile(mutationGuard, "", { flag: "wx" });
+
+    await expect(acquireNotificationSchedulerLock({
+      cwd,
+      lockPath: "scheduler.lock",
+      pid: 5678,
+      processAlive: () => false,
+    })).rejects.toThrow("NOTIFICATION_SCHEDULER_MUTATION_GUARD_BUSY");
+
+    expect(await readNotificationSchedulerLock({
+      cwd,
+      lockPath: "scheduler.lock",
+    })).toMatchObject({ pid: 1234 });
+    await rm(mutationGuard);
+    expect(await releaseNotificationSchedulerLock(first.lease)).toBe(true);
   });
 
   it("replaces a stale owner without exposing its contents", async () => {

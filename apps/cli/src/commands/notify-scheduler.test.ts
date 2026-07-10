@@ -91,7 +91,8 @@ describe("explicit notification delivery", () => {
 
     expect(result.exitCode).toBe(1);
     expect(sendCalls).toBe(0);
-    expect(deliveries[0]).toMatchObject({
+    expect(deliveries.map((entry) => entry.outcome).sort()).toEqual(["attempted", "error"]);
+    expect(deliveries.find((entry) => entry.outcome === "error")).toMatchObject({
       target: "desktop",
       outcome: "error",
       reasonCode: "permission_denied",
@@ -114,11 +115,13 @@ describe("explicit notification delivery", () => {
     const output = [...result.stdout, ...result.stderr].join("\n");
 
     expect(result.exitCode).toBe(1);
-    expect(deliveries[0]).toMatchObject({
+    expect(deliveries.map((entry) => entry.outcome).sort()).toEqual(["attempted", "error"]);
+    expect(deliveries.find((entry) => entry.outcome === "error")).toMatchObject({
       target: "slack",
       outcome: "error",
       reasonCode: "delivery_failed",
     });
+    expect(JSON.stringify(deliveries)).not.toContain(WEBHOOK);
     expect(output).not.toContain(WEBHOOK);
   });
 });

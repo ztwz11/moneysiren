@@ -42,11 +42,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # pinned
         with:
           node-version: 24
 
@@ -68,15 +68,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # pinned
         with:
           version: 11.5.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # pinned
         with:
           node-version: 24
           cache: pnpm
@@ -101,7 +101,7 @@ jobs:
           cd dist/release
           sha256sum moneysiren-web-runtime-*.tar.gz > moneysiren-web-runtime-SHA256SUMS.txt
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
         with:
           name: moneysiren-web-runtime
           path: dist/release/*
@@ -123,17 +123,17 @@ jobs:
             bundles: app
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned
         if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # pinned
         if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name
         with:
           version: 11.5.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # pinned
         if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name
         with:
           node-version: 24
@@ -376,7 +376,7 @@ jobs:
             );
           '
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
         if: (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name) && (runner.os != 'macOS' || env.APPLE_SIGNING_READY == 'true')
         with:
           name: moneysiren-desktop-${{ matrix.name }}
@@ -392,9 +392,9 @@ jobs:
     if: always() && needs.web-runtime.result == 'success' && (github.event_name == 'push' || inputs.create_release)
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # pinned
         with:
           path: dist/release-assets
           merge-multiple: true
@@ -436,6 +436,37 @@ jobs:
             --repository "${GITHUB_REPOSITORY}" \
             --tag "$tag" \
             --source-commit "$source_commit"
+      - name: Validate exact release candidate
+        shell: bash
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+          DISPATCH_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          release_prerelease="false"
+
+          if [[ "$tag" =~ -(alpha|beta|rc)([.-][0-9A-Za-z.-]+)?$ ]]; then
+            release_prerelease="true"
+          fi
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            tag="${DISPATCH_TAG}"
+            release_prerelease="${DISPATCH_PRERELEASE}"
+          fi
+
+          channel="stable"
+          if [ "$release_prerelease" = "true" ]; then
+            channel="preview"
+          fi
+
+          node tools/scripts/check-release-candidate.mjs \
+            --assets-dir dist/release-assets \
+            --tag "$tag" \
+            --source-commit "$(git rev-parse HEAD)" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --channel "$channel"
+
 
       - name: Create or update GitHub Release
         shell: bash
@@ -471,8 +502,31 @@ jobs:
             exit 1
           fi
 
+          channel="stable"
+          if [ "$release_prerelease" = "true" ]; then
+            channel="preview"
+          fi
+          source_commit="$(git rev-parse HEAD)"
+
           if gh release view "$tag" >/dev/null 2>&1; then
-            release_id="$(gh release view "$tag" --json databaseId --jq '.databaseId')"
+            release_json="${RUNNER_TEMP}/moneysiren-release-${tag}.json"
+            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" > "$release_json"
+
+            node tools/scripts/check-published-release-assets.mjs \
+              --assets-dir dist/release-assets \
+              --release-json "$release_json" \
+              --tag "$tag" \
+              --source-commit "$source_commit" \
+              --repository "${GITHUB_REPOSITORY}" \
+              --channel "$channel"
+
+            release_id="$(jq -r '.id' "$release_json")"
+            release_draft="$(jq -r '.draft' "$release_json")"
+            if ! [[ "$release_id" =~ ^[0-9]+$ ]] || ! [[ "$release_draft" =~ ^(true|false)$ ]]; then
+              echo "::error::GitHub Release state is malformed."
+              exit 1
+            fi
+
             gh api \
               --method PATCH \
               "repos/${GITHUB_REPOSITORY}/releases/${release_id}" \
@@ -480,14 +534,27 @@ jobs:
             gh release edit "$tag" \
               --title "MoneySiren ${tag}" \
               --notes-file "$notes_file"
-            while IFS= read -r asset_name; do
-              case "$asset_name" in
-                moneysiren-web-runtime-*.tar.gz|moneysiren-web-runtime-SHA256SUMS.txt|MoneySiren.Tray*.exe|MoneySiren.Tray*.msi|*macos*|moneysiren-tray-windows-SHA256SUMS.txt|moneysiren-tray-windows-SIGNATURE.json|moneysiren-tray-macos-SHA256SUMS.txt|moneysiren-tray-macos-SIGNATURE.json|moneysiren-release-manifest.json)
-                  gh release delete-asset "$tag" "$asset_name" -y || true
-                  ;;
-              esac
-            done < <(gh release view "$tag" --json assets --jq '.assets[].name')
-            gh release upload "$tag" dist/release-assets/* --clobber
+
+            if [ "$release_draft" = "true" ]; then
+              while IFS= read -r asset_id; do
+                if ! [[ "$asset_id" =~ ^[0-9]+$ ]]; then
+                  echo "::error::GitHub draft release contains an invalid asset id."
+                  exit 1
+                fi
+                gh api \
+                  --method DELETE \
+                  "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}"
+              done < <(jq -r '.assets[].id' "$release_json")
+
+              gh release upload "$tag" dist/release-assets/* --clobber
+              gh api \
+                --method PATCH \
+                "repos/${GITHUB_REPOSITORY}/releases/${release_id}" \
+                -F "draft=false" \
+                -F "prerelease=${release_prerelease}"
+            else
+              echo "Published release assets exactly match the candidate; skipping asset replacement."
+            fi
           else
             gh release create "$tag" dist/release-assets/* \
               --target "$GITHUB_SHA" \

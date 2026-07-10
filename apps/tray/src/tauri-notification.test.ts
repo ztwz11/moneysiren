@@ -71,7 +71,9 @@ describe("Tauri notification bridge", () => {
       },
     });
 
-    await installTauriNotificationClickHandler((path) => opened.push(path), plugin);
+    await installTauriNotificationClickHandler((path) => {
+      opened.push(path);
+    }, plugin);
     action?.({ extra: { clickPath: "https://example.invalid" } });
     action?.({ extra: { clickPath: "/dashboard/risks" } });
 

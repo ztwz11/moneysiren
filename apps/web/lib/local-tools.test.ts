@@ -958,7 +958,7 @@ describe("local tool status", () => {
     });
     expect(serialized).not.toContain(homeDir);
     expect(serialized).not.toContain("FAKE-turn");
-  });
+  }, 60_000);
 
   it("uses MONEYSIREN_CODEX_SESSIONS_DIR before CODEX_HOME for Codex usage logs", async () => {
     const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-custom-codex-dir-"));

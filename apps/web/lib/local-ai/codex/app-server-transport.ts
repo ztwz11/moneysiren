@@ -26,15 +26,84 @@ const RATE_LIMITS_REQUEST_ID = 1;
 const ACCOUNT_USAGE_REQUEST_ID = 2;
 const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_MAX_LINE_BYTES = 512 * 1_024;
+const POSIX_CODEX_CHILD_ENV_KEYS = [
+  "PATH",
+  "TMPDIR",
+  "TMP",
+  "TEMP",
+  "HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+  "CODEX_HOME",
+  "LANG",
+  "LANGUAGE",
+  "LC_ALL",
+  "TZ",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "ALL_PROXY",
+  "NO_PROXY",
+  "http_proxy",
+  "https_proxy",
+  "all_proxy",
+  "no_proxy",
+  "NODE_EXTRA_CA_CERTS",
+  "SSL_CERT_FILE",
+  "SSL_CERT_DIR",
+  "CURL_CA_BUNDLE",
+  "REQUESTS_CA_BUNDLE",
+] as const;
+const WINDOWS_CODEX_CHILD_ENV_KEYS = [
+  "PATH",
+  "PATHEXT",
+  "SYSTEMROOT",
+  "WINDIR",
+  "COMSPEC",
+  "TEMP",
+  "TMP",
+  "TMPDIR",
+  "HOME",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "USERPROFILE",
+  "APPDATA",
+  "LOCALAPPDATA",
+  "XDG_CONFIG_HOME",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+  "CODEX_HOME",
+  "LANG",
+  "LANGUAGE",
+  "LC_ALL",
+  "TZ",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "ALL_PROXY",
+  "NO_PROXY",
+  "NODE_EXTRA_CA_CERTS",
+  "SSL_CERT_FILE",
+  "SSL_CERT_DIR",
+  "CURL_CA_BUNDLE",
+  "REQUESTS_CA_BUNDLE",
+] as const;
 
 export interface CodexOfficialAccountMeasurements {
   rateLimits: CodexRateLimitsMeasurement;
   accountUsage: CodexAccountUsageMeasurement;
 }
 
+export interface CodexAppServerSpawnOptions {
+  env: Record<string, string> & { NODE_ENV: "development" | "production" | "test" };
+  shell: false;
+  stdio: ["pipe", "pipe", "pipe"];
+  windowsHide: true;
+}
+
 export type CodexAppServerSpawn = (
   command: string,
   args: readonly string[],
+  options: CodexAppServerSpawnOptions,
 ) => ChildProcessWithoutNullStreams;
 
 export interface ReadCodexAppServerOptions {
@@ -42,6 +111,8 @@ export interface ReadCodexAppServerOptions {
   timeoutMs?: number;
   maxLineBytes?: number;
   spawnProcess?: CodexAppServerSpawn;
+  env?: Readonly<Record<string, string | undefined>>;
+  platform?: NodeJS.Platform;
 }
 
 export interface CodexAppServerAdvance {
@@ -53,6 +124,64 @@ export interface CodexAppServerDecodedChunk {
   lines: readonly string[];
   oversized: boolean;
 }
+
+/**
+ * Rebuilds the Codex child environment from explicit execution-only keys.
+ *
+ * Provider credentials and MoneySiren configuration are intentionally absent.
+ * Windows lookup is case-insensitive, but emitted keys use canonical casing.
+ */
+export function buildCodexAppServerChildEnv(
+  sourceEnv: Readonly<Record<string, string | undefined>>,
+  platform: NodeJS.Platform = process.platform,
+): Record<string, string> & { NODE_ENV: "development" | "production" | "test" } {
+  const childEnv: Record<string, string> & { NODE_ENV: "development" | "production" | "test" } = { NODE_ENV: normalizeNodeEnvironment(sourceEnv.NODE_ENV) };
+
+  if (platform === "win32") {
+    const sourceByCanonicalKey = new Map<string, string>();
+
+    for (const [key, value] of Object.entries(sourceEnv)) {
+      const canonicalKey = key.toUpperCase();
+
+      if (
+        typeof value === "string" &&
+        !sourceByCanonicalKey.has(canonicalKey)
+      ) {
+        sourceByCanonicalKey.set(canonicalKey, value);
+      }
+    }
+    childEnv.NODE_ENV = normalizeNodeEnvironment(sourceByCanonicalKey.get("NODE_ENV"));
+
+    for (const key of WINDOWS_CODEX_CHILD_ENV_KEYS) {
+      const value = sourceByCanonicalKey.get(key);
+
+      if (value !== undefined) {
+        childEnv[key] = value;
+      }
+    }
+
+    return childEnv;
+  }
+
+  for (const key of POSIX_CODEX_CHILD_ENV_KEYS) {
+    const value = sourceEnv[key];
+
+    if (typeof value === "string") {
+      childEnv[key] = value;
+    }
+  }
+
+  return childEnv;
+}
+
+function normalizeNodeEnvironment(
+  value: string | undefined,
+): "development" | "production" | "test" {
+  return value === "development" || value === "test" || value === "production"
+    ? value
+    : "production";
+}
+
 
 /**
  * Frames newline-delimited JSON without retaining completed protocol messages.
@@ -260,10 +389,23 @@ export async function readCodexAppServerOfficialMeasurements(
   );
 
   const spawnProcess = options.spawnProcess ?? spawnCodexAppServer;
+  const spawnOptions: CodexAppServerSpawnOptions = {
+    env: buildCodexAppServerChildEnv(
+      options.env ?? process.env,
+      options.platform ?? process.platform,
+    ),
+    shell: false,
+    stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
+  };
   let child: ChildProcessWithoutNullStreams;
 
   try {
-    child = spawnProcess("codex", CODEX_APP_SERVER_STDIO_ARGS);
+    child = spawnProcess(
+      "codex",
+      CODEX_APP_SERVER_STDIO_ARGS,
+      spawnOptions,
+    );
   } catch (error) {
     return session.finishPending(reasonFromProcessError(error));
   }
@@ -363,12 +505,9 @@ export async function readCodexAppServerOfficialMeasurements(
 function spawnCodexAppServer(
   command: string,
   args: readonly string[],
+  options: CodexAppServerSpawnOptions,
 ): ChildProcessWithoutNullStreams {
-  return spawn(command, [...args], {
-    shell: false,
-    stdio: ["pipe", "pipe", "pipe"],
-    windowsHide: true,
-  });
+  return spawn(command, [...args], options);
 }
 
 function reasonFromRpcError(value: unknown): CodexUnavailableReason {

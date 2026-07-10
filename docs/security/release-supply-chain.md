@@ -7,8 +7,11 @@ as separate states.
   `moneysiren` / `msiren` command shims. Postinstall does not contact GitHub
   or install a web/HUD runtime.
 - `msiren install --web` and `msiren install --hud` are explicit network
-  operations. They succeed only after the selected immutable release asset
+  operations. They succeed only after the selected versioned release asset
   passes the manifest, download, archive, and signing policy below.
+- Repository-level published-release immutability is a REL-003 gate. Until the
+  workflow refuses replacement of a non-draft release, this document does not
+  claim that GitHub Release assets are immutable.
 - `msiren install --status` reports the command state and remote-runtime state
   independently. A command can be installed while the runtime is
   `not-installed` or `invalid`.

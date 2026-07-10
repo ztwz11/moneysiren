@@ -259,7 +259,9 @@ describe("MoneySiren CLI", () => {
     expect(doctorOutput).toContain("openai: configured via local process environment");
     expect(doctorOutput).not.toContain("sk-fake-openai-admin-key");
 
-    const modes = await runCli(["/modes"], testContext(cwd));
+    const modes = await runCli(["/modes"], testContext(cwd, {
+      MONEYSIREN_INSTALL_PROFILE_PATH: join(cwd, "slash-install-profile.json"),
+    }));
     expect(modes.exitCode).toBe(0);
     expect(modes.stdout.join("\n")).toContain("MoneySiren modes");
     expect(modes.stdout.join("\n")).toContain("Install profile: CLI, Web dashboard, HUD");
@@ -441,11 +443,14 @@ describe("MoneySiren CLI", () => {
   it("writes and reports the npm install component profile without secrets", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const profilePath = join(cwd, "install-profile.json");
+    const runtimeDir = join(cwd, "release-runtime");
     const install = await runCli(["install", "--profile-only", "--cli", "--hud"], testContext(cwd, {
       MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
+      MONEYSIREN_RELEASE_INSTALL_DIR: runtimeDir,
     }));
     const status = await runCli(["install", "--status"], testContext(cwd, {
       MONEYSIREN_INSTALL_PROFILE_PATH: profilePath,
+      MONEYSIREN_RELEASE_INSTALL_DIR: runtimeDir,
     }));
     const profile = JSON.parse(await readFile(profilePath, "utf8")) as {
       selectedSurfaces?: string[];

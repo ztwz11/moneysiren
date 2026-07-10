@@ -9,7 +9,9 @@ import {
   CODEX_APP_SERVER_STDIO_ARGS,
   CodexAppServerJsonlDecoder,
   CodexAppServerSession,
+  buildCodexAppServerChildEnv,
   readCodexAppServerOfficialMeasurements,
+  type CodexAppServerSpawnOptions,
 } from "./app-server-transport";
 
 const FETCHED_AT = "2030-01-03T00:00:00.000Z";
@@ -20,6 +22,39 @@ describe("Codex App Server process lifecycle", () => {
     const stdinLines: string[] = [];
     let command = "";
     let args: readonly string[] = [];
+    let spawnOptions: CodexAppServerSpawnOptions | undefined;
+    const sourceEnv: Record<string, string | undefined> = {
+      Path: "FAKE_WINDOWS_PATH",
+      NODE_ENV: "test",
+      SystemRoot: "FAKE_WINDOWS_ROOT",
+      UserProfile: "FAKE_USER_PROFILE",
+      codex_home: "FAKE_CODEX_HOME",
+      lang: "ko_KR.UTF-8",
+      https_proxy: "http://127.0.0.1:8080",
+      node_extra_ca_certs: "FAKE_CA_FILE",
+      OPENAI_API_KEY: "FAKE_OPENAI_API_KEY",
+      CODEX_API_KEY: "FAKE_CODEX_API_KEY",
+      AWS_ACCESS_KEY_ID: "FAKE_AWS_ACCESS_KEY",
+      AWS_SECRET_ACCESS_KEY: "FAKE_AWS_SECRET",
+      AWS_SESSION_TOKEN: "FAKE_AWS_SESSION",
+      AWS_PROFILE: "FAKE_AWS_PROFILE",
+      SUPABASE_ACCESS_TOKEN: "FAKE_SUPABASE_TOKEN",
+      CLOUDFLARE_API_TOKEN: "FAKE_CLOUDFLARE_TOKEN",
+      GOOGLE_APPLICATION_CREDENTIALS: "FAKE_GOOGLE_CREDENTIAL_FILE",
+      SLACK_WEBHOOK_URL: "FAKE_SLACK_WEBHOOK",
+      TELEGRAM_BOT_TOKEN: "FAKE_TELEGRAM_TOKEN",
+      RESET_CREDIT_API_KEY: "FAKE_RESET_KEY",
+      CRON_SECRET: "FAKE_CRON_SECRET",
+      OAUTH_TOKEN: "FAKE_OAUTH_TOKEN",
+      VAULT_TOKEN: "FAKE_VAULT_TOKEN",
+      MONEYSIREN_DB_PATH: "FAKE_DB_PATH",
+      MONEYSIREN_FUTURE_SECRET: "FAKE_FUTURE_SECRET",
+      NODE_OPTIONS: "--require FAKE_MODULE",
+      DEBUG: "*",
+      RUST_LOG: "trace",
+      SSH_AUTH_SOCK: "FAKE_SSH_SOCKET",
+      TEMP: undefined,
+    };
 
     child.stdin.on("data", (chunk: Buffer) => {
       stdinLines.push(...chunk.toString("utf8").trim().split("\n"));
@@ -28,9 +63,12 @@ describe("Codex App Server process lifecycle", () => {
     const pending = readCodexAppServerOfficialMeasurements({
       now: () => new Date(FETCHED_AT),
       timeoutMs: 2_000,
-      spawnProcess: (nextCommand, nextArgs) => {
+      env: sourceEnv,
+      platform: "win32",
+      spawnProcess: (nextCommand, nextArgs, nextOptions) => {
         command = nextCommand;
         args = [...nextArgs];
+        spawnOptions = nextOptions;
         return child.asChildProcess();
       },
     });
@@ -42,6 +80,21 @@ describe("Codex App Server process lifecycle", () => {
       "stdio://",
     ]);
     expect(args).toEqual(CODEX_APP_SERVER_STDIO_ARGS);
+    expect(spawnOptions).toEqual({
+      env: {
+        PATH: "FAKE_WINDOWS_PATH",
+        NODE_ENV: "test",
+        SYSTEMROOT: "FAKE_WINDOWS_ROOT",
+        USERPROFILE: "FAKE_USER_PROFILE",
+        CODEX_HOME: "FAKE_CODEX_HOME",
+        LANG: "ko_KR.UTF-8",
+        HTTPS_PROXY: "http://127.0.0.1:8080",
+        NODE_EXTRA_CA_CERTS: "FAKE_CA_FILE",
+      },
+      shell: false,
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
     expect(stdinLines.map(parseLine)[0]).toMatchObject({
       method: "initialize",
       id: 0,
@@ -117,6 +170,42 @@ describe("Codex App Server process lifecycle", () => {
   });
 });
 
+
+describe("Codex App Server least-privilege child environment", () => {
+  it("matches POSIX keys exactly and does not wildcard locale variables", () => {
+    const childEnv = buildCodexAppServerChildEnv({
+      PATH: "FAKE_POSIX_PATH",
+      NODE_ENV: "test",
+      Path: "FAKE_WRONG_CASE_PATH",
+      HOME: "FAKE_HOME",
+      CODEX_HOME: "FAKE_CODEX_HOME",
+      codex_home: "FAKE_WRONG_CASE_CODEX_HOME",
+      LC_ALL: "C.UTF-8",
+      LC_TIME: "FAKE_UNALLOWLISTED_LOCALE",
+      https_proxy: "http://127.0.0.1:8080",
+      SSL_CERT_FILE: "FAKE_CA_FILE",
+      OPENAI_API_KEY: "FAKE_OPENAI_API_KEY",
+      MONEYSIREN_DB_PATH: "FAKE_DB_PATH",
+      TEMP: undefined,
+    }, "linux");
+
+    expect(childEnv).toEqual({
+      PATH: "FAKE_POSIX_PATH",
+      NODE_ENV: "test",
+      HOME: "FAKE_HOME",
+      CODEX_HOME: "FAKE_CODEX_HOME",
+      LC_ALL: "C.UTF-8",
+      https_proxy: "http://127.0.0.1:8080",
+      SSL_CERT_FILE: "FAKE_CA_FILE",
+    });
+    expect(Object.values(childEnv).every(
+      (value) => typeof value === "string",
+    )).toBe(true);
+    expect(childEnv).not.toHaveProperty("LC_TIME");
+    expect(childEnv).not.toHaveProperty("OPENAI_API_KEY");
+    expect(childEnv).not.toHaveProperty("MONEYSIREN_DB_PATH");
+  });
+});
 describe("Codex App Server bounded JSONL framing", () => {
   it("reassembles split chunks and discards blank protocol lines", () => {
     const decoder = new CodexAppServerJsonlDecoder(1_024);

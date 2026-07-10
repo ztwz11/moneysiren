@@ -1,11 +1,17 @@
 import { createHash, randomBytes } from "node:crypto";
 import { lstat, mkdir, open, readFile, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 const LOCK_PATH_ENV = "MONEYSIREN_NOTIFICATION_SCHEDULER_LOCK_PATH";
 const DEFAULT_LOCK_PATH = ".moneysiren/notification-scheduler.lock";
 const LOCK_KIND = "moneysiren-notification-scheduler-lock-v1";
 const MAX_LOCK_BYTES = 4_096;
+const MUTATION_GUARD_SUFFIX = ".mutation";
+const MUTATION_GUARD_ATTEMPTS = 100;
+const MUTATION_GUARD_RETRY_MS = 2;
+const REMOVE_ATTEMPTS = 5;
+const REMOVE_RETRY_MS = 10;
 
 export interface NotificationSchedulerLockOptions {
   cwd?: string;
@@ -50,60 +56,86 @@ export async function acquireNotificationSchedulerLock(
 
   await mkdir(dirname(path), { recursive: true });
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const nonce = randomBytes(32).toString("hex");
-    const owner: NotificationSchedulerLockOwner = {
-      pid,
-      acquiredAt: now().toISOString(),
-      nonceHash: hashNonce(nonce),
-    };
+  for (let attempt = 0; attempt < MUTATION_GUARD_ATTEMPTS; attempt += 1) {
+    const mutationGuard = await tryAcquireMutationGuard(path);
+
+    if (mutationGuard === null) {
+      await delay(MUTATION_GUARD_RETRY_MS);
+      continue;
+    }
 
     try {
-      const handle = await open(path, "wx");
+      const nonce = randomBytes(32).toString("hex");
+      const owner: NotificationSchedulerLockOwner = {
+        pid,
+        acquiredAt: now().toISOString(),
+        nonceHash: hashNonce(nonce),
+      };
 
       try {
-        await handle.writeFile(`${JSON.stringify({ kind: LOCK_KIND, ...owner }, null, 2)}\n`, "utf8");
-      } finally {
-        await handle.close();
+        const handle = await open(path, "wx");
+
+        try {
+          await handle.writeFile(`${JSON.stringify({ kind: LOCK_KIND, ...owner }, null, 2)}\n`, "utf8");
+        } finally {
+          await handle.close();
+        }
+
+        return {
+          acquired: true,
+          lease: { path, nonce },
+        };
+      } catch (error) {
+        if (!isAlreadyExists(error)) throw error;
+
+        const inspected = await inspectOwner(path);
+
+        if (inspected.kind === "untrusted") {
+          throw new Error("NOTIFICATION_SCHEDULER_LOCK_UNTRUSTED");
+        }
+
+        if (inspected.kind === "missing") {
+          continue;
+        }
+
+        if (processAlive(inspected.owner.pid)) {
+          return { acquired: false, owner: inspected.owner };
+        }
+
+        await removePathWithRetry(path);
       }
-
-      return {
-        acquired: true,
-        lease: { path, nonce },
-      };
-    } catch (error) {
-      if (!isAlreadyExists(error)) throw error;
-
-      const inspected = await inspectOwner(path);
-
-      if (inspected.kind === "untrusted") {
-        throw new Error("NOTIFICATION_SCHEDULER_LOCK_UNTRUSTED");
-      }
-
-      if (inspected.kind === "missing") {
-        continue;
-      }
-
-      if (processAlive(inspected.owner.pid)) {
-        return { acquired: false, owner: inspected.owner };
-      }
-
-      await rm(path, { force: true });
+    } finally {
+      await removePathWithRetry(mutationGuard);
     }
   }
 
-  throw new Error("Notification scheduler lock could not be acquired.");
+  throw new Error("NOTIFICATION_SCHEDULER_MUTATION_GUARD_BUSY");
 }
 
 export async function releaseNotificationSchedulerLock(lease: NotificationSchedulerLease): Promise<boolean> {
-  const owner = await readOwner(lease.path);
+  for (let attempt = 0; attempt < MUTATION_GUARD_ATTEMPTS; attempt += 1) {
+    const mutationGuard = await tryAcquireMutationGuard(lease.path);
 
-  if (owner === null || owner.nonceHash !== hashNonce(lease.nonce)) {
-    return false;
+    if (mutationGuard === null) {
+      await delay(MUTATION_GUARD_RETRY_MS);
+      continue;
+    }
+
+    try {
+      const owner = await readOwner(lease.path);
+
+      if (owner === null || owner.nonceHash !== hashNonce(lease.nonce)) {
+        return false;
+      }
+
+      await removePathWithRetry(lease.path);
+      return true;
+    } finally {
+      await removePathWithRetry(mutationGuard);
+    }
   }
 
-  await rm(lease.path, { force: true });
-  return true;
+  throw new Error("NOTIFICATION_SCHEDULER_MUTATION_GUARD_BUSY");
 }
 
 export async function readNotificationSchedulerLock(
@@ -115,6 +147,37 @@ export async function readNotificationSchedulerLock(
 async function readOwner(path: string): Promise<NotificationSchedulerLockOwner | null> {
   const inspected = await inspectOwner(path);
   return inspected.kind === "valid" ? inspected.owner : null;
+}
+
+async function tryAcquireMutationGuard(path: string): Promise<string | null> {
+  const mutationGuard = `${path}${MUTATION_GUARD_SUFFIX}`;
+
+  try {
+    const handle = await open(mutationGuard, "wx");
+    await handle.close();
+    return mutationGuard;
+  } catch (error) {
+    if (isAlreadyExists(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function removePathWithRetry(path: string): Promise<void> {
+  for (let attempt = 0; attempt < REMOVE_ATTEMPTS; attempt += 1) {
+    try {
+      await rm(path, { force: true });
+      return;
+    } catch (error) {
+      if (!isTransientRemoveError(error) || attempt === REMOVE_ATTEMPTS - 1) {
+        throw error;
+      }
+
+      await delay(REMOVE_RETRY_MS);
+    }
+  }
 }
 
 async function inspectOwner(path: string): Promise<
@@ -173,6 +236,10 @@ function defaultProcessAlive(pid: number): boolean {
 
 function isAlreadyExists(error: unknown): boolean {
   return isNodeError(error) && error.code === "EEXIST";
+}
+
+function isTransientRemoveError(error: unknown): boolean {
+  return isNodeError(error) && (error.code === "EBUSY" || error.code === "EPERM");
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

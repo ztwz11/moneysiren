@@ -59,8 +59,24 @@ MoneySiren starts the official local stdio listener explicitly:
 
 The child process is launched without a shell. Stdout is treated as bounded
 newline-delimited JSON-RPC, stderr is discarded, and only allowlisted normalized
-measurements may leave the transport boundary. The undocumented `--stdio` flag
-is not used.
+measurements may leave the transport boundary. MoneySiren uses the documented
+`codex app-server --listen stdio://` form. This is an official local Codex
+JSON-RPC interface, not an OpenAI Platform `/v1` REST endpoint.
+
+The child does not inherit MoneySiren's full process environment. MoneySiren
+rebuilds it from an explicit least-privilege allowlist containing only command
+lookup and OS runtime variables, home/config locations including `CODEX_HOME`,
+`LANG`/`LANGUAGE`/`LC_ALL`/`TZ`, explicit proxy variables, and explicit CA
+bundle variables. POSIX names match exactly. Windows names match
+case-insensitively and are emitted with canonical uppercase names. Locale
+variables are not accepted through an `LC_*` wildcard.
+
+Everything else is withheld, including OpenAI/Codex API keys, AWS credential
+and profile variables, Supabase and Cloudflare tokens, Google credential
+pointers, Slack and Telegram credentials, reset/cron secrets, OAuth and vault
+tokens, every `MONEYSIREN_*` variable, `NODE_OPTIONS`, debug/log controls, and
+SSH agent state. `CODEX_HOME` and OS home/config variables let the Codex process
+locate and own its sign-in state; MoneySiren still does not read that state.
 
 ## Availability and accuracy
 

@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { basename, extname, resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 const args = parseArgs(process.argv.slice(2));
 const repoRoot = resolve(import.meta.dirname, "../..");

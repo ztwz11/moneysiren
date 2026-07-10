@@ -75,6 +75,13 @@ describe("notification scheduler", () => {
       jitterSeconds: 90,
       random: () => 1,
     })).toBe("2026-07-10T00:31:30.000Z");
+    expect(computeNextNotificationRun({
+      now: new Date("2026-07-10T00:00:00.000Z"),
+      intervalMinutes: 15,
+      providerMinimumMinutes: [15],
+      jitterSeconds: 90,
+      random: () => Number.NaN,
+    })).toBe("2026-07-10T00:15:00.000Z");
     expect(computeBackoffMinutes(0)).toBe(15);
     expect(computeBackoffMinutes(5)).toBe(360);
   });

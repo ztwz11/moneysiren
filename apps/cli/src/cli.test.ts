@@ -524,7 +524,7 @@ describe("MoneySiren CLI", () => {
     );
     const allOutput = [...result.stdout, ...result.stderr].join("\n");
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode, result.stderr.join("\n")).toBe(0);
     expect(result.stdout.join("\n")).toContain(`Release: ztwz11/moneysiren@${tag}`);
     expect(result.stdout.join("\n")).toContain("Source commit: 0123456789abcdef0123456789abcdef01234567");
     expect(result.stdout.join("\n")).toContain(`Install directory: ${installDir}`);

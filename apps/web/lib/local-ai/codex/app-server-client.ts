@@ -46,7 +46,7 @@ export async function readCodexAppServerMeasurements(
   const read = options.read ?? readCodexAppServerOfficialMeasurements;
 
   const pending = read()
-    .catch(() => unavailableMeasurements(new Date(clock()).toISOString()))
+    .catch(() => unavailableMeasurements(safeClockIso(clock)))
     .then((value) => {
       if (cacheTtlMs > 0) {
         cached = {
@@ -70,6 +70,17 @@ export async function readCodexAppServerMeasurements(
 export function clearCodexAppServerClientCacheForTests(): void {
   cached = null;
   inFlight = null;
+}
+
+function safeClockIso(clock: () => number): string {
+  try {
+    const date = new Date(clock());
+    return Number.isFinite(date.getTime())
+      ? date.toISOString()
+      : new Date(0).toISOString();
+  } catch {
+    return new Date(0).toISOString();
+  }
 }
 
 function unavailableMeasurements(fetchedAt: string): CodexOfficialAccountMeasurements {

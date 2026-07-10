@@ -248,6 +248,21 @@ function isSupportedSyncProvider(provider: string): provider is SupportedSyncPro
     provider === "cloudflare";
 }
 
+function completeSync(
+  context: CliExecutionContext,
+  result: SyncResult,
+): number {
+  const rendered = renderSyncResult(result);
+
+  context.stdout(rendered.summary);
+
+  if (rendered.diagnostic !== undefined) {
+    context.stderr(rendered.diagnostic);
+  }
+
+  return syncResultExitCode(result);
+}
+
 async function syncMockProvider(context: CliExecutionContext, configuredDbPath: string): Promise<number> {
   const dbPath = resolveDbPath(context.cwd, configuredDbPath);
   await initializeLocalStore({ dbPath });
@@ -270,18 +285,10 @@ async function syncMockProvider(context: CliExecutionContext, configuredDbPath: 
     alerts: collection.alerts,
   });
 
-  context.stdout(
-    [
-      "Synced mock provider snapshots:",
-      `usage=${collection.snapshots.usage.length}`,
-      `billing=${collection.snapshots.billing.length}`,
-      `health=${collection.snapshots.serviceHealth.length}`,
-      `estimates=${collection.snapshots.costEstimates.length}`,
-      `alerts=${collection.alerts.length}`,
-    ].join(" "),
+  return completeSync(
+    context,
+    createCollectionSyncResult(collection),
   );
-
-  return 0;
 }
 
 async function syncAwsProvider(
@@ -312,23 +319,10 @@ async function syncAwsProvider(
     alerts: collection.alerts,
   });
 
-  context.stdout(
-    [
-      "Synced AWS Cost Explorer snapshots:",
-      `usage=${collection.snapshots.usage.length}`,
-      `billing=${collection.snapshots.billing.length}`,
-      `health=${collection.snapshots.serviceHealth.length}`,
-      `estimates=${collection.snapshots.costEstimates.length}`,
-      `alerts=${collection.alerts.length}`,
-    ].join(" "),
+  return completeSync(
+    context,
+    createCollectionSyncResult(collection),
   );
-
-  if (collection.status === "error") {
-    context.stderr(collection.errors?.[0] ?? collection.alerts[0]?.message ?? "AWS Cost Explorer sync failed.");
-    return 1;
-  }
-
-  return 0;
 }
 
 async function loadAwsFixture(cwd: string, fixturePath: string): Promise<AwsCostExplorerGetCostAndUsageOutput> {
@@ -365,18 +359,10 @@ async function syncOpenAiProvider(
     alerts: collection.alerts,
   });
 
-  context.stdout(
-    [
-      "Synced OpenAI usage and costs snapshots:",
-      `usage=${collection.snapshots.usage.length}`,
-      `billing=${collection.snapshots.billing.length}`,
-      `health=${collection.snapshots.serviceHealth.length}`,
-      `estimates=${collection.snapshots.costEstimates.length}`,
-      `alerts=${collection.alerts.length}`,
-    ].join(" "),
+  return completeSync(
+    context,
+    createCollectionSyncResult(collection),
   );
-
-  return 0;
 }
 
 async function loadOpenAiUsageCostsFixture(
@@ -438,18 +424,10 @@ async function syncSupabaseProvider(
     alerts: collection.alerts,
   });
 
-  context.stdout(
-    [
-      "Synced Supabase usage and health snapshots:",
-      `usage=${collection.snapshots.usage.length}`,
-      `billing=${collection.snapshots.billing.length}`,
-      `health=${collection.snapshots.serviceHealth.length}`,
-      `estimates=${collection.snapshots.costEstimates.length}`,
-      `alerts=${collection.alerts.length}`,
-    ].join(" "),
+  return completeSync(
+    context,
+    createCollectionSyncResult(collection),
   );
-
-  return 0;
 }
 
 async function loadSupabaseFixture(cwd: string, fixturePath: string): Promise<SupabaseUsageHealthPayload> {
@@ -486,18 +464,10 @@ async function syncCloudflareProvider(
     alerts: collection.alerts,
   });
 
-  context.stdout(
-    [
-      "Synced Cloudflare billing and usage snapshots:",
-      `usage=${collection.snapshots.usage.length}`,
-      `billing=${collection.snapshots.billing.length}`,
-      `health=${collection.snapshots.serviceHealth.length}`,
-      `estimates=${collection.snapshots.costEstimates.length}`,
-      `alerts=${collection.alerts.length}`,
-    ].join(" "),
+  return completeSync(
+    context,
+    createCollectionSyncResult(collection),
   );
-
-  return 0;
 }
 
 async function loadCloudflareFixture(cwd: string, fixturePath: string): Promise<CloudflareBillingUsagePayload> {

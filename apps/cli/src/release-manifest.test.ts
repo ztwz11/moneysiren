@@ -78,6 +78,23 @@ describe("release manifest", () => {
     })).toThrow(/inconsistent metadata/);
   });
 
+  it("rejects Windows artifact versions that do not match the manifest tag", () => {
+    const manifest = validManifest();
+
+    expect(() => parseReleaseManifest({
+      ...manifest,
+      assets: manifest.assets.map((asset) => asset.platform === "win32"
+        ? {
+            ...asset,
+            name: asset.name.replace("_0.1.6_", "_0.1.5_"),
+          }
+        : asset),
+    }, {
+      repository,
+      tag,
+    })).toThrow(/inconsistent metadata or version/);
+  });
+
   it("requires the signed Windows state to carry a trusted signer thumbprint", () => {
     const manifest = validManifest();
     const windows = manifest.assets.find((asset) => asset.platform === "win32");

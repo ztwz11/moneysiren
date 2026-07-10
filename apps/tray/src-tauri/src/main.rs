@@ -2,12 +2,14 @@ use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 use tauri::{
     image::Image,
+    plugin::PermissionState,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
     AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent, Wry,
 };
 #[cfg(target_os = "windows")]
 use windows::Win32::Globalization::GetUserDefaultLocaleName;
+use tauri_plugin_notification::NotificationExt;
 
 const DEFAULT_DASHBOARD_BASE_URL: &str = "http://127.0.0.1:3000";
 const DESKTOP_MODE_ENV_KEY: &str = "MONEYSIREN_DESKTOP_MODE";
@@ -104,6 +106,7 @@ struct HudWindowState {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let handle = app.handle().clone();
             let menu = build_tray_menu(app.handle())?;
@@ -587,7 +590,7 @@ fn normalize_hud_window_state(state: HudWindowState) -> Option<HudWindowState> {
 }
 
 #[tauri::command]
-fn tray_native_status() -> TrayNativeStatus {
+fn tray_native_status(app: AppHandle) -> TrayNativeStatus {
     let locale = current_locale();
 
     TrayNativeStatus {
@@ -595,11 +598,18 @@ fn tray_native_status() -> TrayNativeStatus {
         secrets_returned: false,
         dashboard_base_url: dashboard_base_url(),
         hud_available: true,
-        notifications_available: true,
+        notifications_available: notification_available(&app),
         locale: locale.code(),
         actions: localized_tray_actions(locale),
         allowed_local_api_endpoints: &LOCAL_API_ENDPOINTS,
     }
+}
+
+fn notification_available(app: &AppHandle) -> bool {
+    matches!(
+        app.notification().permission_state(),
+        Ok(PermissionState::Granted | PermissionState::Prompt | PermissionState::PromptWithRationale)
+    )
 }
 
 fn dashboard_base_url() -> String {

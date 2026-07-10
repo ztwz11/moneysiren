@@ -1676,7 +1676,7 @@ async function readJsonlUsageFiles(options: {
       period: "current_month",
       providerKind: options.providerKind,
       sessionCount: accumulator.sessionIds.size,
-      turnCount: compatibility.requestCount,
+      turnCount: accumulator.turnIds.size,
       toolCallCount: accumulator.toolCallCount,
       inputTokens: nullablePositive(compatibility.inputTokens),
       outputTokens: nullablePositive(compatibility.outputTokens),
@@ -1761,6 +1761,11 @@ function inspectCodexLocalValue(value: unknown, accumulator: UsageAccumulator): 
   accumulateStatusLineUsage(record, accumulator);
   const payload = asRecord(record.payload);
   const type = stringValue(record.type) ?? stringValue(payload?.type) ?? "";
+  const turnId = stringValue(record.turn_id ?? record.turnId ?? record.request_id ?? record.requestId);
+
+  if (turnId !== null) {
+    accumulator.turnIds.add(turnId);
+  }
 
   if (
     type === "tool_use" ||
@@ -2374,25 +2379,10 @@ function readUsageResetCredits(value: unknown, depth = 0): LocalCliUsageResetCre
     return [];
   }
 
-  const count = Math.floor(readNumber(
-    record.available_count ??
-      record.availableCount ??
-      record.count ??
-      record.quantity ??
-      record.balance ??
-      record.remaining ??
-      record.available,
-  ) ?? 0);
-  const expiresAt = readUsageResetCreditExpiry(record);
-
-  if (count <= 0) {
-    return [];
-  }
-
-  return Array.from({ length: count }, () => ({
-    label: readUsageResetCreditLabel(record),
-    expiresAt,
-  }));
+  // Count-only objects do not contain detail rows. availableCount is carried
+  // separately by the official App Server measurement and must not be expanded
+  // into synthetic credits here.
+  return [];
 }
 
 function readUsageResetCreditItem(value: unknown, depth: number): LocalCliUsageResetCredit[] {
@@ -2424,7 +2414,7 @@ function readUsageResetCreditItem(value: unknown, depth: number): LocalCliUsageR
 }
 
 function readUsageResetCreditLabel(record: Record<string, unknown>): string | null {
-  return trimToNull(stringValue(record.label ?? record.name ?? record.type ?? record.id) ?? undefined);
+  return trimToNull(stringValue(record.label ?? record.name ?? record.type) ?? undefined);
 }
 
 function readUsageResetCreditExpiry(record: Record<string, unknown>): string | null {

@@ -294,7 +294,7 @@ function replaceVersionInTrackedFiles(fromVersion, toVersion) {
   const files = capture("git", ["ls-files"])
     .split(/\r?\n/)
     .filter((file) => file.length > 0)
-    .filter(isReleaseTextFile);
+    .filter(isReleaseVersionFile);
   let changedCount = 0;
 
   for (const file of files) {
@@ -316,21 +316,18 @@ function replaceVersionInTrackedFiles(fromVersion, toVersion) {
   console.log(`Updated ${changedCount} tracked release file(s).`);
 }
 
-function isReleaseTextFile(file) {
-  const extension = extname(file).toLowerCase();
-  const name = basename(file);
+const explicitReleaseVersionFiles = new Set([
+  "apps/cli/src/version.ts",
+  "apps/cli/src/release-installer.ts",
+  "apps/tray/src-tauri/Cargo.lock",
+  "apps/tray/src-tauri/Cargo.toml",
+  "apps/tray/src-tauri/tauri.conf.json",
+  "packages/local-api/src/server.ts",
+  "pnpm-lock.yaml",
+]);
 
-  return [
-    ".json",
-    ".md",
-    ".mjs",
-    ".js",
-    ".ts",
-    ".tsx",
-    ".toml",
-    ".yml",
-    ".yaml",
-  ].includes(extension) || name === "Cargo.lock";
+function isReleaseVersionFile(file) {
+  return basename(file) === "package.json" || explicitReleaseVersionFiles.has(file);
 }
 
 function tagExistsLocally(tag) {

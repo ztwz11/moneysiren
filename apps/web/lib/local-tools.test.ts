@@ -466,9 +466,11 @@ describe("local tool status", () => {
         toolCallCount: 1,
         parsedUsageRecordCount: 2,
         searchedPathHint: expect.stringMatching(/^~[\\/]\.codex[\\/]sessions$/),
-        inputTokens: 100,
-        outputTokens: 25,
-        totalTokens: 125,
+        inputTokens: 50100,
+        outputTokens: 1225,
+        cacheTokens: 30000,
+        totalTokens: 51325,
+        reasoningOutputTokens: 300,
         statusLine: {
           contextWindowTokens: 50000,
           contextWindowLimit: 200000,
@@ -486,11 +488,11 @@ describe("local tool status", () => {
           lastCacheTokens: 30000,
           lastReasoningTokens: 300,
           lastTotalTokens: 51200,
-          totalInputTokens: 100000,
-          totalOutputTokens: 2500,
-          totalCacheTokens: 60000,
-          totalReasoningTokens: 700,
-          totalTokens: 102500,
+          totalInputTokens: 50100,
+          totalOutputTokens: 1225,
+          totalCacheTokens: 30000,
+          totalReasoningTokens: 300,
+          totalTokens: 51325,
         },
       },
     });
@@ -634,10 +636,7 @@ describe("local tool status", () => {
       fiveHourResetAt: "2026-06-10T05:00:00.000Z",
       weeklyLimitPercent: 6,
       weeklyResetAt: "2026-06-17T00:00:00.000Z",
-      usageResetCredits: [
-        { label: null, expiresAt: null },
-        { label: null, expiresAt: null },
-      ],
+      usageResetCredits: [],
     });
   });
 
@@ -1006,8 +1005,8 @@ describe("local tool status", () => {
         totalTokens: 15,
         statusLine: {
           usageResetCredits: [
-            { label: "reset-1", expiresAt: "2026-06-20T00:00:00.000Z" },
-            { label: "reset-2", expiresAt: "2026-06-21T00:00:00.000Z" },
+            { label: null, expiresAt: "2026-06-20T00:00:00.000Z" },
+            { label: null, expiresAt: "2026-06-21T00:00:00.000Z" },
           ],
         },
       },

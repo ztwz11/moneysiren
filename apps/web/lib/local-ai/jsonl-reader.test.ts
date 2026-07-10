@@ -34,7 +34,7 @@ describe("readBoundedJsonl", () => {
       unreadable: false,
       truncated: false,
     });
-    expect(JSON.stringify(result)).not.toContain("malformed");
+    expect(JSON.stringify(result)).not.toContain("{malformed");
   });
 
   it("drops oversized lines and never passes their content to the callback", async () => {

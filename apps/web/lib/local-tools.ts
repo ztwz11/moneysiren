@@ -3,7 +3,18 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, win32 } from "node:path";
 import { promisify } from "node:util";
+import { readBoundedJsonl } from "./local-ai/jsonl-reader";
 import { readCodexAppServerMeasurements } from "./local-ai/codex/app-server-client";
+import { scanCodexLocalUsage } from "./local-ai/codex/local-usage";
+import {
+  estimateCodexCredits,
+  readCodexCreditEstimateApplicability,
+  type CodexCreditEstimate,
+} from "./local-ai/codex/rate-card";
+import {
+  CODEX_MEASUREMENT_SCHEMA_VERSION,
+  type CodexLocalUsageMeasurement,
+} from "./local-ai/codex/types";
 import {
   CODEX_APP_SERVER_STDIO_ARGS,
   readCodexAppServerOfficialMeasurements,
@@ -186,6 +197,12 @@ export interface LocalCliUsageSummary {
   statusLine: LocalCliStatusLineUsage;
   message: string;
   codexOfficial?: CodexOfficialAccountMeasurements;
+  codexLocal?: CodexLocalUsagePresentation;
+}
+
+export interface CodexLocalUsagePresentation {
+  measurement: CodexLocalUsageMeasurement;
+  creditEstimate: CodexCreditEstimate;
 }
 
 export interface LocalCliUsageResetCredit {
@@ -1584,20 +1601,24 @@ async function readJsonlUsageFiles(options: {
   includeFile?: (path: string) => Promise<boolean>;
 }): Promise<LocalCliUsageSummary> {
   const periodStart = new Date(Date.UTC(options.now.getUTCFullYear(), options.now.getUTCMonth(), 1));
-  const files = (await listJsonlFiles(options.root, periodStart))
-    .sort((left, right) => right.modifiedAt.getTime() - left.modifiedAt.getTime())
-    .slice(0, MAX_LOCAL_USAGE_FILES);
+  const periodEnd = new Date(Date.UTC(options.now.getUTCFullYear(), options.now.getUTCMonth() + 1, 1));
+  const listedFiles = (await listJsonlFiles(options.root, periodStart))
+    .sort((left, right) => right.modifiedAt.getTime() - left.modifiedAt.getTime());
+  const eligibleFiles: typeof listedFiles = [];
+
+  for (const file of listedFiles) {
+    if (options.includeFile === undefined || await options.includeFile(file.path)) {
+      eligibleFiles.push(file);
+    }
+  }
+
+  const files = eligibleFiles.slice(0, MAX_LOCAL_USAGE_FILES);
   const accumulator = createUsageAccumulator(options.providerKind, options.env, options.now, options.providerKey);
 
   for (const file of files) {
-    if (options.includeFile !== undefined && !(await options.includeFile(file.path))) {
-      continue;
-    }
-
     accumulator.logFileCount += 1;
     accumulator.sessionIds.add(file.path);
     accumulator.latestActivityAt = latestIsoValue(accumulator.latestActivityAt, file.modifiedAt.toISOString());
-    await readJsonlUsageFile(file.path, accumulator);
   }
 
   if (accumulator.logFileCount === 0) {
@@ -1610,6 +1631,78 @@ async function readJsonlUsageFiles(options: {
     );
   }
 
+  if (options.providerKind === "codex") {
+    const aggregation = await scanCodexLocalUsage({
+      files,
+      eligibleFileCount: eligibleFiles.length,
+      periodStart: periodStart.toISOString(),
+      periodEnd: periodEnd.toISOString(),
+      inspectValue: (value) => {
+        accumulateRollingUsageFromValue(value, accumulator);
+        accumulateLimitMetadataFromValue(value, accumulator);
+        inspectCodexLocalValue(value, accumulator);
+      },
+    });
+    const compatibility = codexCompatibilityUsage(aggregation.data.models);
+
+    accumulator.parsedUsageRecordCount = aggregation.data.coverage.parsedRecordCount;
+    accumulator.inputTokens = compatibility.inputTokens;
+    accumulator.outputTokens = compatibility.outputTokens;
+    accumulator.cacheTokens = compatibility.cachedInputTokens;
+    accumulator.reasoningOutputTokens = compatibility.reasoningTokens;
+    accumulator.totalTokens = compatibility.totalTokens;
+    accumulator.statusLine.totalInputTokens = nullablePositive(compatibility.inputTokens);
+    accumulator.statusLine.totalOutputTokens = nullablePositive(compatibility.outputTokens);
+    accumulator.statusLine.totalCacheTokens = nullablePositive(compatibility.cachedInputTokens);
+    accumulator.statusLine.totalReasoningTokens = nullablePositive(compatibility.reasoningTokens);
+    accumulator.statusLine.totalTokens = nullablePositive(compatibility.totalTokens);
+
+    const measurement: CodexLocalUsageMeasurement = {
+      schemaVersion: CODEX_MEASUREMENT_SCHEMA_VERSION,
+      availability: "available",
+      source: "codex-local-session-metadata",
+      accuracy: aggregation.accuracy,
+      fetchedAt: options.now.toISOString(),
+      data: aggregation.data,
+    };
+    const creditEstimate = estimateCodexCredits(
+      aggregation.data.models,
+      aggregation.accuracy,
+      readCodexCreditEstimateApplicability(options.env),
+    );
+
+    return {
+      source: options.source,
+      period: "current_month",
+      providerKind: options.providerKind,
+      sessionCount: accumulator.sessionIds.size,
+      turnCount: compatibility.requestCount,
+      toolCallCount: accumulator.toolCallCount,
+      inputTokens: nullablePositive(compatibility.inputTokens),
+      outputTokens: nullablePositive(compatibility.outputTokens),
+      cacheTokens: nullablePositive(compatibility.cachedInputTokens),
+      totalTokens: nullablePositive(compatibility.totalTokens),
+      reasoningOutputTokens: nullablePositive(compatibility.reasoningTokens),
+      logFileCount: accumulator.logFileCount,
+      parsedUsageRecordCount: aggregation.data.coverage.parsedRecordCount,
+      searchedPathHint: options.searchedPathHint,
+      latestActivityAt: accumulator.latestActivityAt,
+      topModels: aggregation.data.models.map((model) => model.canonicalModelId),
+      statusLine: finalizeStatusLineUsage(accumulator.statusLine),
+      message: aggregation.accuracy === "bounded"
+        ? "Codex local model usage is bounded because scan coverage was incomplete."
+        : "Codex local model usage is estimated from sanitized session metadata.",
+      codexLocal: {
+        measurement,
+        creditEstimate,
+      },
+    };
+  }
+
+  for (const file of files) {
+    await readJsonlUsageFile(file.path, accumulator);
+  }
+
   return {
     source: options.source,
     period: "current_month",
@@ -1617,11 +1710,11 @@ async function readJsonlUsageFiles(options: {
     sessionCount: accumulator.sessionIds.size,
     turnCount: accumulator.turnIds.size,
     toolCallCount: accumulator.toolCallCount,
-    inputTokens: accumulator.inputTokens === 0 ? null : accumulator.inputTokens,
-    outputTokens: accumulator.outputTokens === 0 ? null : accumulator.outputTokens,
-    cacheTokens: accumulator.cacheTokens === 0 ? null : accumulator.cacheTokens,
-    totalTokens: accumulator.totalTokens === 0 ? null : accumulator.totalTokens,
-    reasoningOutputTokens: accumulator.reasoningOutputTokens === 0 ? null : accumulator.reasoningOutputTokens,
+    inputTokens: nullablePositive(accumulator.inputTokens),
+    outputTokens: nullablePositive(accumulator.outputTokens),
+    cacheTokens: nullablePositive(accumulator.cacheTokens),
+    totalTokens: nullablePositive(accumulator.totalTokens),
+    reasoningOutputTokens: nullablePositive(accumulator.reasoningOutputTokens),
     logFileCount: accumulator.logFileCount,
     parsedUsageRecordCount: accumulator.parsedUsageRecordCount,
     searchedPathHint: options.searchedPathHint,
@@ -1633,41 +1726,79 @@ async function readJsonlUsageFiles(options: {
 }
 
 async function detectCodexSessionSurface(path: string): Promise<"app" | "cli" | "unknown"> {
-  let content = "";
+  let detected: "app" | "cli" | "unknown" = "unknown";
 
-  try {
-    content = await readFile(path, "utf8");
-  } catch {
-    return "unknown";
-  }
-
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-
-    if (trimmed.length === 0) {
-      continue;
+  await readBoundedJsonl(path, (value) => {
+    if (detected !== "unknown") {
+      return;
     }
 
-    try {
-      const value = JSON.parse(trimmed) as unknown;
-      const record = asRecord(value);
-      const payload = asRecord(record?.payload);
-      const originator = stringValue(payload?.originator ?? record?.originator)?.toLowerCase() ?? "";
-      const source = stringValue(payload?.source ?? record?.source)?.toLowerCase() ?? "";
+    const record = asRecord(value);
+    const payload = asRecord(record?.payload);
+    const originator = stringValue(payload?.originator ?? record?.originator)?.toLowerCase() ?? "";
+    const source = stringValue(payload?.source ?? record?.source)?.toLowerCase() ?? "";
 
-      if (originator.includes("desktop") || originator.includes("app")) {
-        return "app";
-      }
-
-      if (originator.includes("cli") || source === "cli") {
-        return "cli";
-      }
-    } catch {
-      // Some local session files include non-JSON control lines; skip them without exposing content.
+    if (originator.includes("desktop") || originator.includes("app")) {
+      detected = "app";
+    } else if (originator.includes("cli") || source === "cli") {
+      detected = "cli";
     }
+  }, {
+    maxBytes: 512 * 1024,
+    maxLines: 2_000,
+  });
+
+  return detected;
+}
+
+function inspectCodexLocalValue(value: unknown, accumulator: UsageAccumulator): void {
+  const record = asRecord(value);
+
+  if (record === null) {
+    return;
   }
 
-  return "unknown";
+  accumulateStatusLineUsage(record, accumulator);
+  const payload = asRecord(record.payload);
+  const type = stringValue(record.type) ?? stringValue(payload?.type) ?? "";
+
+  if (
+    type === "tool_use" ||
+    type === "function_call" ||
+    (typeof record.call_id === "string" && typeof record.name === "string") ||
+    (typeof payload?.call_id === "string" && typeof payload?.name === "string")
+  ) {
+    accumulator.toolCallCount += 1;
+  }
+}
+
+function codexCompatibilityUsage(models: readonly import("./local-ai/codex/types").CodexModelUsage[]): {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  totalTokens: number;
+  requestCount: number;
+} {
+  return models.reduce((summary, model) => ({
+    inputTokens: summary.inputTokens + model.inputTokens,
+    cachedInputTokens: summary.cachedInputTokens + model.cachedInputTokens,
+    outputTokens: summary.outputTokens + model.outputTokens,
+    reasoningTokens: summary.reasoningTokens + model.reasoningTokens,
+    totalTokens: summary.totalTokens + model.totalTokens,
+    requestCount: summary.requestCount + model.requestCount,
+  }), {
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    totalTokens: 0,
+    requestCount: 0,
+  });
+}
+
+function nullablePositive(value: number): number | null {
+  return value > 0 ? value : null;
 }
 
 async function readJsonlUsageFile(path: string, accumulator: UsageAccumulator): Promise<void> {
@@ -2127,8 +2258,6 @@ function tokenTotalFromUsage(usage: Record<string, unknown> | null): number | nu
   const total = sumNumbers([
     readNumber(usage.input_tokens) ?? readNumber(usage.prompt_tokens),
     readNumber(usage.output_tokens) ?? readNumber(usage.completion_tokens),
-    readCacheTokens(usage),
-    readNumber(usage.reasoning_output_tokens),
   ]);
 
   return total === 0 ? null : total;

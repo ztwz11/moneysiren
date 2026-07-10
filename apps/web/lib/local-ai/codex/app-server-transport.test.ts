@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import webPackage from "../../../package.json";
 import rateLimitsFixture from "../../../../../tests/fixtures/local-ai/codex/app-server-rate-limits.json";
 import accountUsageFixture from "../../../../../tests/fixtures/local-ai/codex/app-server-usage.json";
 import { CodexAppServerSession } from "./app-server-transport";
@@ -17,7 +18,7 @@ describe("Codex App Server stdio JSON-RPC session", () => {
         clientInfo: {
           name: "moneysiren",
           title: "MoneySiren",
-          version: "0.1.5",
+          version: webPackage.version,
         },
       },
     });

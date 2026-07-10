@@ -26,11 +26,15 @@
     "macOSPrivateApi": true,
     "security": {
       "csp": null
-    }
+    },
+    "withGlobalTauri": true
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "nsis"],
+    "targets": [
+      "app",
+      "nsis"
+    ],
     "category": "DeveloperTool",
     "shortDescription": "Local MoneySiren tray notifier",
     "longDescription": "MoneySiren Tray is a local-only desktop tray notifier that reads sanitized loopback MoneySiren API responses.",

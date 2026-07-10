@@ -1,10 +1,3 @@
-import {
-  isPermissionGranted,
-  onAction,
-  requestPermission,
-  sendNotification,
-} from "@tauri-apps/plugin-notification";
-
 export interface TauriNotificationPlugin {
   isPermissionGranted(): Promise<boolean>;
   requestPermission(): Promise<"granted" | "denied" | "prompt" | "prompt-with-rationale">;
@@ -18,22 +11,31 @@ export interface TauriNotificationPlugin {
   }) => void): Promise<{ unregister(): Promise<void> }>;
 }
 
-const DEFAULT_PLUGIN: TauriNotificationPlugin = {
-  isPermissionGranted,
-  requestPermission,
-  sendNotification,
-  onAction,
-};
+function defaultPlugin(): TauriNotificationPlugin {
+  const tauri = (globalThis as {
+    window?: {
+      __TAURI__?: {
+        notification?: TauriNotificationPlugin;
+      };
+    };
+  }).window?.__TAURI__?.notification;
+
+  if (tauri === undefined) {
+    throw new Error("TAURI_NOTIFICATION_PLUGIN_UNAVAILABLE");
+  }
+
+  return tauri;
+}
 
 export function createTauriDesktopNotificationTransport(
-  plugin: TauriNotificationPlugin = DEFAULT_PLUGIN,
+  plugin?: TauriNotificationPlugin,
 ) {
   return {
     async permission() {
-      return await plugin.isPermissionGranted() ? "granted" as const : "prompt" as const;
+      return await (plugin ?? defaultPlugin()).isPermissionGranted() ? "granted" as const : "prompt" as const;
     },
     async requestPermission() {
-      const permission = await plugin.requestPermission();
+      const permission = await (plugin ?? defaultPlugin()).requestPermission();
       return permission === "prompt-with-rationale" ? "prompt" as const : permission;
     },
     async send(request: { title: string; body: string; clickPath: string }) {
@@ -41,7 +43,7 @@ export function createTauriDesktopNotificationTransport(
         throw new Error("NOTIFICATION_CLICK_PATH_REJECTED");
       }
 
-      plugin.sendNotification({
+      (plugin ?? defaultPlugin()).sendNotification({
         title: boundedText(request.title, 80),
         body: boundedText(request.body, 240),
         extra: {
@@ -54,9 +56,9 @@ export function createTauriDesktopNotificationTransport(
 
 export async function installTauriNotificationClickHandler(
   openLocalPath: (path: string) => Promise<void> | void,
-  plugin: TauriNotificationPlugin = DEFAULT_PLUGIN,
+  plugin?: TauriNotificationPlugin,
 ): Promise<() => Promise<void>> {
-  const listener = await plugin.onAction((notification) => {
+  const listener = await (plugin ?? defaultPlugin()).onAction((notification) => {
     const clickPath = notification.extra?.clickPath;
 
     if (typeof clickPath === "string" && isSafeLocalNotificationPath(clickPath)) {

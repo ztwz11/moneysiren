@@ -18,6 +18,10 @@ import {
 } from "../../../packages/credentials/src/index";
 import { redactSensitiveString } from "../../../packages/security/src/index";
 import {
+  classifyProviderFreshness,
+  providerFreshnessPolicy,
+} from "../../../packages/view-model/src/index";
+import {
   readConnectionsStatus,
   type ConnectionState,
   type ConnectionsStatusPayload,
@@ -136,9 +140,6 @@ export interface LiveTodayOptions {
 }
 
 const DEFAULT_TTL_SECONDS = 60;
-const LOCAL_AI_CLI_TTL_SECONDS = 5;
-const LOCAL_AI_CLI_STALE_SECONDS = 120;
-const DEFAULT_STALE_SECONDS = 15 * 60;
 const AWS_REGION_ENV_KEY = "MONEYSIREN_AWS_REGION";
 const CLOUDFLARE_ACCOUNT_IDS_ENV_KEY = "CLOUDFLARE_ACCOUNT_IDS";
 const ENV_CONNECTION_ID = "env";
@@ -269,6 +270,15 @@ async function collectAndCacheLiveTodayTargetUncached(
       now: context.now,
       timezone: context.timezone,
     });
+    if (collected.status === "error") {
+      return recordFailedLiveTodayTarget(context, target, {
+        checkedAt: collected.checkedAt,
+        message: safeErrorMessage(new Error(collected.message ?? "Live provider check failed.")),
+        status: "error",
+        ttlSeconds,
+      });
+    }
+
     const cached: CachedLiveTodayProvider = {
       ...collected,
       ...(target.connectionId === undefined ? {} : { connectionId: target.connectionId }),
@@ -568,15 +578,24 @@ function freshnessFromCachedState(
     return state.lastError?.status === "error" ? "error" : freshnessWithoutCache(target.connectionState, granularity);
   }
 
-  if (state.freshUntil !== null && Date.parse(state.freshUntil) > now.getTime()) {
+  const freshness = classifyProviderFreshness({
+    latestRunStatus: state.lastError === null ? state.lastSuccess.status : "error",
+    hasUsableData: true,
+    latestRunHasData: state.lastError === null && state.lastSuccess.status === "partial",
+    referenceAt: state.lastSuccess.checkedAt,
+    now,
+    ttlSeconds: state.lastSuccess.ttlSeconds,
+  });
+
+  if (freshness === "live") {
     return "live";
   }
 
-  if (state.staleUntil !== null && Date.parse(state.staleUntil) > now.getTime()) {
-    return "stale";
+  if (freshness === "error") {
+    return "error";
   }
 
-  return state.lastError === null ? "stale" : "error";
+  return "stale";
 }
 
 function isCachedProviderStateFreshnessExpired(state: CachedLiveTodayProviderState, now: Date): boolean {
@@ -632,14 +651,12 @@ function isLocalAiCliProviderKey(providerKey: ProviderKey): providerKey is Local
 
 function liveTtlSecondsForTarget(target: LiveTodayConnectionTarget, defaultTtlSeconds: number): number {
   return isLocalAiCliProviderKey(target.providerKey)
-    ? Math.min(defaultTtlSeconds, LOCAL_AI_CLI_TTL_SECONDS)
+    ? Math.min(defaultTtlSeconds, providerFreshnessPolicy(target.providerKey).cacheTtlSeconds)
     : defaultTtlSeconds;
 }
 
 function liveStaleSecondsForTarget(target: LiveTodayConnectionTarget): number {
-  return isLocalAiCliProviderKey(target.providerKey)
-    ? LOCAL_AI_CLI_STALE_SECONDS
-    : DEFAULT_STALE_SECONDS;
+  return providerFreshnessPolicy(target.providerKey).staleTtlSeconds;
 }
 
 function createDefaultLiveTodayCollector(providerKey: ProviderKey): LiveTodayProviderCollector {

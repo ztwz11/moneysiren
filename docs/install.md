@@ -101,6 +101,8 @@ GitHub Releases publish a versioned `moneysiren-release-manifest.json` plus thre
 
 The manifest binds the release repository, tag, semantic version, full source commit, exact asset name, byte size, SHA256, platform, archive type, and signing state. The installer refuses a release without this matching metadata.
 
+The published v0.1.5 web runtime predates this manifest. Until v0.1.6 is published and becomes the default, only the official v0.1.5 web asset uses a bounded legacy SHA256 compatibility path. It does not apply to HUD, custom repositories, or newer tags, and it reports the source commit as unavailable.
+
 Install the app package first:
 
 ```bash

@@ -1,9 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, open, readFile, rm } from "node:fs/promises";
+import { lstat, mkdir, open, readFile, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
 
 const LOCK_PATH_ENV = "MONEYSIREN_NOTIFICATION_SCHEDULER_LOCK_PATH";
 const DEFAULT_LOCK_PATH = ".moneysiren/notification-scheduler.lock";
+const LOCK_KIND = "moneysiren-notification-scheduler-lock-v1";
+const MAX_LOCK_BYTES = 4_096;
 
 export interface NotificationSchedulerLockOptions {
   cwd?: string;
@@ -60,7 +62,7 @@ export async function acquireNotificationSchedulerLock(
       const handle = await open(path, "wx");
 
       try {
-        await handle.writeFile(`${JSON.stringify(owner, null, 2)}\n`, "utf8");
+        await handle.writeFile(`${JSON.stringify({ kind: LOCK_KIND, ...owner }, null, 2)}\n`, "utf8");
       } finally {
         await handle.close();
       }
@@ -72,10 +74,18 @@ export async function acquireNotificationSchedulerLock(
     } catch (error) {
       if (!isAlreadyExists(error)) throw error;
 
-      const existing = await readOwner(path);
+      const inspected = await inspectOwner(path);
 
-      if (existing !== null && processAlive(existing.pid)) {
-        return { acquired: false, owner: existing };
+      if (inspected.kind === "untrusted") {
+        throw new Error("NOTIFICATION_SCHEDULER_LOCK_UNTRUSTED");
+      }
+
+      if (inspected.kind === "missing") {
+        continue;
+      }
+
+      if (processAlive(inspected.owner.pid)) {
+        return { acquired: false, owner: inspected.owner };
       }
 
       await rm(path, { force: true });
@@ -103,10 +113,25 @@ export async function readNotificationSchedulerLock(
 }
 
 async function readOwner(path: string): Promise<NotificationSchedulerLockOwner | null> {
+  const inspected = await inspectOwner(path);
+  return inspected.kind === "valid" ? inspected.owner : null;
+}
+
+async function inspectOwner(path: string): Promise<
+  | { kind: "missing" }
+  | { kind: "untrusted" }
+  | { kind: "valid"; owner: NotificationSchedulerLockOwner }
+> {
   try {
+    const details = await lstat(path);
+
+    if (!details.isFile() || details.size <= 0 || details.size > MAX_LOCK_BYTES) {
+      return { kind: "untrusted" };
+    }
+
     const parsed = JSON.parse(await readFile(path, "utf8")) as unknown;
 
-    if (!isRecord(parsed)) return null;
+    if (!isRecord(parsed) || parsed.kind !== LOCK_KIND) return { kind: "untrusted" };
     const pid = parsed.pid;
     const acquiredAt = parsed.acquiredAt;
     const nonceHash = parsed.nonceHash;
@@ -120,12 +145,16 @@ async function readOwner(path: string): Promise<NotificationSchedulerLockOwner |
       typeof nonceHash !== "string" ||
       !/^[a-f0-9]{64}$/.test(nonceHash)
     ) {
-      return null;
+      return { kind: "untrusted" };
     }
 
-    return { pid, acquiredAt, nonceHash };
-  } catch {
-    return null;
+    return { kind: "valid", owner: { pid, acquiredAt, nonceHash } };
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return { kind: "missing" };
+    }
+
+    return { kind: "untrusted" };
   }
 }
 

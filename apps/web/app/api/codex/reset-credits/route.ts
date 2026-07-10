@@ -2,9 +2,10 @@ import { timingSafeEqual } from "node:crypto";
 import {
   errorStatus,
   fetchCodexResetCreditStatus,
+  RESET_CREDIT_ACCURACY,
+  RESET_CREDIT_SCHEMA_VERSION,
   RESET_CREDIT_SOURCE,
   RESET_CREDIT_TIME_ZONE,
-  RESET_CREDIT_UNOFFICIAL,
   toResetCreditError,
 } from "../../../../lib/codex-reset-credits";
 import { ResetCreditError } from "../../../../lib/codex-reset-credits/errors";
@@ -25,11 +26,13 @@ export async function GET(request: Request): Promise<Response> {
 
     return Response.json({
       ok: true,
+      schemaVersion: RESET_CREDIT_SCHEMA_VERSION,
       data,
       meta: {
+        schemaVersion: RESET_CREDIT_SCHEMA_VERSION,
         timeZone: RESET_CREDIT_TIME_ZONE,
         source: RESET_CREDIT_SOURCE,
-        unofficial: RESET_CREDIT_UNOFFICIAL,
+        accuracy: RESET_CREDIT_ACCURACY,
       },
     } satisfies ResetCreditApiResponse, {
       headers: NO_STORE_HEADERS,
@@ -39,6 +42,7 @@ export async function GET(request: Request): Promise<Response> {
 
     return Response.json({
       ok: false,
+      schemaVersion: RESET_CREDIT_SCHEMA_VERSION,
       error: {
         code: error.code,
         message: error.message,
@@ -77,6 +81,5 @@ export function timingSafeStringEqual(left: string, right: string): boolean {
 
 function trimToNull(value: string | undefined): string | null {
   const trimmed = value?.trim() ?? "";
-
   return trimmed.length === 0 ? null : trimmed;
 }

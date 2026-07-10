@@ -26,6 +26,7 @@ import { resolveSlashCommand } from "./slash.js";
 import { createTheme, type Theme } from "./theme.js";
 import { CLI_VERSION } from "./version.js";
 import type { SlackReportTransport } from "../../../packages/report/src/index.js";
+import type { DesktopNotificationTransport } from "./notification-delivery.js";
 import type { AwsCostExplorerClientAdapter } from "../../../packages/connectors/aws/src/index.js";
 import type { CloudflareBillingUsageClient } from "../../../packages/connectors/cloudflare/src/index.js";
 import type { OpenAiUsageCostsClient } from "../../../packages/connectors/openai/src/index.js";
@@ -49,6 +50,7 @@ export interface CliRuntime {
   stdoutBuffer?: string[];
   stderrBuffer?: string[];
   slackTransport?: SlackReportTransport;
+  desktopNotification?: DesktopNotificationTransport;
   liveClients?: CliLiveClients;
   fetch?: typeof fetch;
   localRuntime?: CliLocalRuntimeAdapter;
@@ -70,6 +72,7 @@ export interface CliExecutionContext {
   stdout(line: string): void;
   stderr(line: string): void;
   slackTransport?: SlackReportTransport;
+  desktopNotification?: DesktopNotificationTransport;
   liveClients?: CliLiveClients;
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
   openUrl(url: string): Promise<void> | void;
@@ -144,6 +147,10 @@ export async function runCli(args: readonly string[], runtime: CliRuntime = {}):
 
   if (runtime.slackTransport !== undefined) {
     context.slackTransport = runtime.slackTransport;
+  }
+
+  if (runtime.desktopNotification !== undefined) {
+    context.desktopNotification = runtime.desktopNotification;
   }
 
   if (runtime.liveClients !== undefined) {

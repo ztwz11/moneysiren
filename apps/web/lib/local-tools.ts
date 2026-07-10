@@ -948,7 +948,7 @@ async function enrichCodexUsageWithAppServer(
   };
 }
 
-function statusLineFromCodexOfficialMeasurements(
+export function statusLineFromCodexOfficialMeasurements(
   measurements: CodexOfficialAccountMeasurements,
   context: {
     env: Record<string, string | undefined>;

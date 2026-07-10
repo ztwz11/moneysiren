@@ -19,7 +19,7 @@ export type ProcessIdentityVerification =
   | { status: "unverifiable"; reasonCode: "legacy-record" | "invalid-record" | "invalid-observation" };
 
 const NONCE_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const DEFAULT_START_TIME_TOLERANCE_MS = 2_500;
+const DEFAULT_START_TIME_TOLERANCE_MS = 2_500;\n\nexport function observedIdentityFromElapsedSeconds(input: {\n  pid: number;\n  elapsedSeconds: number;\n  executablePath: string;\n  observedAtMs?: number;\n}): ObservedProcessIdentity | null {\n  if (!isPositiveSafeInteger(input.pid) || !Number.isFinite(input.elapsedSeconds) || input.elapsedSeconds < 0 || input.executablePath.trim().length === 0) {\n    return null;\n  }\n\n  const observedAtMs = input.observedAtMs ?? Date.now();\n  if (!Number.isFinite(observedAtMs)) {\n    return null;\n  }\n\n  return {\n    pid: input.pid,\n    startedAt: new Date(observedAtMs - Math.floor(input.elapsedSeconds) * 1_000).toISOString(),\n    executablePath: input.executablePath.trim(),\n  };\n}
 
 export function verifyManagedProcessIdentity(
   expected: Partial<ManagedProcessIdentity>,

@@ -521,8 +521,8 @@ async function processStatus(input: {
     : verifyManagedProcessIdentity({
         pid: input.process.pid,
         startedAt: input.process.startedAt,
-        executablePath: input.process.processExecutablePath,
-        nonce: input.process.nonce,
+        ...(input.process.processExecutablePath === undefined ? {} : { executablePath: input.process.processExecutablePath }),
+        ...(input.process.nonce === undefined ? {} : { nonce: input.process.nonce }),
       }, observedIdentity);
 
   if (identityVerification.status !== "verified") {
@@ -660,8 +660,8 @@ async function stopManagedProcess(
     : verifyManagedProcessIdentity({
         pid: processRecord.pid,
         startedAt: processRecord.startedAt,
-        executablePath: processRecord.processExecutablePath,
-        nonce: processRecord.nonce,
+        ...(processRecord.processExecutablePath === undefined ? {} : { executablePath: processRecord.processExecutablePath }),
+        ...(processRecord.nonce === undefined ? {} : { nonce: processRecord.nonce }),
       }, observedIdentity);
 
   if (identityVerification.status !== "verified") {

@@ -1516,6 +1516,51 @@ describe("MoneySiren CLI", () => {
     expect(JSON.stringify(alerts)).not.toMatch(/arn:aws|\b\d{12}\b/i);
   });
 
+  it("returns 1 for OpenAI collection errors without exposing upstream text", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
+    const upstreamDetail = "synthetic upstream detail that must not reach CLI output";
+    const fakeAdminKey = "sk-" + "fake-openai-admin-key";
+    const result = await runCli(["sync", "--provider", "openai"], {
+      ...testContext(cwd, {
+        OPENAI_ADMIN_KEY: fakeAdminKey,
+      }),
+      liveClients: {
+        openaiUsageCosts: {
+          async fetchUsageCosts() {
+            throw new Error(upstreamDetail);
+          },
+        },
+      },
+    });
+    const output = [...result.stdout, ...result.stderr].join("\n");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout.join("\n")).toContain("Sync openai: error");
+    expect(result.stdout.join("\n")).not.toContain("Synced");
+    expect(result.stderr.join("\n")).toContain("SYNC_COLLECTION");
+    expect(output).not.toContain(upstreamDetail);
+    expect(output).not.toContain(fakeAdminKey);
+  });
+
+  it("returns a sanitized error for unreadable fixture input", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
+    const privatePath = join(cwd, "private-user-name", "missing-openai-usage.json");
+    const result = await runCli(
+      ["sync", "--provider", "openai"],
+      testContext(cwd, {
+        MONEYSIREN_OPENAI_USAGE_FIXTURE: privatePath,
+        MONEYSIREN_OPENAI_COSTS_FIXTURE: privatePath,
+      }),
+    );
+    const output = [...result.stdout, ...result.stderr].join("\n");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout.join("\n")).toContain("Sync openai: error");
+    expect(result.stderr.join("\n")).toContain("SYNC_EXECUTION");
+    expect(output).not.toContain(privatePath);
+    expect(output).not.toContain("private-user-name");
+  });
+
   it("fails OpenAI sync gracefully without admin key or fixture mode", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-cli-"));
     const result = await runCli(["sync", "--provider", "openai"], testContext(cwd));

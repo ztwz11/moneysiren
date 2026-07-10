@@ -1,4 +1,5 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import webPackage from "../../../package.json";
 import {
   normalizeCodexAccountUsageResult,
   normalizeCodexRateLimitsResult,
@@ -54,7 +55,7 @@ export class CodexAppServerSession {
         clientInfo: {
           name: "moneysiren",
           title: "MoneySiren",
-          version: "0.1.5",
+          version: webPackage.version,
         },
       },
     });
@@ -197,7 +198,7 @@ export async function readCodexAppServerOfficialMeasurements(
     2 * 1_024 * 1_024,
   );
 
-  let child: ReturnType<typeof spawn>;
+  let child: ChildProcessWithoutNullStreams;
 
   try {
     child = spawn("codex", ["app-server"], {

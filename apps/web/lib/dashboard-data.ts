@@ -61,7 +61,7 @@ export interface DashboardProviderRow {
   alertCount: number;
   riskLevel: DashboardRiskLevel;
   latestCollectedAt: string | null;
-  freshness: ProviderFreshness;
+  freshness?: ProviderFreshness;
 }
 
 export interface DashboardUsageSummary {

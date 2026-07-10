@@ -11,6 +11,7 @@
             "object": "organization.usage.completions.result",
             "model": "gpt-4.1-mini",
             "input_tokens": 2000000,
+            "input_cached_tokens": 400000,
             "output_tokens": 150000,
             "num_model_requests": 420
           },
@@ -23,8 +24,8 @@
         ]
       }
     ],
-    "has_more": false,
-    "next_page": null
+    "has_more": true,
+    "next_page": "FAKE_OPENAI_USAGE_PAGE_2"
   },
   "costs": {
     "object": "page",

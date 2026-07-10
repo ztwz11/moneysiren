@@ -1836,7 +1836,7 @@ async function readJsonlUsageFile(path: string, accumulator: UsageAccumulator): 
 
 function accumulateRollingUsageFromValue(value: unknown, accumulator: UsageAccumulator): void {
   const occurredAt = readTimestamp(value);
-  const tokenTotal = readRollingTokenTotal(value);
+  const tokenTotal = readRollingTokenTotal(value, accumulator.providerKind);
 
   if (occurredAt === null || tokenTotal === null || tokenTotal <= 0) {
     return;
@@ -2217,7 +2217,10 @@ function readTimestampValue(value: unknown): Date | null {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
-function readRollingTokenTotal(value: unknown): number | null {
+function readRollingTokenTotal(
+  value: unknown,
+  providerKind: LocalCliUsageSummary["providerKind"],
+): number | null {
   const record = asRecord(value);
 
   if (record === null) {
@@ -2239,7 +2242,7 @@ function readRollingTokenTotal(value: unknown): number | null {
   ];
 
   for (const usage of usageCandidates) {
-    const total = tokenTotalFromUsage(usage);
+    const total = tokenTotalFromUsage(usage, providerKind);
 
     if (total !== null && total > 0) {
       return total;
@@ -2249,7 +2252,10 @@ function readRollingTokenTotal(value: unknown): number | null {
   return null;
 }
 
-function tokenTotalFromUsage(usage: Record<string, unknown> | null): number | null {
+function tokenTotalFromUsage(
+  usage: Record<string, unknown> | null,
+  providerKind: LocalCliUsageSummary["providerKind"],
+): number | null {
   if (usage === null) {
     return null;
   }
@@ -2263,6 +2269,8 @@ function tokenTotalFromUsage(usage: Record<string, unknown> | null): number | nu
   const total = sumNumbers([
     readNumber(usage.input_tokens) ?? readNumber(usage.prompt_tokens),
     readNumber(usage.output_tokens) ?? readNumber(usage.completion_tokens),
+    providerKind === "codex" ? null : readCacheTokens(usage),
+    providerKind === "codex" ? null : readNumber(usage.reasoning_output_tokens),
   ]);
 
   return total === 0 ? null : total;
@@ -2811,6 +2819,7 @@ async function listJsonlFilesRecursive(root: string, periodStart: Date): Promise
 }
 
 interface UsageAccumulator {
+  providerKind: LocalCliUsageSummary["providerKind"];
   sessionIds: Set<string>;
   turnIds: Set<string>;
   models: Map<string, number>;
@@ -2855,6 +2864,7 @@ function createUsageAccumulator(
   statusLine.usageResetCredits = readConfiguredUsageResetCredits(providerKind, providerKey, env);
 
   return {
+    providerKind,
     sessionIds: new Set(),
     turnIds: new Set(),
     models: new Map(),

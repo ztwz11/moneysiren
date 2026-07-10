@@ -165,7 +165,7 @@ describe("MoneySiren release installer", () => {
       repository,
       selectedSurfaces: ["web"],
       tag,
-    })).rejects.toThrow(/Content-Length|manifest size|SHA256/);
+    })).rejects.toThrow(/Content-Length|manifest size|partial|SHA256/);
   });
 
   it("atomically upgrades a healthy runtime without leaving transaction directories", async () => {

@@ -87,5 +87,5 @@ performs one.
 ## Security details
 
 See
-[Release Supply-Chain Security](../../docs/security/release-supply-chain.md)
+[Release Supply-Chain Security](https://github.com/ztwz11/moneysiren/blob/main/docs/security/release-supply-chain.md)
 for manifest, redirect, byte-limit, archive, signing, and rollback boundaries.

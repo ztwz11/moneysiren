@@ -148,6 +148,7 @@ export interface Messages {
     codexOfficialMeasurements: string;
     codexLocalMeasurements: string;
     codexCoverage: string;
+    codexSuppliedDetails: string;
     codexCreditEstimate: string;
     codexCreditEstimateNote: string;
     codexUnavailable: string;
@@ -521,6 +522,7 @@ const baseMessages = {
       codexOfficialMeasurements: "Official Codex App Server",
       codexLocalMeasurements: "Local model estimate",
       codexCoverage: "Scan coverage",
+      codexSuppliedDetails: "Supplied detail rows",
       codexCreditEstimate: "Estimated Codex credits",
       codexCreditEstimateNote: "Official dated rates × local token estimate; not official account spend.",
       codexUnavailable: "Unavailable",
@@ -929,6 +931,7 @@ const baseMessages = {
       codexOfficialMeasurements: "공식 Codex App Server",
       codexLocalMeasurements: "로컬 모델 추정치",
       codexCoverage: "스캔 범위",
+      codexSuppliedDetails: "제공된 상세 행",
       codexCreditEstimate: "Codex 크레딧 추정치",
       codexCreditEstimateNote: "날짜가 명시된 공식 요율 × 로컬 토큰 추정치이며 공식 계정 지출이 아닙니다.",
       codexUnavailable: "확인 불가",
@@ -1337,6 +1340,7 @@ const baseMessages = {
       codexOfficialMeasurements: "公式 Codex App Server",
       codexLocalMeasurements: "ローカルモデル推定",
       codexCoverage: "スキャン範囲",
+      codexSuppliedDetails: "提供された詳細行",
       codexCreditEstimate: "Codex クレジット推定",
       codexCreditEstimateNote: "日付付き公式レート × ローカルトークン推定であり、公式アカウント支出ではありません。",
       codexUnavailable: "利用不可",

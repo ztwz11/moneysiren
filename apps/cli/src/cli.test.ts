@@ -2258,7 +2258,7 @@ function writeTestTarOctal(
   length: number,
   value: number,
 ): void {
-  buffer.write(`${value.toString(8).padStart(length - 1, "0")}\\0`, offset, length, "ascii");
+  buffer.write(`${value.toString(8).padStart(length - 1, "0")}\0`, offset, length, "ascii");
 }
 
 function testSha256(content: Buffer): string {

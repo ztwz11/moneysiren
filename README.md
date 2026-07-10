@@ -76,7 +76,7 @@ The public local release supports:
 - Local Codex CLI and Claude CLI usage estimates from local logs.
 - Korean daily reports and optional Slack webhook delivery.
 
-The recommended source-free install is `@moneysiren/app`. It installs the CLI aliases (`moneysiren` and `msiren`) and downloads the matching GitHub Release web runtime. Windows HUD artifacts require signed release metadata by default; before signing is ready, unsigned HUD testing requires explicit local opt-in. Use `@moneysiren/cli` only for CLI-only automation.
+The recommended source-free install is `@moneysiren/app`. It deterministically installs the CLI aliases (`moneysiren` and `msiren`) without a remote runtime request. Run `msiren install --web` explicitly to download and verify the matching GitHub Release web runtime. Windows HUD artifacts require signed release metadata by default; before signing is ready, unsigned HUD testing requires explicit local opt-in. Use `@moneysiren/cli` only for CLI-only automation.
 
 ## Try It Without Credentials
 
@@ -128,6 +128,7 @@ Common first-run issues are covered in [docs/troubleshooting.md](docs/troublesho
 - [Demo scenarios](docs/demo-scenarios.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Security model](docs/security-model.md)
+- [Release supply-chain security](docs/security/release-supply-chain.md)
 - [Data we never store](docs/data-we-never-store.md)
 - [Provider permissions](docs/provider-permissions.md)
 - [Provider support matrix](docs/provider-support-matrix.md)
@@ -318,9 +319,9 @@ msiren start
 msiren hud
 ```
 
-`@moneysiren/app` is the all-in-one package for the CLI, local web dashboard, and HUD. It creates the `moneysiren` and shorter `msiren` global command shims during postinstall, then downloads the matching GitHub Release web runtime. Until Windows HUD signing is ready, the global postinstall keeps HUD artifact installation behind explicit opt-in; run `msiren install --hud --allow-unsigned-hud` only for temporary local unsigned HUD smoke testing. The current app package no longer uses npm-managed `bin` aliases, which avoids npm's `EEXIST` bin conflict with older prerelease installs.
+`@moneysiren/app` is the all-in-one package for the CLI, local web dashboard, and HUD. Postinstall creates the `moneysiren` and shorter `msiren` global command shims but makes no remote runtime request. Run `msiren install --web` explicitly; the installer requires the matching versioned release manifest, bounded download, exact size/SHA256, safe archive, and atomic activation. Run `msiren install --hud --allow-unsigned-hud` only for temporary local unsigned HUD smoke testing. The current app package no longer uses npm-managed `bin` aliases, which avoids npm's `EEXIST` bin conflict with older prerelease installs.
 
-If release asset download cannot complete during postinstall, npm still leaves the command installed. Rerun the web asset installer after network or release access is fixed:
+After npm install, commands are installed while the remote runtime is intentionally `not-installed`. Install and verify it explicitly:
 
 ```bash
 msiren install --web
@@ -415,7 +416,7 @@ msiren install --hud --allow-unsigned-hud
 msiren hud
 ```
 
-This does not change public release validation and does not remove Windows publisher warnings. Without the explicit flag, public release HUD installs still require Windows signature metadata. `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for advanced npm postinstall or CI smoke paths. For prerelease tags such as `alpha`, `beta`, or `rc`, set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
+This does not change public release validation and does not remove Windows publisher warnings. Without the explicit flag, public release HUD installs still require Windows signature metadata. `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for advanced explicit installer or CI smoke paths. For prerelease tags such as `alpha`, `beta`, or `rc`, set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
 
 For local tarball review without publishing:
 

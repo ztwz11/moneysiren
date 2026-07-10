@@ -32,8 +32,8 @@ describe("initial SQLite schema", () => {
     expect(PROVIDER_SYNC_RUNS_SQL).toContain("usage_count INTEGER NOT NULL DEFAULT 0 CHECK (usage_count >= 0)");
     expect(PROVIDER_SYNC_RUNS_SQL).toContain("error_code TEXT");
     expect(PROVIDER_SYNC_RUNS_SQL).toContain("data_through TEXT");
-    expect(PROVIDER_SYNC_RUNS_SQL).not.toMatch(/\\braw_?payload\\b/i);
-    expect(PROVIDER_SYNC_RUNS_SQL).not.toMatch(/\\braw_?response\\b/i);
+    expect(PROVIDER_SYNC_RUNS_SQL).not.toMatch(/\braw_?payload\b/i);
+    expect(PROVIDER_SYNC_RUNS_SQL).not.toMatch(/\braw_?response\b/i);
   });
 
   it("declares sanitized emergency action audit storage separately", () => {

@@ -129,6 +129,23 @@ describe("Codex App Server bounded JSONL framing", () => {
     });
   });
 
+  it("preserves a UTF-8 code point split across Buffer chunks", () => {
+    const decoder = new CodexAppServerJsonlDecoder(1_024);
+    const line = '{"value":"한"}\n';
+    const encoded = Buffer.from(line, "utf8");
+    const characterStart = encoded.indexOf(Buffer.from("한", "utf8"));
+    const splitAt = characterStart + 1;
+
+    expect(decoder.push(encoded.subarray(0, splitAt))).toEqual({
+      lines: [],
+      oversized: false,
+    });
+    expect(decoder.push(encoded.subarray(splitAt))).toEqual({
+      lines: ['{"value":"한"}'],
+      oversized: false,
+    });
+  });
+
   it("fails an unterminated or completed line above the byte limit", () => {
     const decoder = new CodexAppServerJsonlDecoder(8);
 

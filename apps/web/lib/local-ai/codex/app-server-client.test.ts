@@ -20,12 +20,10 @@ describe("Codex App Server client cache", () => {
 
   it("deduplicates concurrent dashboard reads", async () => {
     let callCount = 0;
-    let resolveRead: ((value: CodexOfficialAccountMeasurements) => void) | null = null;
+    const deferred = createDeferred<CodexOfficialAccountMeasurements>();
     const read = () => {
       callCount += 1;
-      return new Promise<CodexOfficialAccountMeasurements>((resolve) => {
-        resolveRead = resolve;
-      });
+      return deferred.promise;
     };
 
     const first = readCodexAppServerMeasurements({
@@ -38,8 +36,7 @@ describe("Codex App Server client cache", () => {
     });
 
     expect(callCount).toBe(1);
-    expect(resolveRead).not.toBeNull();
-    resolveRead?.(availableMeasurements());
+    deferred.resolve(availableMeasurements());
 
     const [firstResult, secondResult] = await Promise.all([first, second]);
 
@@ -116,4 +113,17 @@ function availableMeasurements(): CodexOfficialAccountMeasurements {
       FETCHED_AT,
     ),
   };
+}
+
+
+function createDeferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+
+  return { promise, resolve };
 }

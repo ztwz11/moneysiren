@@ -257,7 +257,7 @@ export async function readCodexAppServerOfficialMeasurements(
   let child: ChildProcessWithoutNullStreams;
 
   try {
-    child = spawnProcess("codex", ["app-server", "--stdio"]);
+    child = spawnProcess("codex", ["app-server", "--listen", "stdio://"]);
   } catch (error) {
     return session.finishPending(reasonFromProcessError(error));
   }

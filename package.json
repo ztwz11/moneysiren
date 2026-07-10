@@ -63,7 +63,9 @@
     "release:desktop:signing-config": "node tools/scripts/prepare-tauri-signing-config.mjs",
     "tray:native:check": "node tools/scripts/check-tray-native.mjs",
     "release:metadata": "node tools/scripts/check-release-metadata.mjs",
-    "test:release-metadata": "node --test tools/scripts/lib/release-metadata.test.mjs"
+    "test:release-metadata": "node --test tools/scripts/lib/release-metadata.test.mjs",
+    "release:manifest": "node tools/scripts/create-release-manifest.mjs",
+    "test:release-manifest": "node --test tools/scripts/lib/release-manifest.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

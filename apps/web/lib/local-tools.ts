@@ -5,6 +5,7 @@ import { dirname, join, win32 } from "node:path";
 import { promisify } from "node:util";
 import { readCodexAppServerMeasurements } from "./local-ai/codex/app-server-client";
 import {
+  CODEX_APP_SERVER_STDIO_ARGS,
   readCodexAppServerOfficialMeasurements,
   type CodexOfficialAccountMeasurements,
 } from "./local-ai/codex/app-server-transport";
@@ -1032,7 +1033,7 @@ function readCodexAppServerRateLimitStatusUncached(context: {
 }): Promise<LocalCliStatusLineUsage | null> {
   return new Promise((resolve) => {
     const childEnv = childProcessEnv(context.env);
-    const child = spawnLocalCommand("codex", ["app-server", "--stdio"], childEnv);
+    const child = spawnLocalCommand("codex", CODEX_APP_SERVER_STDIO_ARGS, childEnv);
     let finished = false;
     let stdoutBuffer = "";
 

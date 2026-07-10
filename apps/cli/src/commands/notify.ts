@@ -1,4 +1,20 @@
 import { stat } from "node:fs/promises";
+import {
+  readNotificationSchedulerState,
+  readRecentNotificationDeliveries,
+  recordNotificationDelivery,
+  writeNotificationSchedulerState,
+  type NotificationDeliveryReasonCode,
+  type NotificationDeliveryTarget,
+  type NotificationSchedulerErrorCode,
+  type NotificationSchedulerState,
+} from "../../../../packages/db/src/index.js";
+import {
+  computeNextNotificationRun,
+  evaluateNormalizedNotification,
+  type NormalizedNotificationAlert,
+} from "../../../../packages/notifier/src/index.js";
+import { readNotificationSchedulerLock } from "../../../../packages/runtime/src/index.js";
 import { sendSlackReport } from "../../../../packages/report/src/index.js";
 import {
   NOTIFICATION_WIDGET_KEYS,
@@ -16,11 +32,15 @@ import {
 } from "../../../../packages/view-model/src/index.js";
 import type { CliExecutionContext } from "../cli.js";
 import { readSanitizedNotificationDigest } from "../summary-model.js";
-import { loadCliConfig } from "./shared.js";
+import { loadCliConfig, resolveDbPath } from "./shared.js";
 
 const NOTIFY_USAGE = [
   "Usage:",
   "  moneysiren notify once --dry-run",
+  "  moneysiren notify once --send <desktop|slack|all>",
+  "  moneysiren notify scheduler enable [--interval <minutes>]",
+  "  moneysiren notify scheduler disable",
+  "  moneysiren notify scheduler status",
   "  moneysiren notify prefs list",
   "  moneysiren notify prefs enable <widget>",
   "  moneysiren notify prefs disable <widget>",
@@ -58,6 +78,10 @@ export async function runNotifyCommand(args: readonly string[], context: CliExec
     return runNotifyOnce(rest, context);
   }
 
+  if (subcommand === "scheduler") {
+    return runNotifyScheduler(rest, context);
+  }
+
   if (subcommand === "prefs") {
     return runNotifyPrefs(rest, context);
   }
@@ -71,11 +95,104 @@ export async function runNotifyCommand(args: readonly string[], context: CliExec
 }
 
 async function runNotifyOnce(args: readonly string[], context: CliExecutionContext): Promise<number> {
-  if (args.length !== 1 || args[0] !== "--dry-run") {
-    context.stderr("Usage: moneysiren notify once --dry-run");
+  if (args.length === 1 && args[0] === "--dry-run") {
+    return printNotificationDryRun(context);
+  }
+
+  const sendTarget = parseSendTarget(args);
+
+  if (sendTarget === undefined) {
+    context.stderr("Usage: moneysiren notify once --dry-run | --send <desktop|slack|all>");
     return 1;
   }
 
+  const now = context.now();
+  const config = loadCliConfig(context.env);
+  const dbPath = resolveDbPath(context.cwd, config.dbPath);
+  const schedulerState = await readNotificationSchedulerState(dbPath);
+  const preferences = await readPreferences(context);
+  const digest = await readSanitizedNotificationDigest(context);
+  const recent = await readRecentNotificationDeliveries(dbPath, { limit: 200 });
+  const alert = notificationAlertFromDigest(digest);
+  const evaluation = evaluateNormalizedNotification(alert === undefined ? [] : [alert], {
+    enabled: preferences.enabled,
+    now,
+    quietStart: preferences.quietHours.start,
+    quietEnd: preferences.quietHours.end,
+    cooldownMinutes: Math.max(60, ...preferences.thresholdRules.map((rule) => rule.cooldownMinutes)),
+    recent,
+  });
+  const targets: NotificationDeliveryTarget[] = sendTarget === "all"
+    ? ["desktop", "slack"]
+    : [sendTarget];
+
+  if (evaluation.outcome === "suppressed") {
+    for (const target of targets) {
+      await recordNotificationDelivery({
+        dbPath,
+        fingerprint: evaluation.fingerprint,
+        target,
+        outcome: "suppressed",
+        reasonCode: evaluation.reason,
+        attemptedAt: now.toISOString(),
+      });
+    }
+
+    await writeSchedulerOutcome(dbPath, schedulerState, now, undefined);
+    context.stdout(`Notification suppressed: ${evaluation.reason}`);
+    context.stdout("Secrets returned: false");
+    return 0;
+  }
+
+  let lastErrorCode: NotificationSchedulerErrorCode | undefined;
+
+  for (const target of targets) {
+    await recordNotificationDelivery({
+      dbPath,
+      fingerprint: evaluation.fingerprint,
+      target,
+      outcome: "attempted",
+      reasonCode: "delivery_requested",
+      attemptedAt: now.toISOString(),
+    });
+
+    try {
+      if (target === "desktop") {
+        await deliverDesktopNotification(evaluation.title, evaluation.body, context);
+      } else {
+        await deliverSlackNotification(evaluation.title, evaluation.body, context);
+      }
+
+      await recordNotificationDelivery({
+        dbPath,
+        fingerprint: evaluation.fingerprint,
+        target,
+        outcome: "delivered",
+        reasonCode: "delivered",
+        attemptedAt: now.toISOString(),
+      });
+      context.stdout(`Notification delivered: ${target}`);
+    } catch (error) {
+      const failure = deliveryFailure(error, target);
+      lastErrorCode = failure.schedulerErrorCode;
+      await recordNotificationDelivery({
+        dbPath,
+        fingerprint: evaluation.fingerprint,
+        target,
+        outcome: "error",
+        reasonCode: failure.reasonCode,
+        attemptedAt: now.toISOString(),
+      });
+      context.stderr(`Notification delivery failed: ${target} (${failure.reasonCode})`);
+    }
+  }
+
+  await writeSchedulerOutcome(dbPath, schedulerState, now, lastErrorCode);
+  context.stdout("Secrets returned: false");
+  return lastErrorCode === undefined ? 0 : 1;
+}
+
+async function printNotificationDryRun(context: CliExecutionContext): Promise<number> {
   const digest = await readSanitizedNotificationDigest(context);
 
   context.stdout("MoneySiren notification dry run");
@@ -96,6 +213,222 @@ async function runNotifyOnce(args: readonly string[], context: CliExecutionConte
   }
 
   return 0;
+}
+
+async function runNotifyScheduler(args: readonly string[], context: CliExecutionContext): Promise<number> {
+  const [subcommand, ...rest] = args;
+  const config = loadCliConfig(context.env);
+  const dbPath = resolveDbPath(context.cwd, config.dbPath);
+  const state = await readNotificationSchedulerState(dbPath);
+  const now = context.now();
+
+  if (subcommand === "status" && rest.length === 0) {
+    const owner = await readNotificationSchedulerLock({ cwd: context.cwd, env: context.env });
+    context.stdout("MoneySiren notification scheduler");
+    context.stdout(`Enabled: ${state.enabled}`);
+    context.stdout(`Interval minutes: ${state.intervalMinutes}`);
+    context.stdout(`Last run: ${state.lastRunAt ?? "never"}`);
+    context.stdout(`Next run: ${state.nextRunAt ?? "not scheduled"}`);
+    context.stdout(`Last error: ${state.lastErrorCode ?? "none"}`);
+    context.stdout(`Runtime owner: ${owner === null ? "idle" : "locked"}`);
+    context.stdout("Secrets returned: false");
+    return 0;
+  }
+
+  if (subcommand === "enable") {
+    const intervalMinutes = parseSchedulerInterval(rest);
+
+    if (intervalMinutes === undefined) {
+      context.stderr("Usage: moneysiren notify scheduler enable [--interval <15-1440>]");
+      return 1;
+    }
+
+    await writeNotificationSchedulerState({
+      dbPath,
+      ...state,
+      enabled: true,
+      intervalMinutes,
+      nextRunAt: computeNextNotificationRun({
+        now,
+        intervalMinutes,
+        jitterSeconds: state.jitterSeconds,
+      }),
+      consecutiveFailures: 0,
+      updatedAt: now.toISOString(),
+    });
+    context.stdout("Notification scheduler enabled");
+    context.stdout("Scheduled provider collection remains local and read-only.");
+    context.stdout("Secrets returned: false");
+    return 0;
+  }
+
+  if (subcommand === "disable" && rest.length === 0) {
+    const {
+      nextRunAt: _nextRunAt,
+      lastErrorCode: _lastErrorCode,
+      ...disabledState
+    } = state;
+    await writeNotificationSchedulerState({
+      dbPath,
+      ...disabledState,
+      enabled: false,
+      consecutiveFailures: 0,
+      updatedAt: now.toISOString(),
+    });
+    context.stdout("Notification scheduler disabled");
+    context.stdout("Secrets returned: false");
+    return 0;
+  }
+
+  context.stderr("Usage: moneysiren notify scheduler <enable|disable|status>");
+  return 1;
+}
+
+function parseSchedulerInterval(args: readonly string[]): number | undefined {
+  if (args.length === 0) return 15;
+
+  let value: string | undefined;
+  if (args.length === 2 && args[0] === "--interval") value = args[1];
+  if (args.length === 1 && args[0]?.startsWith("--interval=")) value = args[0].slice("--interval=".length);
+  const parsed = value === undefined ? Number.NaN : Number(value);
+
+  return Number.isSafeInteger(parsed) && parsed >= 15 && parsed <= 1440 ? parsed : undefined;
+}
+
+function parseSendTarget(args: readonly string[]): NotificationDeliveryTarget | "all" | undefined {
+  let value: string | undefined;
+
+  if (args.length === 2 && args[0] === "--send") value = args[1];
+  if (args.length === 1 && args[0]?.startsWith("--send=")) value = args[0].slice("--send=".length);
+
+  return value === "desktop" || value === "slack" || value === "all" ? value : undefined;
+}
+
+function notificationAlertFromDigest(
+  digest: Awaited<ReturnType<typeof readSanitizedNotificationDigest>>,
+): NormalizedNotificationAlert | undefined {
+  if (digest.criticalAlertCount > 0) {
+    return {
+      providerKey: "summary",
+      category: "critical-alerts",
+      severity: "critical",
+      occurredAt: digest.generatedAt,
+    };
+  }
+
+  if (digest.health === "down" || digest.health === "degraded") {
+    return {
+      providerKey: "summary",
+      category: "service-health",
+      severity: "warning",
+      occurredAt: digest.generatedAt,
+    };
+  }
+
+  if (digest.alertCount > 0) {
+    return {
+      providerKey: "summary",
+      category: "alerts",
+      severity: "info",
+      occurredAt: digest.generatedAt,
+    };
+  }
+
+  return undefined;
+}
+
+async function deliverDesktopNotification(
+  title: string,
+  body: string,
+  context: CliExecutionContext,
+): Promise<void> {
+  const transport = context.desktopNotification;
+
+  if (transport === undefined) {
+    throw new DeliveryError("desktop_unavailable", "DESKTOP_UNAVAILABLE");
+  }
+
+  let permission = await transport.permission();
+
+  if ((permission === "prompt" || permission === "unknown") && transport.requestPermission !== undefined) {
+    permission = await transport.requestPermission();
+  }
+
+  if (permission !== "granted") {
+    throw new DeliveryError("permission_denied", "DESKTOP_PERMISSION_DENIED");
+  }
+
+  await transport.send({
+    title: title.slice(0, 80),
+    body: body.slice(0, 240),
+    clickPath: "/dashboard/risks",
+  });
+}
+
+async function deliverSlackNotification(
+  title: string,
+  body: string,
+  context: CliExecutionContext,
+): Promise<void> {
+  const config = loadCliConfig(context.env);
+  const webhookUrl = context.env[config.slack.requiredEnvKey]?.trim();
+
+  if (webhookUrl === undefined || webhookUrl.length === 0) {
+    throw new DeliveryError("slack_unavailable", "SLACK_DELIVERY_FAILED");
+  }
+
+  try {
+    await sendSlackReport({
+      webhookUrl,
+      text: `*${title}*\n${body}`,
+      ...(context.slackTransport === undefined ? {} : { transport: context.slackTransport }),
+    });
+  } catch {
+    throw new DeliveryError("delivery_failed", "SLACK_DELIVERY_FAILED");
+  }
+}
+
+async function writeSchedulerOutcome(
+  dbPath: string,
+  state: NotificationSchedulerState,
+  now: Date,
+  errorCode: NotificationSchedulerErrorCode | undefined,
+): Promise<void> {
+  const base = {
+    dbPath,
+    ...state,
+    lastRunAt: now.toISOString(),
+    consecutiveFailures: errorCode === undefined ? 0 : state.consecutiveFailures + 1,
+    updatedAt: now.toISOString(),
+  };
+
+  if (errorCode === undefined) {
+    const { lastErrorCode: _lastErrorCode, ...successState } = base;
+    await writeNotificationSchedulerState(successState);
+    return;
+  }
+
+  await writeNotificationSchedulerState({
+    ...base,
+    lastErrorCode: errorCode,
+  });
+}
+
+class DeliveryError extends Error {
+  constructor(
+    readonly reasonCode: NotificationDeliveryReasonCode,
+    readonly schedulerErrorCode: NotificationSchedulerErrorCode,
+  ) {
+    super(reasonCode);
+    this.name = "DeliveryError";
+  }
+}
+
+function deliveryFailure(error: unknown, target: NotificationDeliveryTarget): DeliveryError {
+  if (error instanceof DeliveryError) return error;
+  return target === "slack"
+    ? new DeliveryError("delivery_failed", "SLACK_DELIVERY_FAILED")
+    : new DeliveryError("delivery_failed", "DELIVERY_FAILED");
 }
 
 async function runNotifyPrefs(args: readonly string[], context: CliExecutionContext): Promise<number> {

@@ -94,6 +94,34 @@ describe("parseCodexUsageValue", () => {
     expect(serialized).not.toContain("command");
   });
 
+  it("accepts response_item payload usage without a payload subtype", () => {
+    const result = parseCodexUsageValue({
+      type: "response_item",
+      timestamp: "2030-01-02T03:04:05.000Z",
+      model: "gpt-5.6",
+      payload: {
+        usage: {
+          input_tokens: 12,
+          cached_input_tokens: 4,
+          output_tokens: 3,
+          total_tokens: 15,
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      kind: "record",
+      record: {
+        semantics: "incremental",
+        observedModelId: "gpt-5.6",
+        inputTokens: 12,
+        cachedInputTokens: 4,
+        outputTokens: 3,
+        explicitTotalTokens: 15,
+      },
+    });
+  });
+
   it("does not recursively discover arbitrary nested usage objects", () => {
     expect(parseCodexUsageValue({
       timestamp: "2030-01-02T00:00:00.000Z",

@@ -101,8 +101,9 @@ export function computeNextNotificationRun(input: {
   const intervalMinutes = Math.max(requested, providerMinimum);
   const jitterBound = normalizeJitter(input.jitterSeconds ?? 90);
   const random = input.random ?? Math.random;
-  const sample = Math.min(1, Math.max(0, random()));
-  const jitter = Math.round((sample * 2 - 1) * jitterBound);
+  const rawSample = random();
+  const sample = Number.isFinite(rawSample) ? Math.min(1, Math.max(0, rawSample)) : 0;
+  const jitter = Math.round(sample * jitterBound);
 
   return new Date(input.now.getTime() + intervalMinutes * 60_000 + jitter * 1000).toISOString();
 }

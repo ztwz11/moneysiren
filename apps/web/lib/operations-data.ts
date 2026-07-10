@@ -672,11 +672,16 @@ function mergeCodexUsageSummary(
     return null;
   }
 
+  const codexOfficial = available.find((summary) => summary.codexOfficial !== undefined)?.codexOfficial;
+  const codexLocal = available.find((summary) => summary.codexLocal !== undefined)?.codexLocal;
+
   return {
     kind: "llm_subscription",
     period: "current_month",
     metrics: mergeCodexUsageMetrics(available),
     topServices: uniqueTexts(available.flatMap((summary) => summary.topServices)),
+    ...(codexOfficial === undefined ? {} : { codexOfficial }),
+    ...(codexLocal === undefined ? {} : { codexLocal }),
   };
 }
 

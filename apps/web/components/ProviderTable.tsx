@@ -19,6 +19,7 @@ export function ProviderTable({ providers }: ProviderTableProps) {
               <Th>Billed</Th>
               <Th>Usage</Th>
               <Th>Health</Th>
+              <Th>Sync</Th>
               <Th>Risk</Th>
               <Th>Latest</Th>
             </tr>
@@ -26,7 +27,7 @@ export function ProviderTable({ providers }: ProviderTableProps) {
           <tbody>
             {providers.length === 0 ? (
               <tr>
-                <td colSpan={7} style={emptyCellStyle}>
+                <td colSpan={8} style={emptyCellStyle}>
                   No local provider data yet.
                 </td>
               </tr>
@@ -42,6 +43,15 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                   <Td>{formatMinorAmount(provider.billingAmountMinor, provider.currency)}</Td>
                   <Td>{provider.usageSnapshotCount}</Td>
                   <Td>{provider.healthStatus}</Td>
+                  <Td>
+                    {provider.freshness.status}
+                    {provider.freshness.lastRefreshFailed ? (
+                      <>
+                        <br />
+                        <span style={mutedStyle}>last attempt failed</span>
+                      </>
+                    ) : null}
+                  </Td>
                   <Td>{provider.riskLevel}</Td>
                   <Td>{provider.latestCollectedAt ?? "none"}</Td>
                 </tr>
@@ -87,7 +97,7 @@ const tableWrapStyle = {
 
 const tableStyle = {
   borderCollapse: "collapse",
-  minWidth: "760px",
+  minWidth: "840px",
   width: "100%",
 } as const;
 

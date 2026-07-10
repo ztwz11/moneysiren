@@ -39,6 +39,7 @@ describe("local SQLite store", () => {
       "0002_read_model_indexes",
       "0003_emergency_action_runs",
       "0004_provider_sync_runs",
+      "0005_notification_state",
     ]);
     expect(result.skippedMigrationIds).toEqual([]);
     expect(await fileExists(dbPath)).toBe(true);

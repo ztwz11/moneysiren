@@ -1163,7 +1163,7 @@ function summarizeAmount(
 function summarizeOpenAiCurrentUsage(
   usage: readonly {
     service: string;
-    metric: "input_tokens" | "output_tokens" | "model_requests";
+    metric: "input_tokens" | "cached_input_tokens" | "output_tokens" | "model_requests";
     value: number;
   }[],
 ): LiveTodayUsageSummary | undefined {
@@ -1172,10 +1172,12 @@ function summarizeOpenAiCurrentUsage(
   }
 
   const inputTokens = sumUsageMetric(usage, "input_tokens");
+  const cachedInputTokens = sumUsageMetric(usage, "cached_input_tokens");
   const outputTokens = sumUsageMetric(usage, "output_tokens");
   const modelRequests = sumUsageMetric(usage, "model_requests");
   const metricCandidates: LiveTodayUsageMetric[] = [
     { key: "input_tokens", value: inputTokens, unit: "tokens" },
+    { key: "cache_tokens", value: cachedInputTokens, unit: "tokens" },
     { key: "output_tokens", value: outputTokens, unit: "tokens" },
     { key: "model_requests", value: modelRequests, unit: "requests" },
   ];
@@ -1189,16 +1191,16 @@ function summarizeOpenAiCurrentUsage(
     kind: "llm_subscription",
     period: "current_month",
     metrics,
-    topServices: summarizeTopUsageServices(usage),
+    topServices: summarizeTopUsageServices(usage.filter((item) => item.metric !== "cached_input_tokens")),
   };
 }
 
 function sumUsageMetric(
   usage: readonly {
-    metric: "input_tokens" | "output_tokens" | "model_requests";
+    metric: "input_tokens" | "cached_input_tokens" | "output_tokens" | "model_requests";
     value: number;
   }[],
-  metric: "input_tokens" | "output_tokens" | "model_requests",
+  metric: "input_tokens" | "cached_input_tokens" | "output_tokens" | "model_requests",
 ): number {
   return usage
     .filter((item) => item.metric === metric)

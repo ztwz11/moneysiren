@@ -89,7 +89,7 @@ describe("GPT-5.6 Codex rate card", () => {
   });
 
   it("does not guess rates for future models or cache writes", () => {
-    const future = model(null, { canonicalModelId: "future-model" });
+    const future = model(null, { canonicalModelId: "future-model" as CodexSafeModelId });
     const cacheWrite = model("gpt-5.6-terra", { cacheWriteTokens: 1 });
 
     const estimate = estimateCodexCredits([future, cacheWrite], "estimated", {

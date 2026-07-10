@@ -7,6 +7,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, join, posix, resolve, win32 } from "node:path";
 import { promisify } from "node:util";
 import type { CliExecutionContext } from "./cli.js";
+import { validateTarGzArchive } from "./release-archive.js";
 import { resolveReleaseInstallDir } from "./release-installer.js";
 import {
   observedIdentityFromElapsedSeconds,
@@ -782,6 +783,7 @@ async function resolveWebRuntimeStartScript(context: CliExecutionContext): Promi
   }
 
   try {
+    await validateTarGzArchive(webAsset.path);
     await mkdir(extractedRoot, { recursive: true });
     await execFileAsync("tar", ["-xzf", webAsset.path, "-C", extractedRoot], {
       windowsHide: true,
@@ -923,6 +925,12 @@ async function executableFromPath(path: string, allowInstaller: boolean): Promis
 
   if (process.platform === "darwin" && /\.tar\.gz$/i.test(path)) {
     const extractRoot = join(dirname(path), "desktop");
+
+    try {
+      await validateTarGzArchive(path);
+    } catch {
+      return null;
+    }
 
     await mkdir(extractRoot, { recursive: true });
     await execFileAsync("tar", ["-xzf", path, "-C", extractRoot], {

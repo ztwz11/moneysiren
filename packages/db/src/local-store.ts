@@ -313,6 +313,7 @@ export async function saveLocalProviderCollection(input: LocalProviderCollection
   const dbPath = normalizeDbPath(input.dbPath);
   const providerId = providerIdFor(input.provider.key);
   const providerAccountRefs = collectProviderAccountRefs(input);
+  const dataThrough = latestCollectionTimestamp(input);
   const statements: string[] = [
     upsertProviderSql({
       id: providerId,
@@ -362,7 +363,7 @@ export async function saveLocalProviderCollection(input: LocalProviderCollection
     healthCount: input.snapshots.serviceHealth.length,
     estimateCount: input.snapshots.costEstimates.length,
     alertCount: input.alerts.length,
-    ...(latestCollectionTimestamp(input) === undefined ? {} : { dataThrough: latestCollectionTimestamp(input) }),
+    ...(dataThrough === undefined ? {} : { dataThrough }),
   }));
 
   executeSqliteTransaction(dbPath, statements);

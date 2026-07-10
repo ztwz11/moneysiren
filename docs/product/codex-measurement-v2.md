@@ -3,7 +3,9 @@
 Status: APPROVED CONTRACT FOR COD-002 THROUGH COD-005  
 Schema version: 2  
 Last reviewed: 2026-07-10  
-Official reference: https://learn.chatgpt.com/docs/app-server
+Official references:
+- https://learn.chatgpt.com/docs/app-server
+- https://help.openai.com/en/articles/20001106-codex-rate-card
 
 ## Purpose
 
@@ -24,7 +26,8 @@ billing or credit total.
 ## Non-goals
 
 - Calculating OpenAI Platform API dollars.
-- Calculating Codex subscription credits from tokens.
+- Treating a local Codex credit estimate as official account spend.
+- Estimating credits when the workspace rate card or execution mode is unknown.
 - Consuming reset credits.
 - Reading Codex auth files.
 - Calling undocumented ChatGPT HTTP endpoints.
@@ -39,7 +42,7 @@ billing or credit total.
 | Reset-credit count/details | account/rateLimits/read | official | unavailable |
 | Account token summary/daily buckets | account/usage/read | official | unavailable |
 | Model/token breakdown | sanitized local session metadata | estimated or bounded | unavailable |
-| Codex subscription credit estimate | none | unavailable | none |
+| Codex subscription credit estimate | dated official rate card × local model tokens | estimated or bounded | unavailable |
 
 Within account/rateLimits/read, rateLimitsByLimitId.codex takes precedence over
 the backward-compatible rateLimits field. The latter is used only when the
@@ -168,15 +171,62 @@ Exact mappings:
 | gpt-5.6-terra | gpt-5.6-terra |
 | gpt-5.6-luna | gpt-5.6-luna |
 
-No fuzzy or prefix match is allowed. A safe model ID matches:
+No fuzzy or prefix match is allowed. A safe model ID is already trimmed and
+lowercase and matches:
 
-    ^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$
+    ^[a-z0-9][a-z0-9._:-]{0,79}$
 
 A future safe model stays an unknown model until approved. An invalid value
 becomes unknown without echoing the original.
 
-No model receives a Codex credit rate in schema v2. The official rate pages
-conflicted at contract review time, and raw tokens are not subscription credits.
+## GPT-5.6 Codex credit estimate
+
+The official Codex rate card was re-verified on 2026-07-10. The dated rates are
+credits per one million tokens:
+
+| Model | Input | Cached input | Output |
+|---|---:|---:|---:|
+| GPT-5.6 Sol | 125 | 12.5 | 750 |
+| GPT-5.6 Terra | 62.5 | 6.25 | 375 |
+| GPT-5.6 Luna | 25 | 2.5 | 150 |
+
+The estimate source is explicitly
+`official-rate-card-x-local-token-estimate`. It is not an App Server account
+total, remaining balance, invoice, or official spend observation.
+
+Because local input includes cached input, the calculation is:
+
+    uncachedInput = max(0, input - cachedInput)
+    credits =
+      uncachedInput * inputRate / 1_000_000 +
+      cachedInput * cachedInputRate / 1_000_000 +
+      output * outputRate / 1_000_000
+
+Reasoning is an output subset and is not added again. Explicit totals are
+validation values and are not priced. A positive cache-write counter makes the
+estimate unavailable until the Codex rate card defines an applicable
+cache-write rate.
+
+Applicability fails closed:
+
+- Plus, Pro, and Business workspaces can use the token-based card documented by
+  OpenAI, but MoneySiren still requires the local operator to confirm the card
+  because local logs do not expose plan or migration state.
+- Enterprise, Edu, Gov, Health, Teachers, and unknown workspaces require
+  explicit confirmation. OpenAI documents a small legacy Enterprise subset.
+- Legacy or unknown rate-card mode is unavailable.
+- Fast or unknown execution mode is unavailable because supported fast-mode
+  rates differ and are not present in sanitized session metadata.
+- Future safe model IDs remain visible but receive no guessed rate.
+
+The non-secret applicability settings are:
+
+    MONEYSIREN_CODEX_RATE_CARD_MODE=token-based
+    MONEYSIREN_CODEX_EXECUTION_MODE=standard
+
+The estimate inherits `estimated` or `bounded` from local scan coverage.
+Official App Server quota, reset credits, and account aggregates remain separate
+objects and are never reconciled to this estimate.
 
 ## Coverage
 
@@ -241,8 +291,9 @@ Service detail shows:
 - coverage and freshness warnings.
 
 HUD remains compact. It keeps quota/reset values inline and moves source, model,
-and coverage detail to a popover or service page. Credit estimates remain hidden
-while unavailable.
+coverage, and credit-estimate detail to a popover or service page. An
+unavailable estimate is shown as unavailable with its safe applicability
+reason; no numeric value is fabricated.
 
 ## Acceptance
 
@@ -252,6 +303,9 @@ while unavailable.
 - gpt-5.6 and gpt-5.6-sol share one Sol bucket.
 - Terra and Luna remain separate.
 - Unknown safe models have no rate.
+- Credit estimates require token-based standard-mode applicability.
+- Credit estimates use official dated rates but remain local estimated/bounded
+  values, never official account spend.
 - Unsafe labels become unknown without being echoed.
 - Explicit totals and subset components are not double-counted.
 - Official account usage and local model usage remain separate objects.

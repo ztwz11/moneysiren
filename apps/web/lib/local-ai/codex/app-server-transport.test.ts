@@ -1,3 +1,6 @@
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import webPackage from "../../../package.json";
 import rateLimitsFixture from "../../../../../tests/fixtures/local-ai/codex/app-server-rate-limits.json";
@@ -5,9 +8,108 @@ import accountUsageFixture from "../../../../../tests/fixtures/local-ai/codex/ap
 import {
   CodexAppServerJsonlDecoder,
   CodexAppServerSession,
+  readCodexAppServerOfficialMeasurements,
 } from "./app-server-transport";
 
 const FETCHED_AT = "2030-01-03T00:00:00.000Z";
+
+describe("Codex App Server process lifecycle", () => {
+  it("preserves the existing stdio invocation and cleans up after success", async () => {
+    const child = new FakeCodexProcess();
+    const stdinLines: string[] = [];
+    let command = "";
+    let args: readonly string[] = [];
+
+    child.stdin.on("data", (chunk: Buffer) => {
+      stdinLines.push(...chunk.toString("utf8").trim().split("\n"));
+    });
+
+    const pending = readCodexAppServerOfficialMeasurements({
+      now: () => new Date(FETCHED_AT),
+      timeoutMs: 2_000,
+      spawnProcess: (nextCommand, nextArgs) => {
+        command = nextCommand;
+        args = [...nextArgs];
+        return child.asChildProcess();
+      },
+    });
+
+    expect(command).toBe("codex");
+    expect(args).toEqual(["app-server", "--stdio"]);
+    expect(stdinLines.map(parseLine)[0]).toMatchObject({
+      method: "initialize",
+      id: 0,
+    });
+
+    child.stderr.write("Bearer FAKE_PRIVATE_VALUE");
+    child.stdout.write(`${JSON.stringify({ id: 0, result: {} })}\n`);
+    child.stdout.write(`${JSON.stringify({
+      id: 2,
+      result: accountUsageFixture.result,
+    })}\n`);
+    child.stdout.write(`${JSON.stringify({
+      id: 1,
+      result: rateLimitsFixture.result,
+    })}\n`);
+
+    const result = await pending;
+
+    expect(child.killed).toBe(true);
+    expect(result.rateLimits.availability).toBe("available");
+    expect(result.accountUsage.availability).toBe("available");
+    expect(stdinLines.map(parseLine)).toEqual([
+      expect.objectContaining({ method: "initialize", id: 0 }),
+      { method: "initialized", params: {} },
+      { method: "account/rateLimits/read", id: 1 },
+      { method: "account/usage/read", id: 2 },
+    ]);
+    expect(JSON.stringify(result)).not.toContain("FAKE_PRIVATE_VALUE");
+  });
+
+  it("times out with sanitized unavailable states and kills the child", async () => {
+    const child = new FakeCodexProcess();
+
+    const result = await readCodexAppServerOfficialMeasurements({
+      now: () => new Date(FETCHED_AT),
+      timeoutMs: 250,
+      spawnProcess: () => child.asChildProcess(),
+    });
+
+    expect(child.killed).toBe(true);
+    expect(result.rateLimits).toMatchObject({
+      availability: "unavailable",
+      reason: "timeout",
+    });
+    expect(result.accountUsage).toMatchObject({
+      availability: "unavailable",
+      reason: "timeout",
+    });
+  });
+
+  it("rejects an oversized unterminated line and kills the child", async () => {
+    const child = new FakeCodexProcess();
+
+    const pending = readCodexAppServerOfficialMeasurements({
+      now: () => new Date(FETCHED_AT),
+      timeoutMs: 2_000,
+      maxLineBytes: 1_024,
+      spawnProcess: () => child.asChildProcess(),
+    });
+
+    child.stdout.write("x".repeat(1_025));
+    const result = await pending;
+
+    expect(child.killed).toBe(true);
+    expect(result.rateLimits).toMatchObject({
+      availability: "unavailable",
+      reason: "oversized-response",
+    });
+    expect(result.accountUsage).toMatchObject({
+      availability: "unavailable",
+      reason: "oversized-response",
+    });
+  });
+});
 
 describe("Codex App Server bounded JSONL framing", () => {
   it("reassembles split chunks and discards blank protocol lines", () => {
@@ -231,4 +333,21 @@ function initializedSession(): CodexAppServerSession {
 
 function parseLine(line: string): Record<string, unknown> {
   return JSON.parse(line) as Record<string, unknown>;
+}
+
+
+class FakeCodexProcess extends EventEmitter {
+  readonly stdin = new PassThrough();
+  readonly stdout = new PassThrough();
+  readonly stderr = new PassThrough();
+  killed = false;
+
+  kill(): boolean {
+    this.killed = true;
+    return true;
+  }
+
+  asChildProcess(): ChildProcessWithoutNullStreams {
+    return this as unknown as ChildProcessWithoutNullStreams;
+  }
 }

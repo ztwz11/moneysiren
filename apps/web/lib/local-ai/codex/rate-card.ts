@@ -90,7 +90,7 @@ export function estimateCodexCredits(
       ? estimateModel(model)
       : unavailableModel(model.canonicalModelId, applicabilityReason));
   const available = estimates.filter((estimate) => estimate.availability === "available");
-  const estimatedCredits = available.length === 0
+  const estimatedCredits = available.length === 0 || available.length !== estimates.length
     ? null
     : roundCredits(available.reduce((sum, estimate) => sum + (estimate.estimatedCredits ?? 0), 0));
 

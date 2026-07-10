@@ -25,10 +25,16 @@ export interface CodexOfficialAccountMeasurements {
   accountUsage: CodexAccountUsageMeasurement;
 }
 
+export type CodexAppServerSpawn = (
+  command: string,
+  args: readonly string[],
+) => ChildProcessWithoutNullStreams;
+
 export interface ReadCodexAppServerOptions {
   now?: () => Date;
   timeoutMs?: number;
   maxLineBytes?: number;
+  spawnProcess?: CodexAppServerSpawn;
 }
 
 export interface CodexAppServerAdvance {
@@ -245,14 +251,11 @@ export async function readCodexAppServerOfficialMeasurements(
     2 * 1_024 * 1_024,
   );
 
+  const spawnProcess = options.spawnProcess ?? spawnCodexAppServer;
   let child: ChildProcessWithoutNullStreams;
 
   try {
-    child = spawn("codex", ["app-server"], {
-      shell: false,
-      stdio: ["pipe", "pipe", "pipe"],
-      windowsHide: true,
-    });
+    child = spawnProcess("codex", ["app-server", "--stdio"]);
   } catch (error) {
     return session.finishPending(reasonFromProcessError(error));
   }
@@ -346,6 +349,17 @@ export async function readCodexAppServerOfficialMeasurements(
     }, timeoutMs);
 
     send(session.initialRequestLine());
+  });
+}
+
+function spawnCodexAppServer(
+  command: string,
+  args: readonly string[],
+): ChildProcessWithoutNullStreams {
+  return spawn(command, [...args], {
+    shell: false,
+    stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
   });
 }
 

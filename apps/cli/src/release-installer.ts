@@ -2,7 +2,6 @@ import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { createReadStream } from "node:fs";
 import {
-  copyFile,
   lstat,
   mkdir,
   open,

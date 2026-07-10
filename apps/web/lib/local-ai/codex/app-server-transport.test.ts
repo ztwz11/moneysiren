@@ -6,6 +6,7 @@ import webPackage from "../../../package.json";
 import rateLimitsFixture from "../../../../../tests/fixtures/local-ai/codex/app-server-rate-limits.json";
 import accountUsageFixture from "../../../../../tests/fixtures/local-ai/codex/app-server-usage.json";
 import {
+  CODEX_APP_SERVER_STDIO_ARGS,
   CodexAppServerJsonlDecoder,
   CodexAppServerSession,
   readCodexAppServerOfficialMeasurements,
@@ -35,7 +36,12 @@ describe("Codex App Server process lifecycle", () => {
     });
 
     expect(command).toBe("codex");
-    expect(args).toEqual(["app-server", "--listen", "stdio://"]);
+    expect(CODEX_APP_SERVER_STDIO_ARGS).toEqual([
+      "app-server",
+      "--listen",
+      "stdio://",
+    ]);
+    expect(args).toEqual(CODEX_APP_SERVER_STDIO_ARGS);
     expect(stdinLines.map(parseLine)[0]).toMatchObject({
       method: "initialize",
       id: 0,

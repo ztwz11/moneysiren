@@ -7,10 +7,17 @@ import {
   initializeLocalStore,
   recordEmergencyActionRun,
   recordLocalReportRun,
+  readLocalAiUsageHistory,
   readLocalStore,
+  saveLocalAiUsageDaily,
   saveLocalProviderCollection,
 } from "./local-store.js";
-import type { LocalBillingSnapshotInput, LocalCostEstimateInput, LocalEmergencyActionRunInput } from "./local-store.js";
+import type {
+  LocalAiUsageDailyInput,
+  LocalBillingSnapshotInput,
+  LocalCostEstimateInput,
+  LocalEmergencyActionRunInput,
+} from "./local-store.js";
 import { INITIAL_SCHEMA_SQL, READ_MODEL_INDEX_SQL, REQUIRED_TABLES } from "./schema.js";
 import { resolveSqliteBin, SQLITE_BIN_ENV_KEY } from "./sqlite-bin.js";
 
@@ -33,7 +40,12 @@ describe("local SQLite store", () => {
     ).map((row) => row.name);
     const migrations = querySqlite<{ id: string }>(dbPath, "SELECT id FROM schema_migrations ORDER BY id;");
 
-    expect(result.appliedMigrationIds).toEqual(["0001_init", "0002_read_model_indexes", "0003_emergency_action_runs"]);
+    expect(result.appliedMigrationIds).toEqual([
+      "0001_init",
+      "0002_read_model_indexes",
+      "0003_emergency_action_runs",
+      "0004_local_ai_usage_daily",
+    ]);
     expect(result.skippedMigrationIds).toEqual([]);
     expect(await fileExists(dbPath)).toBe(true);
     expect(tables).toEqual(expect.arrayContaining(["schema_migrations", ...REQUIRED_TABLES]));
@@ -41,6 +53,7 @@ describe("local SQLite store", () => {
       { id: "0001_init" },
       { id: "0002_read_model_indexes" },
       { id: "0003_emergency_action_runs" },
+      { id: "0004_local_ai_usage_daily" },
     ]);
     expect(await fileExists(join(rootDir, ".env"))).toBe(false);
   });
@@ -464,6 +477,212 @@ describe("local SQLite store", () => {
       }),
     ]);
     expect(store.billingSnapshots.reduce((total, snapshot) => total + snapshot.amountMinor, 0)).toBe(900);
+  });
+
+  it("upserts daily local AI usage idempotently and aggregates Monday weeks and calendar months", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "moneysiren-db-"));
+    const dbPath = join(rootDir, ".moneysiren", "moneysiren.sqlite");
+    const rows: LocalAiUsageDailyInput[] = [
+      {
+        providerKey: "codex-cli",
+        usageDate: "2026-06-01",
+        timezone: "Asia/Seoul",
+        sourceScope: "dedicated",
+        observedAt: "2026-06-01T09:00:00.000Z",
+        firstActivityAt: "2026-06-01T00:00:00.000Z",
+        latestActivityAt: "2026-06-01T01:00:00.000Z",
+        activityCount: 1,
+        sessionCount: 1,
+        turnCount: 2,
+        toolCallCount: 1,
+        inputTokens: 10,
+        outputTokens: 4,
+        cacheTokens: 2,
+        reasoningTokens: 1,
+        totalTokens: 14,
+        coverage: "complete",
+        parserVersion: "test-v1",
+        localOnly: true,
+        secretsReturned: false,
+      },
+      {
+        providerKey: "codex-cli",
+        usageDate: "2026-06-02",
+        timezone: "Asia/Seoul",
+        sourceScope: "dedicated",
+        observedAt: "2026-06-02T09:00:00.000Z",
+        firstActivityAt: "2026-06-02T00:00:00.000Z",
+        latestActivityAt: "2026-06-02T02:00:00.000Z",
+        activityCount: 2,
+        sessionCount: 2,
+        turnCount: 3,
+        toolCallCount: 2,
+        inputTokens: 20,
+        outputTokens: 8,
+        cacheTokens: 4,
+        reasoningTokens: 2,
+        totalTokens: 28,
+        coverage: "partial",
+        parserVersion: "test-v1",
+        localOnly: true,
+        secretsReturned: false,
+      },
+      {
+        providerKey: "codex-cli",
+        usageDate: "2026-06-08",
+        timezone: "Asia/Seoul",
+        sourceScope: "dedicated",
+        observedAt: "2026-06-08T09:00:00.000Z",
+        firstActivityAt: "2026-06-08T00:00:00.000Z",
+        latestActivityAt: "2026-06-08T01:00:00.000Z",
+        activityCount: 1,
+        sessionCount: 1,
+        turnCount: 1,
+        toolCallCount: 0,
+        inputTokens: 7,
+        outputTokens: 3,
+        cacheTokens: 1,
+        reasoningTokens: 0,
+        totalTokens: 10,
+        coverage: "complete",
+        parserVersion: "test-v1",
+        localOnly: true,
+        secretsReturned: false,
+      },
+      {
+        providerKey: "claude-cli",
+        usageDate: "2026-06-02",
+        timezone: "Asia/Seoul",
+        sourceScope: "dedicated",
+        observedAt: "2026-06-02T10:00:00.000Z",
+        firstActivityAt: "2026-06-02T03:00:00.000Z",
+        latestActivityAt: "2026-06-02T04:00:00.000Z",
+        activityCount: 4,
+        sessionCount: 1,
+        turnCount: 4,
+        toolCallCount: 2,
+        inputTokens: 12,
+        outputTokens: 6,
+        cacheTokens: 3,
+        reasoningTokens: 0,
+        totalTokens: 21,
+        coverage: "complete",
+        parserVersion: "test-v1",
+        localOnly: true,
+        secretsReturned: false,
+      },
+    ];
+
+    await saveLocalAiUsageDaily({ dbPath, rows });
+    await saveLocalAiUsageDaily({ dbPath, rows });
+    await saveLocalAiUsageDaily({
+      dbPath,
+      rows: [
+        {
+          ...rows[0]!,
+          observedAt: "2026-06-01T08:00:00.000Z",
+          activityCount: 999,
+          totalTokens: 999,
+        },
+      ],
+    });
+    await saveLocalAiUsageDaily({
+      dbPath,
+      rows: [
+        {
+          ...rows[0]!,
+          observedAt: "2026-06-03T00:00:00.000Z",
+          latestActivityAt: "2026-06-01T02:00:00.000Z",
+          activityCount: 3,
+          sessionCount: 2,
+          turnCount: 5,
+          toolCallCount: 3,
+          inputTokens: 30,
+          outputTokens: 12,
+          cacheTokens: 6,
+          reasoningTokens: 3,
+          totalTokens: 42,
+        },
+      ],
+    });
+
+    expect(querySqlite<{ count: number }>(
+      dbPath,
+      "SELECT count(*) AS count FROM local_ai_usage_daily;",
+    )[0]?.count).toBe(4);
+
+    const daily = await readLocalAiUsageHistory({
+      dbPath,
+      from: "2026-06-01",
+      to: "2026-06-30",
+      granularity: "day",
+      providerKeys: ["codex-cli"],
+    });
+    expect(daily).toHaveLength(3);
+    expect(daily[2]).toEqual(expect.objectContaining({
+      providerKey: "codex-cli",
+      periodStart: "2026-06-01",
+      periodEnd: "2026-06-01",
+      observedAt: "2026-06-03T00:00:00.000Z",
+      activityCount: 3,
+      totalTokens: 42,
+    }));
+
+    const weekly = await readLocalAiUsageHistory({
+      dbPath,
+      from: "2026-06-01",
+      to: "2026-06-30",
+      granularity: "week",
+      providerKeys: ["codex-cli"],
+    });
+    expect(weekly).toHaveLength(2);
+    expect(weekly[1]).toEqual(expect.objectContaining({
+      periodStart: "2026-06-01",
+      periodEnd: "2026-06-07",
+      observedAt: "2026-06-03T00:00:00.000Z",
+      firstActivityAt: "2026-06-01T00:00:00.000Z",
+      latestActivityAt: "2026-06-02T02:00:00.000Z",
+      activityCount: 5,
+      sessionCount: 4,
+      turnCount: 8,
+      toolCallCount: 5,
+      inputTokens: 50,
+      outputTokens: 20,
+      cacheTokens: 10,
+      reasoningTokens: 5,
+      totalTokens: 70,
+      coverage: "partial",
+    }));
+
+    const monthly = await readLocalAiUsageHistory({
+      dbPath,
+      from: "2026-06-01",
+      to: "2026-06-30",
+      granularity: "month",
+    });
+    expect(monthly).toHaveLength(2);
+    expect(monthly[0]).toEqual(expect.objectContaining({
+      providerKey: "claude-cli",
+      periodStart: "2026-06-01",
+      periodEnd: "2026-06-30",
+      activityCount: 4,
+      totalTokens: 21,
+    }));
+    expect(monthly[1]).toEqual(expect.objectContaining({
+      providerKey: "codex-cli",
+      periodStart: "2026-06-01",
+      periodEnd: "2026-06-30",
+      activityCount: 6,
+      sessionCount: 5,
+      turnCount: 9,
+      toolCallCount: 5,
+      inputTokens: 57,
+      outputTokens: 23,
+      cacheTokens: 11,
+      reasoningTokens: 5,
+      totalTokens: 80,
+      coverage: "partial",
+    }));
   });
 });
 

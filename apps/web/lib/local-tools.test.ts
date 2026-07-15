@@ -7,6 +7,7 @@ import {
   readAwsLocalSetupStatus,
   readGcpLocalSetupStatus,
   readLocalAiCliStatus,
+  readLocalAiUsageDaily,
   reconcileCodexResetCreditObservations,
   setAwsProfileGlobally,
   setProviderEnvGlobally,
@@ -1114,5 +1115,103 @@ describe("local tool status", () => {
         ],
       },
     });
+  });
+
+  it("builds timezone-aware daily Codex and Claude buckets without exposing local content", async () => {
+    const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-local-ai-history-"));
+    const codexSessionDir = join(homeDir, ".codex", "sessions", "2026", "07", "10");
+    const claudeProjectDir = join(homeDir, ".claude", "projects", "fake-project");
+    const promptSentinel = "FAKE_PRIVATE_PROMPT_DO_NOT_RETURN";
+    const commandSentinel = "FAKE_SHELL_COMMAND_DO_NOT_RETURN";
+    await mkdir(codexSessionDir, { recursive: true });
+    await mkdir(claudeProjectDir, { recursive: true });
+    await writeFile(join(codexSessionDir, "rollout-history.jsonl"), [
+      JSON.stringify({
+        timestamp: "2026-07-10T14:59:00.000Z",
+        type: "event_msg",
+        payload: {
+          type: "token_count",
+          prompt: promptSentinel,
+          info: {
+            last_token_usage: {
+              input_tokens: 20,
+              output_tokens: 10,
+              cached_input_tokens: 5,
+              total_tokens: 30,
+            },
+          },
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-07-10T15:01:00.000Z",
+        type: "event_msg",
+        payload: {
+          type: "token_count",
+          command: commandSentinel,
+          info: {
+            last_token_usage: {
+              input_tokens: 30,
+              output_tokens: 15,
+              total_tokens: 45,
+            },
+          },
+        },
+      }),
+    ].join("\n"), "utf8");
+    await writeFile(join(claudeProjectDir, "session-history.jsonl"), JSON.stringify({
+      timestamp: "2026-07-10T15:02:00.000Z",
+      type: "assistant",
+      sessionId: "fake-session",
+      prompt: promptSentinel,
+      message: {
+        id: "fake-message",
+        usage: {
+          input_tokens: 40,
+          output_tokens: 20,
+          cache_read_input_tokens: 10,
+        },
+      },
+    }), "utf8");
+
+    const buckets = await readLocalAiUsageDaily({
+      homeDir,
+      now: () => new Date("2026-07-13T00:00:00.000Z"),
+      timezone: "Asia/Seoul",
+      historyDays: 10,
+    });
+
+    expect(buckets).toEqual([
+      expect.objectContaining({
+        providerKey: "codex-cli",
+        usageDate: "2026-07-10",
+        activityCount: 1,
+        inputTokens: 20,
+        outputTokens: 10,
+        cacheTokens: 5,
+        totalTokens: 30,
+      }),
+      expect.objectContaining({
+        providerKey: "claude-cli",
+        usageDate: "2026-07-11",
+        activityCount: 1,
+        inputTokens: 40,
+        outputTokens: 20,
+        cacheTokens: 10,
+        totalTokens: 70,
+      }),
+      expect.objectContaining({
+        providerKey: "codex-cli",
+        usageDate: "2026-07-11",
+        activityCount: 1,
+        inputTokens: 30,
+        outputTokens: 15,
+        totalTokens: 45,
+      }),
+    ]);
+    const serialized = JSON.stringify(buckets);
+    expect(serialized).not.toContain(promptSentinel);
+    expect(serialized).not.toContain(commandSentinel);
+    expect(serialized).not.toContain(homeDir);
+    expect(serialized).not.toContain("rollout-history.jsonl");
   });
 });

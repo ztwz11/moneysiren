@@ -107,6 +107,63 @@ export interface LocalEmergencyActionRunRecord {
   metadataJson: Record<string, never>;
 }
 
+export type LocalAiUsageProviderKey = "codex-cli" | "codex-app" | "claude-cli" | "claude-app";
+export type LocalAiUsageSourceScope = "dedicated" | "shared_fallback";
+export type LocalAiUsageCoverage = "complete" | "partial";
+export type LocalAiUsageGranularity = "day" | "week" | "month";
+
+export interface LocalAiUsageDailyInput {
+  providerKey: LocalAiUsageProviderKey;
+  usageDate: string;
+  timezone: string;
+  sourceScope: LocalAiUsageSourceScope;
+  observedAt: string;
+  firstActivityAt: string | null;
+  latestActivityAt: string | null;
+  activityCount: number;
+  sessionCount: number;
+  turnCount: number;
+  toolCallCount: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheTokens: number | null;
+  reasoningTokens: number | null;
+  totalTokens: number | null;
+  coverage: LocalAiUsageCoverage;
+  parserVersion: string;
+  localOnly: true;
+  secretsReturned: false;
+}
+
+export interface LocalAiUsageHistoryQuery {
+  dbPath: string;
+  from: string;
+  to: string;
+  granularity: LocalAiUsageGranularity;
+  providerKeys?: readonly LocalAiUsageProviderKey[];
+}
+
+export interface LocalAiUsageHistoryRow {
+  providerKey: LocalAiUsageProviderKey;
+  periodStart: string;
+  periodEnd: string;
+  timezone: string;
+  sourceScope: LocalAiUsageSourceScope;
+  observedAt: string;
+  firstActivityAt: string | null;
+  latestActivityAt: string | null;
+  activityCount: number;
+  sessionCount: number;
+  turnCount: number;
+  toolCallCount: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheTokens: number | null;
+  reasoningTokens: number | null;
+  totalTokens: number | null;
+  coverage: LocalAiUsageCoverage;
+}
+
 export interface LocalStore {
   appliedMigrationIds: string[];
   providers: LocalProviderRecord[];
@@ -303,6 +360,73 @@ export async function saveLocalProviderCollection(input: LocalProviderCollection
   }
 
   executeSqliteTransaction(dbPath, statements);
+}
+
+export async function saveLocalAiUsageDaily(input: {
+  dbPath: string;
+  rows: readonly LocalAiUsageDailyInput[];
+}): Promise<void> {
+  assertSafeForPersistence(input);
+  await initializeLocalStore({ dbPath: input.dbPath });
+
+  const dbPath = normalizeDbPath(input.dbPath);
+  const statements = input.rows.map((row) => {
+    assertLocalAiUsageDailyInput(row);
+    return upsertLocalAiUsageDailySql(row);
+  });
+
+  executeSqliteTransaction(dbPath, statements);
+}
+
+export async function readLocalAiUsageHistory(
+  input: LocalAiUsageHistoryQuery,
+): Promise<LocalAiUsageHistoryRow[]> {
+  assertUsageDate(input.from, "from");
+  assertUsageDate(input.to, "to");
+
+  if (input.from > input.to) {
+    throw new Error("Local AI usage history range is invalid.");
+  }
+
+  const dbPath = normalizeDbPath(input.dbPath);
+
+  if (!tableExists(dbPath, "local_ai_usage_daily")) {
+    return [];
+  }
+
+  const providerFilter = input.providerKeys === undefined || input.providerKeys.length === 0
+    ? ""
+    : `AND provider_key IN (${input.providerKeys.map(sqlString).join(", ")})`;
+  const rows = querySqliteRowsSync<LocalAiUsageDailyRow>(
+    dbPath,
+    `
+    SELECT
+      provider_key AS providerKey,
+      usage_date AS usageDate,
+      timezone,
+      source_scope AS sourceScope,
+      observed_at AS observedAt,
+      first_activity_at AS firstActivityAt,
+      latest_activity_at AS latestActivityAt,
+      activity_count AS activityCount,
+      session_count AS sessionCount,
+      turn_count AS turnCount,
+      tool_call_count AS toolCallCount,
+      input_tokens AS inputTokens,
+      output_tokens AS outputTokens,
+      cache_tokens AS cacheTokens,
+      reasoning_tokens AS reasoningTokens,
+      total_tokens AS totalTokens,
+      coverage
+    FROM local_ai_usage_daily
+    WHERE usage_date >= ${sqlString(input.from)}
+      AND usage_date <= ${sqlString(input.to)}
+      ${providerFilter}
+    ORDER BY usage_date DESC, provider_key, source_scope;
+    `,
+  );
+
+  return aggregateLocalAiUsageHistory(rows, input.granularity);
 }
 
 export async function recordLocalReportRun(input: LocalReportRunInput): Promise<void> {
@@ -711,6 +835,58 @@ function insertUsageSnapshotSql(providerId: string, providerKey: string, snapsho
   `;
 }
 
+function upsertLocalAiUsageDailySql(row: LocalAiUsageDailyInput): string {
+  return `
+  INSERT INTO local_ai_usage_daily (
+    provider_key, usage_date, timezone, source_scope, observed_at,
+    first_activity_at, latest_activity_at, activity_count, session_count,
+    turn_count, tool_call_count, input_tokens, output_tokens, cache_tokens,
+    reasoning_tokens, total_tokens, coverage, parser_version, local_only,
+    secrets_returned
+  )
+  VALUES (
+    ${sqlString(row.providerKey)},
+    ${sqlString(row.usageDate)},
+    ${sqlString(row.timezone)},
+    ${sqlString(row.sourceScope)},
+    ${sqlString(row.observedAt)},
+    ${sqlNullableText(row.firstActivityAt)},
+    ${sqlNullableText(row.latestActivityAt)},
+    ${sqlInteger(row.activityCount)},
+    ${sqlInteger(row.sessionCount)},
+    ${sqlInteger(row.turnCount)},
+    ${sqlInteger(row.toolCallCount)},
+    ${sqlNullableInteger(row.inputTokens)},
+    ${sqlNullableInteger(row.outputTokens)},
+    ${sqlNullableInteger(row.cacheTokens)},
+    ${sqlNullableInteger(row.reasoningTokens)},
+    ${sqlNullableInteger(row.totalTokens)},
+    ${sqlString(row.coverage)},
+    ${sqlString(row.parserVersion)},
+    ${sqlBoolean(row.localOnly)},
+    ${sqlBoolean(row.secretsReturned)}
+  )
+  ON CONFLICT(provider_key, usage_date, timezone, source_scope) DO UPDATE SET
+    observed_at = excluded.observed_at,
+    first_activity_at = excluded.first_activity_at,
+    latest_activity_at = excluded.latest_activity_at,
+    activity_count = excluded.activity_count,
+    session_count = excluded.session_count,
+    turn_count = excluded.turn_count,
+    tool_call_count = excluded.tool_call_count,
+    input_tokens = excluded.input_tokens,
+    output_tokens = excluded.output_tokens,
+    cache_tokens = excluded.cache_tokens,
+    reasoning_tokens = excluded.reasoning_tokens,
+    total_tokens = excluded.total_tokens,
+    coverage = excluded.coverage,
+    parser_version = excluded.parser_version,
+    local_only = excluded.local_only,
+    secrets_returned = excluded.secrets_returned
+  WHERE excluded.observed_at >= local_ai_usage_daily.observed_at;
+  `;
+}
+
 function insertBillingSnapshotSql(providerId: string, providerKey: string, snapshot: LocalBillingSnapshotInput): string {
   return `
   INSERT INTO billing_snapshots (
@@ -987,6 +1163,89 @@ function normalizeDbPath(dbPath: string): string {
   return normalized;
 }
 
+function assertLocalAiUsageDailyInput(row: LocalAiUsageDailyInput): void {
+  const providerKeys: readonly LocalAiUsageProviderKey[] = [
+    "codex-cli",
+    "codex-app",
+    "claude-cli",
+    "claude-app",
+  ];
+
+  if (!providerKeys.includes(row.providerKey)) {
+    throw new Error("Unsupported local AI usage provider.");
+  }
+
+  if (row.sourceScope !== "dedicated" && row.sourceScope !== "shared_fallback") {
+    throw new Error("Unsupported local AI source scope.");
+  }
+
+  assertUsageDate(row.usageDate, "usageDate");
+
+  if (row.timezone.trim().length === 0 || row.parserVersion.trim().length === 0) {
+    throw new Error("Local AI usage timezone and parser version are required.");
+  }
+
+  assertIsoTimestamp(row.observedAt, "observedAt");
+  assertOptionalIsoTimestamp(row.firstActivityAt, "firstActivityAt");
+  assertOptionalIsoTimestamp(row.latestActivityAt, "latestActivityAt");
+
+  for (const value of [row.activityCount, row.sessionCount, row.turnCount, row.toolCallCount]) {
+    assertNonNegativeInteger(value, "Local AI usage count");
+  }
+
+  for (const value of [
+    row.inputTokens,
+    row.outputTokens,
+    row.cacheTokens,
+    row.reasoningTokens,
+    row.totalTokens,
+  ]) {
+    if (value !== null) {
+      assertNonNegativeInteger(value, "Local AI token count");
+    }
+  }
+
+  if (row.coverage !== "complete" && row.coverage !== "partial") {
+    throw new Error("Unsupported local AI usage coverage.");
+  }
+
+  if (row.localOnly !== true || row.secretsReturned !== false) {
+    throw new Error("Local AI usage records must be local-only and secret-free.");
+  }
+}
+
+function assertUsageDate(value: string, field: string): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`${field} must be a YYYY-MM-DD date.`);
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new Error(`${field} must be a valid calendar date.`);
+  }
+}
+
+function assertIsoTimestamp(value: string, field: string): void {
+  const timestamp = Date.parse(value);
+
+  if (!Number.isFinite(timestamp)) {
+    throw new Error(`${field} must be an ISO timestamp.`);
+  }
+}
+
+function assertOptionalIsoTimestamp(value: string | null, field: string): void {
+  if (value !== null) {
+    assertIsoTimestamp(value, field);
+  }
+}
+
+function assertNonNegativeInteger(value: number, field: string): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`${field} must be a non-negative safe integer.`);
+  }
+}
+
 function providerIdFor(providerKey: string): string {
   return `provider:${providerKey}`;
 }
@@ -1015,6 +1274,10 @@ function sqlNullableString(value: string | undefined): string {
   return value === undefined ? "NULL" : sqlString(value);
 }
 
+function sqlNullableText(value: string | null): string {
+  return value === null ? "NULL" : sqlString(value);
+}
+
 function sqlNumber(value: number): string {
   if (!Number.isFinite(value)) {
     throw new Error("SQLite numeric value must be finite.");
@@ -1029,6 +1292,10 @@ function sqlInteger(value: number): string {
   }
 
   return String(value);
+}
+
+function sqlNullableInteger(value: number | null): string {
+  return value === null ? "NULL" : sqlInteger(value);
 }
 
 function sqlBoolean(value: boolean): string {
@@ -1069,6 +1336,148 @@ function assertSafeForPersistence(value: unknown): void {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function aggregateLocalAiUsageHistory(
+  rows: readonly LocalAiUsageDailyRow[],
+  granularity: LocalAiUsageGranularity,
+): LocalAiUsageHistoryRow[] {
+  const groups = new Map<string, LocalAiUsageHistoryRow>();
+
+  for (const row of rows) {
+    const period = localAiUsagePeriod(row.usageDate, granularity);
+    const key = [row.providerKey, row.timezone, row.sourceScope, period.start].join(":");
+    const existing = groups.get(key);
+
+    if (existing === undefined) {
+      groups.set(key, {
+        providerKey: row.providerKey,
+        periodStart: period.start,
+        periodEnd: period.end,
+        timezone: row.timezone,
+        sourceScope: row.sourceScope,
+        observedAt: row.observedAt,
+        firstActivityAt: row.firstActivityAt,
+        latestActivityAt: row.latestActivityAt,
+        activityCount: row.activityCount,
+        sessionCount: row.sessionCount,
+        turnCount: row.turnCount,
+        toolCallCount: row.toolCallCount,
+        inputTokens: row.inputTokens,
+        outputTokens: row.outputTokens,
+        cacheTokens: row.cacheTokens,
+        reasoningTokens: row.reasoningTokens,
+        totalTokens: row.totalTokens,
+        coverage: row.coverage,
+      });
+      continue;
+    }
+
+    existing.observedAt = maxIso(existing.observedAt, row.observedAt) ?? row.observedAt;
+    existing.firstActivityAt = minIso(existing.firstActivityAt, row.firstActivityAt);
+    existing.latestActivityAt = maxIso(existing.latestActivityAt, row.latestActivityAt);
+    existing.activityCount += row.activityCount;
+    existing.sessionCount += row.sessionCount;
+    existing.turnCount += row.turnCount;
+    existing.toolCallCount += row.toolCallCount;
+    existing.inputTokens = sumNullableInteger(existing.inputTokens, row.inputTokens);
+    existing.outputTokens = sumNullableInteger(existing.outputTokens, row.outputTokens);
+    existing.cacheTokens = sumNullableInteger(existing.cacheTokens, row.cacheTokens);
+    existing.reasoningTokens = sumNullableInteger(existing.reasoningTokens, row.reasoningTokens);
+    existing.totalTokens = sumNullableInteger(existing.totalTokens, row.totalTokens);
+    existing.coverage = existing.coverage === "partial" || row.coverage === "partial" ? "partial" : "complete";
+  }
+
+  return [...groups.values()].sort((left, right) => {
+    const periodDelta = right.periodStart.localeCompare(left.periodStart);
+    return periodDelta !== 0 ? periodDelta : left.providerKey.localeCompare(right.providerKey);
+  });
+}
+
+function localAiUsagePeriod(
+  usageDate: string,
+  granularity: LocalAiUsageGranularity,
+): { start: string; end: string } {
+  if (granularity === "day") {
+    return { start: usageDate, end: usageDate };
+  }
+
+  const date = new Date(`${usageDate}T00:00:00.000Z`);
+
+  if (granularity === "week") {
+    const daysSinceMonday = (date.getUTCDay() + 6) % 7;
+    const start = new Date(date);
+    start.setUTCDate(start.getUTCDate() - daysSinceMonday);
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 6);
+    return { start: isoDate(start), end: isoDate(end) };
+  }
+
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  const end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0));
+  return { start: isoDate(start), end: isoDate(end) };
+}
+
+function isoDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function sumNullableInteger(left: number | null, right: number | null): number | null {
+  if (left === null) {
+    return right;
+  }
+
+  if (right === null) {
+    return left;
+  }
+
+  const total = left + right;
+  assertNonNegativeInteger(total, "Aggregated local AI token count");
+  return total;
+}
+
+function minIso(left: string | null, right: string | null): string | null {
+  if (left === null) {
+    return right;
+  }
+
+  if (right === null) {
+    return left;
+  }
+
+  return left <= right ? left : right;
+}
+
+function maxIso(left: string | null, right: string | null): string | null {
+  if (left === null) {
+    return right;
+  }
+
+  if (right === null) {
+    return left;
+  }
+
+  return left >= right ? left : right;
+}
+
+interface LocalAiUsageDailyRow {
+  providerKey: LocalAiUsageProviderKey;
+  usageDate: string;
+  timezone: string;
+  sourceScope: LocalAiUsageSourceScope;
+  observedAt: string;
+  firstActivityAt: string | null;
+  latestActivityAt: string | null;
+  activityCount: number;
+  sessionCount: number;
+  turnCount: number;
+  toolCallCount: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheTokens: number | null;
+  reasoningTokens: number | null;
+  totalTokens: number | null;
+  coverage: LocalAiUsageCoverage;
 }
 
 interface ProviderRow {

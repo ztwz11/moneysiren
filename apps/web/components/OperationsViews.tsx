@@ -12,6 +12,7 @@ import { ConnectionCard } from "./ConnectionCard";
 import { DashboardDisplaySettings } from "./DashboardDisplaySettings";
 import { EmergencyActionsPanel } from "./EmergencyActionsPanel";
 import { LiveRefreshButton } from "./LiveRefreshButton";
+import { LocalAiUsageHistory } from "./LocalAiUsageHistory";
 import { ProviderIcon } from "./ProviderIcon";
 import { RefreshPageButton } from "./RefreshPageButton";
 import { RuntimeShutdownButton } from "./RuntimeShutdownButton";
@@ -642,6 +643,13 @@ function LocalAiCliServiceDetail({
           <KeyValue label={messages.table.status} value={`${provider.alertCount}`} />
         </InfoPanel>
       </div>
+      {isLocalAiUsageHistoryProvider(provider.providerKey) ? (
+        <LocalAiUsageHistory
+          locale={locale}
+          providerKey={provider.providerKey}
+          timezone={dashboard.timezone}
+        />
+      ) : null}
       <InfoPanel title={messages.services.emergencyActions}>
         <EmergencyActionsPanel locale={locale} messages={messages} provider={provider} />
       </InfoPanel>
@@ -2213,6 +2221,10 @@ function isLocalAiCliProvider(providerKey: string): boolean {
     providerKey === "claude-cli" ||
     providerKey === "claude-app" ||
     providerKey === "antigravity";
+}
+
+function isLocalAiUsageHistoryProvider(providerKey: string): providerKey is "codex-cli" | "claude-cli" {
+  return providerKey === "codex-cli" || providerKey === "claude-cli";
 }
 
 function dashboardMetricKeysForRow(

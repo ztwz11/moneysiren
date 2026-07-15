@@ -343,3 +343,159 @@ Review gate:
 SPEC_LOCKED: YES
 CODING_LOOP_ALLOWED: YES
 ```
+
+## M12 - Local AI usage history
+
+Status: Completed locally on 2026-07-13.
+
+Goal: persist sanitized Codex CLI and Claude CLI usage locally and provide
+daily, Monday-based weekly, and calendar-month history on provider detail pages.
+
+Spec files:
+
+- `docs/product/local-ai-usage-history-spec.md`
+- `docs/moneysiren_oss_workpack/tasks/EPIC-11-local-ai-usage-history.md`
+
+Implementation slices:
+
+1. Add an idempotent SQLite daily usage table and bounded history reads.
+2. Produce timestamp-based numeric daily buckets from existing local log parsing.
+3. Persist on explicit local-AI refresh while keeping GET reads mutation-free.
+4. Add local-only day/week/month API and provider detail table.
+5. Run migration, parser, redaction, API, UI, quota/HUD regression, typecheck,
+   build, diff, and secret-scan gates.
+
+Security boundary:
+
+- Persist numeric counters, safe timestamps, provider/date/timezone keys,
+  source scope, parser version, and local-only metadata only.
+- Never persist or expose prompts, responses, shell command bodies, tool input,
+  raw JSONL, source paths, auth files, credentials, or native session/turn IDs.
+- Keep all history API access local-only and return no-store responses.
+
+Completion criteria:
+
+- local history survives process restarts;
+- repeated scans do not duplicate usage;
+- day, Monday-based week, and calendar-month aggregation is correct;
+- unknown counters remain unavailable rather than zero;
+- raw local content and authentication data never enter SQLite or API JSON;
+- current quota cards and HUD behavior do not regress;
+- tests, typecheck, lint, build, diff check, and secret scan pass.
+
+Review gate:
+
+```text
+SPEC_LOCKED: YES
+CODING_LOOP_ALLOWED: YES
+IMPLEMENTATION_STATUS: COMPLETE
+```
+
+## M13 - Unified connection and first sync
+
+Status: Completed locally on 2026-07-13.
+
+Goal: remove the gap between entering an OpenAI Admin API key and obtaining the
+first canonical SQLite history. One explicit local action validates read-only
+access, saves the credential through the v0.1 env-only boundary, persists the
+normalized collection, and returns a safe progress result.
+
+Spec files:
+
+- `docs/product/unified-connect-first-sync-spec.md`
+- `docs/moneysiren_oss_workpack/tasks/EPIC-12-unified-connect-first-sync.md`
+
+Implementation slices:
+
+1. Add a server-only OpenAI first-sync application service with injectable
+   collection, environment persistence, canonical persistence, and bounded
+   request timeout boundaries.
+2. Add a local-session and CSRF-protected POST route with fixed safe errors.
+3. Connect the OpenAI credential form to the orchestration result and show
+   validating, saving, syncing, success, partial, and retry states.
+4. Keep CLI sync, live-today refresh, local AI history, quota cards, and HUD
+   refresh unchanged.
+5. Run focused route/service/UI tests and full repository validation.
+
+Security boundary:
+
+- The request accepts only an OpenAI Admin API key for this explicit local action.
+- The response never includes the key, authorization header, provider response,
+  provider error body, account/project identifiers, source paths, or raw payloads.
+- Failed read-only collection does not save the key or write canonical history.
+- Only normalized snapshots cross the SQLite persistence boundary.
+
+Completion criteria:
+
+- one OpenAI form submission performs validation, env save, and first sync;
+- the secret field is cleared after the save boundary succeeds;
+- partial persistence failure is distinguishable from invalid credentials;
+- all responses are local-only, no-store, and explicitly secret-free;
+- fixture-backed tests prove ordering and non-persistence on validation failure;
+- current CLI, live overlay, local AI history, quota, and HUD behavior regressions
+  remain green.
+
+Review gate:
+
+```text
+SPEC_LOCKED: YES
+CODING_LOOP_ALLOWED: YES
+IMPLEMENTATION_STATUS: COMPLETE
+```
+
+## M14 - Installed HUD runtime resolution
+
+Status: Completed locally on 2026-07-13.
+
+Goal: make the packaged web dashboard open the installed MoneySiren HUD without
+requiring repository-only scripts or `target/release` paths.
+
+Spec files:
+
+- `docs/moneysiren_oss_workpack/tasks/EPIC-13-installed-hud-runtime-resolution.md`
+
+Implementation slices:
+
+1. Share deterministic configured and operating-system desktop app candidates
+   between the CLI and web runtime.
+2. Resolve production HUD launches before attempting repository discovery.
+3. Keep dev launcher and repository-built executable fallbacks for source runs.
+4. Add standalone, precedence, fail-closed, local-only, and path-sanitization
+   regression tests.
+5. Repackage the web runtime and verify the installed Windows HUD visibly opens.
+
+Security boundary:
+
+- Never accept an executable path from the HTTP request body.
+- Use only the process-owned `MONEYSIREN_DESKTOP_APP` value, fixed OS install
+  candidates, or fixed repository artifact paths.
+- Require an expected MoneySiren executable name and an existing regular file.
+- Never search `PATH`, invoke a shell, or return local paths in API errors.
+- Preserve the local-only HUD route and no-store, secret-free response contract.
+
+Completion criteria:
+
+- standalone production runtime opens the standard Windows installation;
+- an explicit valid app path wins over standard candidates;
+- an explicit invalid app path fails without launching a fallback process;
+- dev and repository-built launch paths remain supported;
+- unsafe routes and non-local requests remain rejected;
+- focused tests, typecheck, build, secret scan, and diff check pass;
+- a visible installed HUD window is verified on Windows.
+
+Completion evidence:
+
+- the packaged AppData web runtime returned a successful desktop HUD launch
+  request through the browser session and CSRF flow;
+- Windows exposed a new top-level window titled `MoneySiren HUD`;
+- 75 test files / 412 tests, typecheck, lint, full production build, 522-file
+  secret scan, and `git diff --check` passed;
+- the pre-existing `apps/tray/src-tauri/Cargo.lock` SHA256 remained unchanged.
+
+Review gate:
+
+```text
+SPEC_LOCKED: YES
+CODING_LOOP_ALLOWED: YES
+IMPLEMENTATION_STATUS: COMPLETE
+```

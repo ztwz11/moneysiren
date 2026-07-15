@@ -181,6 +181,36 @@ export interface LocalCliUsageSummary {
   message: string;
 }
 
+export type LocalAiUsageHistoryProviderKey = "codex-cli" | "claude-cli";
+
+export interface LocalAiUsageDailyBucket {
+  providerKey: LocalAiUsageHistoryProviderKey;
+  usageDate: string;
+  timezone: string;
+  sourceScope: "dedicated";
+  firstActivityAt: string | null;
+  latestActivityAt: string | null;
+  activityCount: number;
+  sessionCount: number;
+  turnCount: number;
+  toolCallCount: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheTokens: number | null;
+  reasoningTokens: number | null;
+  totalTokens: number | null;
+  coverage: "complete" | "partial";
+}
+
+export interface ReadLocalAiUsageDailyOptions {
+  env?: Record<string, string | undefined>;
+  now?: () => Date;
+  homeDir?: string;
+  timezone?: string;
+  historyDays?: number;
+  providerKeys?: readonly LocalAiUsageHistoryProviderKey[];
+}
+
 export interface LocalCliUsageResetCredit {
   label: string | null;
   expiresAt: string | null;
@@ -525,6 +555,54 @@ export async function readLocalAiCliStatus(
       localAiCliStatusInFlight = null;
     }
   }
+}
+
+export async function readLocalAiUsageDaily(
+  options: ReadLocalAiUsageDailyOptions = {},
+): Promise<LocalAiUsageDailyBucket[]> {
+  const env = options.env ?? process.env;
+  const now = (options.now ?? (() => new Date()))();
+  const homeDir = options.homeDir ?? readHomeDir(env);
+  const timezone = options.timezone ?? "Asia/Seoul";
+  const historyDays = options.historyDays ?? 400;
+  const providerKeys = options.providerKeys ?? ["codex-cli", "claude-cli"];
+
+  if (!Number.isSafeInteger(historyDays) || historyDays < 1 || historyDays > 4_000) {
+    throw new Error("Local AI usage history days must be between 1 and 4000.");
+  }
+
+  assertTimeZone(timezone);
+  const historyStart = new Date(now.getTime() - historyDays * 24 * 60 * 60 * 1000);
+  const buckets = await Promise.all(providerKeys.map(async (providerKey) => {
+    if (providerKey === "codex-cli") {
+      const root = trimToNull(env.MONEYSIREN_CODEX_SESSIONS_DIR) ??
+        join(trimToNull(env.CODEX_HOME) ?? join(homeDir, ".codex"), "sessions");
+
+      return readJsonlDailyUsageBuckets({
+        providerKey,
+        providerKind: "codex",
+        root,
+        timezone,
+        historyStart,
+        now,
+        includeFile: async (path) => await detectCodexSessionSurface(path) !== "app",
+      });
+    }
+
+    const claudeHome = trimToNull(env.CLAUDE_CONFIG_DIR) ?? join(homeDir, ".claude");
+    return readJsonlDailyUsageBuckets({
+      providerKey,
+      providerKind: "claude",
+      root: join(claudeHome, "projects"),
+      timezone,
+      historyStart,
+      now,
+    });
+  }));
+
+  return buckets
+    .flat()
+    .sort((left, right) => left.usageDate.localeCompare(right.usageDate) || left.providerKey.localeCompare(right.providerKey));
 }
 
 async function collectLocalAiCliStatusPayload(options: {
@@ -1549,6 +1627,108 @@ async function readJsonlUsageFiles(options: {
   };
 }
 
+async function readJsonlDailyUsageBuckets(options: {
+  providerKey: LocalAiUsageHistoryProviderKey;
+  providerKind: "codex" | "claude";
+  root: string;
+  timezone: string;
+  historyStart: Date;
+  now: Date;
+  includeFile?: (path: string) => Promise<boolean>;
+}): Promise<LocalAiUsageDailyBucket[]> {
+  const discoveryStart = new Date(options.historyStart.getTime() - 24 * 60 * 60 * 1000);
+  const candidates = (await listJsonlFiles(options.root, discoveryStart))
+    .sort((left, right) => right.modifiedAt.getTime() - left.modifiedAt.getTime());
+  const files: typeof candidates = [];
+
+  for (const candidate of candidates) {
+    if (options.includeFile !== undefined && !(await options.includeFile(candidate.path))) {
+      continue;
+    }
+
+    files.push(candidate);
+
+    if (files.length >= MAX_LOCAL_USAGE_FILES) {
+      break;
+    }
+  }
+
+  const coverage: LocalAiUsageDailyBucket["coverage"] = candidates.length > MAX_LOCAL_USAGE_FILES
+    ? "partial"
+    : "complete";
+  const accumulators = new Map<string, LocalAiDailyAccumulator>();
+
+  for (const [fileIndex, file] of files.entries()) {
+    let content = "";
+
+    try {
+      content = await readFile(file.path, "utf8");
+    } catch {
+      continue;
+    }
+
+    for (const [lineIndex, line] of content.split(/\r?\n/).entries()) {
+      const trimmed = line.trim();
+
+      if (trimmed.length === 0) {
+        continue;
+      }
+
+      try {
+        const value = JSON.parse(trimmed) as unknown;
+        const occurredAt = readTimestamp(value);
+        const metrics = readDailyUsageMetrics(value, options.providerKind);
+
+        if (
+          occurredAt === null ||
+          metrics === null ||
+          occurredAt.getTime() < options.historyStart.getTime() ||
+          occurredAt.getTime() > options.now.getTime() + 5 * 60 * 1000
+        ) {
+          continue;
+        }
+
+        const usageDate = dateKeyInTimeZone(occurredAt, options.timezone);
+        const accumulator = accumulators.get(usageDate) ?? createLocalAiDailyAccumulator();
+        const occurredAtIso = occurredAt.toISOString();
+        accumulator.activityCount += 1;
+        accumulator.sessionIds.add(file.path);
+        accumulator.turnIds.add(readSafeTurnKey(value) ?? `${fileIndex}:${lineIndex}`);
+        accumulator.toolCallCount += countToolCalls(value);
+        accumulator.inputTokens = addNullable(accumulator.inputTokens, metrics.inputTokens);
+        accumulator.outputTokens = addNullable(accumulator.outputTokens, metrics.outputTokens);
+        accumulator.cacheTokens = addNullable(accumulator.cacheTokens, metrics.cacheTokens);
+        accumulator.reasoningTokens = addNullable(accumulator.reasoningTokens, metrics.reasoningTokens);
+        accumulator.totalTokens = addNullable(accumulator.totalTokens, metrics.totalTokens);
+        accumulator.firstActivityAt = earliestIsoValue(accumulator.firstActivityAt, occurredAtIso);
+        accumulator.latestActivityAt = latestIsoValue(accumulator.latestActivityAt, occurredAtIso);
+        accumulators.set(usageDate, accumulator);
+      } catch {
+        // Malformed local control lines are ignored without exposing their content.
+      }
+    }
+  }
+
+  return [...accumulators.entries()].map(([usageDate, accumulator]) => ({
+    providerKey: options.providerKey,
+    usageDate,
+    timezone: options.timezone,
+    sourceScope: "dedicated",
+    firstActivityAt: accumulator.firstActivityAt,
+    latestActivityAt: accumulator.latestActivityAt,
+    activityCount: accumulator.activityCount,
+    sessionCount: accumulator.sessionIds.size,
+    turnCount: accumulator.turnIds.size,
+    toolCallCount: accumulator.toolCallCount,
+    inputTokens: accumulator.inputTokens,
+    outputTokens: accumulator.outputTokens,
+    cacheTokens: accumulator.cacheTokens,
+    reasoningTokens: accumulator.reasoningTokens,
+    totalTokens: accumulator.totalTokens,
+    coverage,
+  }));
+}
+
 async function detectCodexSessionSurface(path: string): Promise<"app" | "cli" | "unknown"> {
   let content = "";
 
@@ -1999,27 +2179,7 @@ function readTimestampValue(value: unknown): Date | null {
 }
 
 function readRollingTokenTotal(value: unknown): number | null {
-  const record = asRecord(value);
-
-  if (record === null) {
-    return null;
-  }
-
-  const payload = asRecord(record.payload);
-  const payloadInfo = asRecord(payload?.info);
-  const message = asRecord(record.message);
-  const recordType = typeof record.type === "string" ? record.type : "";
-  const payloadType = typeof payload?.type === "string" ? payload.type : "";
-  const usageCandidates = [
-    asRecord(payloadInfo?.last_token_usage),
-    asRecord(message?.usage),
-    recordType === "assistant" || recordType === "response_item" || recordType === "turn_context" ? asRecord(record.usage) : null,
-    payloadType === "function_call" || payloadType === "response" || payloadType === "message" ? asRecord(payload?.usage) : null,
-    asRecord(record.token_usage),
-    asRecord(payload?.token_usage),
-  ];
-
-  for (const usage of usageCandidates) {
+  for (const usage of usageCandidatesFromValue(value)) {
     const total = tokenTotalFromUsage(usage);
 
     if (total !== null && total > 0) {
@@ -2028,6 +2188,102 @@ function readRollingTokenTotal(value: unknown): number | null {
   }
 
   return null;
+}
+
+interface DailyUsageMetrics {
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheTokens: number | null;
+  reasoningTokens: number | null;
+  totalTokens: number | null;
+}
+
+function readDailyUsageMetrics(
+  value: unknown,
+  providerKind: "codex" | "claude",
+): DailyUsageMetrics | null {
+  for (const usage of usageCandidatesFromValue(value)) {
+    if (usage === null) {
+      continue;
+    }
+
+    const inputTokens = readSafeTokenCount(usage.input_tokens) ?? readSafeTokenCount(usage.prompt_tokens);
+    const outputTokens = readSafeTokenCount(usage.output_tokens) ?? readSafeTokenCount(usage.completion_tokens);
+    const cacheTokens = readDailyCacheTokens(usage);
+    const reasoningTokens = readSafeTokenCount(usage.reasoning_output_tokens);
+    const explicitTotal = readSafeTokenCount(usage.total_tokens);
+    const derivedTotal = providerKind === "codex"
+      ? sumNumbers([inputTokens, outputTokens])
+      : sumNumbers([inputTokens, outputTokens, cacheTokens, reasoningTokens]);
+    const totalTokens = explicitTotal !== null && explicitTotal > 0
+      ? explicitTotal
+      : derivedTotal === 0
+        ? null
+        : derivedTotal;
+
+    if (
+      inputTokens !== null ||
+      outputTokens !== null ||
+      cacheTokens !== null ||
+      reasoningTokens !== null ||
+      totalTokens !== null
+    ) {
+      return {
+        inputTokens,
+        outputTokens,
+        cacheTokens,
+        reasoningTokens,
+        totalTokens,
+      };
+    }
+  }
+
+  return null;
+}
+
+function readDailyCacheTokens(usage: Record<string, unknown>): number | null {
+  const values = [
+    readSafeTokenCount(usage.cached_input_tokens),
+    readSafeTokenCount(usage.cache_creation_input_tokens),
+    readSafeTokenCount(usage.cache_read_input_tokens),
+    readSafeTokenCount(usage.cache_tokens),
+  ];
+  const total = sumNumbers(values);
+
+  return values.every((value) => value === null) ? null : total;
+}
+
+function readSafeTokenCount(value: unknown): number | null {
+  const parsed = readNumber(value);
+
+  return parsed !== null && Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function usageCandidatesFromValue(value: unknown): Array<Record<string, unknown> | null> {
+  const record = asRecord(value);
+
+  if (record === null) {
+    return [];
+  }
+
+  const payload = asRecord(record.payload);
+  const payloadInfo = asRecord(payload?.info);
+  const message = asRecord(record.message);
+  const recordType = typeof record.type === "string" ? record.type : "";
+  const payloadType = typeof payload?.type === "string" ? payload.type : "";
+
+  return [
+    asRecord(payloadInfo?.last_token_usage),
+    asRecord(message?.usage),
+    recordType === "assistant" || recordType === "response_item" || recordType === "turn_context"
+      ? asRecord(record.usage)
+      : null,
+    payloadType === "function_call" || payloadType === "response" || payloadType === "message"
+      ? asRecord(payload?.usage)
+      : null,
+    asRecord(record.token_usage),
+    asRecord(payload?.token_usage),
+  ];
 }
 
 function tokenTotalFromUsage(usage: Record<string, unknown> | null): number | null {
@@ -2626,6 +2882,36 @@ interface UsageAccumulator {
   statusLine: MutableLocalCliStatusLineUsage;
   limitMetadataObservedAt: Record<"fiveHour" | "weekly", number | null>;
   usageResetCreditMetadataObservedAt: number | null;
+}
+
+interface LocalAiDailyAccumulator {
+  sessionIds: Set<string>;
+  turnIds: Set<string>;
+  activityCount: number;
+  toolCallCount: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheTokens: number | null;
+  reasoningTokens: number | null;
+  totalTokens: number | null;
+  firstActivityAt: string | null;
+  latestActivityAt: string | null;
+}
+
+function createLocalAiDailyAccumulator(): LocalAiDailyAccumulator {
+  return {
+    sessionIds: new Set<string>(),
+    turnIds: new Set<string>(),
+    activityCount: 0,
+    toolCallCount: 0,
+    inputTokens: null,
+    outputTokens: null,
+    cacheTokens: null,
+    reasoningTokens: null,
+    totalTokens: null,
+    firstActivityAt: null,
+    latestActivityAt: null,
+  };
 }
 
 type MutableLocalCliStatusLineUsage = LocalCliStatusLineUsage;
@@ -3319,6 +3605,103 @@ function isConfigured(value: string | undefined): boolean {
 
 function readHomeDir(env: Record<string, string | undefined>): string {
   return trimToNull(env.USERPROFILE) ?? trimToNull(env.HOME) ?? homedir();
+}
+
+const dateKeyFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function assertTimeZone(timezone: string): void {
+  try {
+    dateKeyFormatter(timezone).format(new Date(0));
+  } catch {
+    throw new Error("Local AI usage history timezone is invalid.");
+  }
+}
+
+function dateKeyInTimeZone(date: Date, timezone: string): string {
+  const parts = dateKeyFormatter(timezone).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (year === undefined || month === undefined || day === undefined) {
+    throw new Error("Local AI usage history date could not be normalized.");
+  }
+
+  return `${year}-${month}-${day}`;
+}
+
+function dateKeyFormatter(timezone: string): Intl.DateTimeFormat {
+  const cached = dateKeyFormatters.get(timezone);
+
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  dateKeyFormatters.set(timezone, formatter);
+  return formatter;
+}
+
+function readSafeTurnKey(value: unknown): string | null {
+  const record = asRecord(value);
+
+  if (record === null) {
+    return null;
+  }
+
+  const payload = asRecord(record.payload);
+  const message = asRecord(record.message);
+  const candidates = [
+    record.turn_id,
+    record.turnId,
+    record.request_id,
+    record.requestId,
+    payload?.turn_id,
+    payload?.turnId,
+    payload?.request_id,
+    payload?.requestId,
+    message?.id,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
+function countToolCalls(value: unknown): number {
+  if (Array.isArray(value)) {
+    return value.reduce((count, item) => count + countToolCalls(item), 0);
+  }
+
+  const record = asRecord(value);
+
+  if (record === null) {
+    return 0;
+  }
+
+  const type = typeof record.type === "string" ? record.type : "";
+  const current = type === "tool_use" || type === "function_call" ||
+    (typeof record.call_id === "string" && typeof record.name === "string")
+    ? 1
+    : 0;
+
+  return Object.values(record).reduce<number>(
+    (count, nested) => count + countToolCalls(nested),
+    current,
+  );
+}
+
+function earliestIsoValue(left: string | null, right: string): string {
+  return left === null || right.localeCompare(left) < 0 ? right : left;
 }
 
 function latestIsoValue(left: string | null, right: string): string {

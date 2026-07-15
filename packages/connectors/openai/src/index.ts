@@ -39,6 +39,7 @@ export interface OpenAiUsageCostsRequest {
   headers: {
     Authorization: string;
   };
+  signal?: AbortSignal;
 }
 
 export interface OpenAiUsageCostsTransport {
@@ -48,6 +49,7 @@ export interface OpenAiUsageCostsTransport {
 export interface CreateOpenAiUsageCostsClientOptions {
   adminKey: string;
   transport?: OpenAiUsageCostsTransport;
+  signal?: AbortSignal;
 }
 
 export interface OpenAiProviderCollectionContext {
@@ -110,6 +112,7 @@ const defaultOpenAiUsageCostsTransport: OpenAiUsageCostsTransport = {
     const response = await fetch(url, {
       method: "GET",
       headers: request.headers,
+      ...(request.signal === undefined ? {} : { signal: request.signal }),
     });
 
     if (!response.ok) {
@@ -146,6 +149,7 @@ export function createOpenAiUsageCostsClient(
           group_by: ["model"],
         },
         headers,
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
       });
       const costs = await fetchOpenAiPaginatedPage<OpenAiCostsPage>(transport, {
         path: "/v1/organization/costs",
@@ -156,6 +160,7 @@ export function createOpenAiUsageCostsClient(
           group_by: ["line_item"],
         },
         headers,
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
       });
 
       return {

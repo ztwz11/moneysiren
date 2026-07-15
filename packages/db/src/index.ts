@@ -11,13 +11,21 @@ export {
   type MigrationExecutor,
   type MigrationRunResult,
 } from "./migrate.js";
-export { EMERGENCY_ACTION_RUNS_SQL, INITIAL_SCHEMA_SQL, REQUIRED_TABLES, type RequiredTable } from "./schema.js";
+export {
+  EMERGENCY_ACTION_RUNS_SQL,
+  INITIAL_SCHEMA_SQL,
+  LOCAL_AI_USAGE_DAILY_SQL,
+  REQUIRED_TABLES,
+  type RequiredTable,
+} from "./schema.js";
 export { resolveSqliteBin, SQLITE_BIN_ENV_KEY } from "./sqlite-bin.js";
 export {
   initializeLocalStore,
   recordEmergencyActionRun,
   readLocalStore,
+  readLocalAiUsageHistory,
   recordLocalReportRun,
+  saveLocalAiUsageDaily,
   saveLocalProviderCollection,
   type LocalAlertInput,
   type LocalAlertRecord,
@@ -27,6 +35,13 @@ export {
   type LocalCostEstimateRecord,
   type LocalEmergencyActionRunInput,
   type LocalEmergencyActionRunRecord,
+  type LocalAiUsageCoverage,
+  type LocalAiUsageDailyInput,
+  type LocalAiUsageGranularity,
+  type LocalAiUsageHistoryQuery,
+  type LocalAiUsageHistoryRow,
+  type LocalAiUsageProviderKey,
+  type LocalAiUsageSourceScope,
   type LocalStore,
   type LocalStoreOptions,
   type LocalProviderCollectionInput,

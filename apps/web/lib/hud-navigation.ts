@@ -1,3 +1,5 @@
+import { startLocalDesktopHud } from "./local-client";
+
 interface OpenHudDashboardRouteOptions {
   allowBrowserFallback?: boolean;
   preopenFallback?: boolean;
@@ -104,17 +106,7 @@ async function openViaLocalRuntime(routePath: string): Promise<boolean> {
 
 async function startDesktopHudRuntime(routePath: string): Promise<boolean> {
   try {
-    const response = await fetch("/api/local/desktop-runtime", {
-      body: JSON.stringify({ path: routePath }),
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    });
-
-    return response.ok;
+    return await startLocalDesktopHud(routePath);
   } catch {
     return false;
   }

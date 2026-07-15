@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { EMERGENCY_ACTION_RUNS_SQL, INITIAL_SCHEMA_SQL, READ_MODEL_INDEX_SQL, REQUIRED_TABLES } from "./schema.js";
+import {
+  EMERGENCY_ACTION_RUNS_SQL,
+  INITIAL_SCHEMA_SQL,
+  LOCAL_AI_USAGE_DAILY_SQL,
+  READ_MODEL_INDEX_SQL,
+  REQUIRED_TABLES,
+} from "./schema.js";
 import { getPendingMigrations, runMigrations } from "./migrate.js";
 
 describe("initial SQLite schema", () => {
   it("declares the required v0.1 tables without raw provider payload storage", () => {
-    for (const tableName of REQUIRED_TABLES.filter((tableName) => tableName !== "emergency_action_runs")) {
+    for (const tableName of REQUIRED_TABLES.filter(
+      (tableName) => tableName !== "emergency_action_runs" && tableName !== "local_ai_usage_daily",
+    )) {
       expect(INITIAL_SCHEMA_SQL).toContain(`CREATE TABLE IF NOT EXISTS ${tableName}`);
     }
 
@@ -29,6 +37,17 @@ describe("initial SQLite schema", () => {
     expect(EMERGENCY_ACTION_RUNS_SQL).not.toMatch(/\braw_?payload\b/i);
     expect(EMERGENCY_ACTION_RUNS_SQL).not.toMatch(/\braw_?response\b/i);
   });
+
+  it("declares secret-free daily local AI usage storage separately", () => {
+    expect(LOCAL_AI_USAGE_DAILY_SQL).toContain("CREATE TABLE IF NOT EXISTS local_ai_usage_daily");
+    expect(LOCAL_AI_USAGE_DAILY_SQL).toContain(
+      "PRIMARY KEY (provider_key, usage_date, timezone, source_scope)",
+    );
+    expect(LOCAL_AI_USAGE_DAILY_SQL).toContain("CHECK (local_only = 1)");
+    expect(LOCAL_AI_USAGE_DAILY_SQL).toContain("CHECK (secrets_returned = 0)");
+    expect(LOCAL_AI_USAGE_DAILY_SQL).toContain("idx_local_ai_usage_daily_period");
+    expect(LOCAL_AI_USAGE_DAILY_SQL).not.toMatch(/\b(prompt|command|path|auth|raw_?payload|raw_?response)\b/i);
+  });
 });
 
 describe("migration runner", () => {
@@ -37,18 +56,27 @@ describe("migration runner", () => {
       "0001_init",
       "0002_read_model_indexes",
       "0003_emergency_action_runs",
+      "0004_local_ai_usage_daily",
     ]);
     expect(getPendingMigrations(["0001_init"]).map((migration) => migration.id)).toEqual([
       "0002_read_model_indexes",
       "0003_emergency_action_runs",
+      "0004_local_ai_usage_daily",
     ]);
     expect(getPendingMigrations(["0001_init", "0002_read_model_indexes"]).map((migration) => migration.id)).toEqual([
       "0003_emergency_action_runs",
+      "0004_local_ai_usage_daily",
     ]);
     expect(getPendingMigrations([
       "0001_init",
       "0002_read_model_indexes",
       "0003_emergency_action_runs",
+    ]).map((migration) => migration.id)).toEqual(["0004_local_ai_usage_daily"]);
+    expect(getPendingMigrations([
+      "0001_init",
+      "0002_read_model_indexes",
+      "0003_emergency_action_runs",
+      "0004_local_ai_usage_daily",
     ]).map((migration) => migration.id)).toEqual([]);
   });
 
@@ -68,11 +96,17 @@ describe("migration runner", () => {
       },
     });
 
-    expect(executedSql).toHaveLength(3);
+    expect(executedSql).toHaveLength(4);
     expect(executedSql[0]).toContain("CREATE TABLE IF NOT EXISTS providers");
     expect(executedSql[1]).toContain("idx_billing_snapshots_latest_logical");
     expect(executedSql[2]).toContain("CREATE TABLE IF NOT EXISTS emergency_action_runs");
-    expect(recordedIds).toEqual(["0001_init", "0002_read_model_indexes", "0003_emergency_action_runs"]);
+    expect(executedSql[3]).toContain("CREATE TABLE IF NOT EXISTS local_ai_usage_daily");
+    expect(recordedIds).toEqual([
+      "0001_init",
+      "0002_read_model_indexes",
+      "0003_emergency_action_runs",
+      "0004_local_ai_usage_daily",
+    ]);
 
     executedSql.length = 0;
 
@@ -89,6 +123,11 @@ describe("migration runner", () => {
     });
 
     expect(executedSql).toEqual([]);
-    expect(recordedIds).toEqual(["0001_init", "0002_read_model_indexes", "0003_emergency_action_runs"]);
+    expect(recordedIds).toEqual([
+      "0001_init",
+      "0002_read_model_indexes",
+      "0003_emergency_action_runs",
+      "0004_local_ai_usage_daily",
+    ]);
   });
 });

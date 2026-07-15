@@ -5,6 +5,10 @@ import { createServer } from "node:net";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join, posix, resolve, win32 } from "node:path";
 import { promisify } from "node:util";
+import {
+  installedDesktopAppCandidates,
+  resolveConfiguredDesktopAppPath,
+} from "../../../packages/runtime/src/index.js";
 import type { CliExecutionContext } from "./cli.js";
 import { resolveReleaseInstallDir } from "./release-installer.js";
 
@@ -257,6 +261,11 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
         return startScript;
       }
 
+      const desktopExecutable = await resolveDesktopExecutable(context);
+      const desktopAppEnvironment = isUnavailable(desktopExecutable)
+        ? {}
+        : { MONEYSIREN_DESKTOP_APP: desktopExecutable.executablePath };
+
       const webProcess = await startHiddenWebRuntimeProcess({
         command: process.execPath,
         args: [startScript.path],
@@ -264,6 +273,7 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
         env: {
           ...process.env,
           ...context.env,
+          ...desktopAppEnvironment,
           HOSTNAME: "127.0.0.1",
           PORT: String(port),
         },
@@ -760,10 +770,14 @@ async function resolveWebRuntimeStartScript(context: CliExecutionContext): Promi
 }
 
 async function resolveDesktopExecutable(context: CliExecutionContext): Promise<ResolvedExecutable | DesktopRuntimeUnavailableResult> {
-  const configured = trimToNull(context.env.MONEYSIREN_DESKTOP_APP);
+  const configured = resolveConfiguredDesktopAppPath({
+    cwd: context.cwd,
+    env: context.env,
+    platform: process.platform,
+  });
 
   if (configured !== null) {
-    const executable = await executableFromPath(resolve(context.cwd, configured), true);
+    const executable = await executableFromPath(configured, true);
 
     if (executable !== null) {
       return executable;
@@ -895,30 +909,15 @@ async function executableFromPath(path: string, allowInstaller: boolean): Promis
 }
 
 async function findInstalledDesktopApp(env: Record<string, string | undefined>): Promise<ResolvedExecutable | null> {
-  if (process.platform === "win32") {
-    const roots = [
-      trimToNull(env.LOCALAPPDATA),
-      trimToNull(env.ProgramFiles),
-      trimToNull(env["ProgramFiles(x86)"]),
-    ].filter((value): value is string => value !== null);
-    const candidates = roots.flatMap((root) => [
-      join(root, "Programs", "MoneySiren Tray", "MoneySiren Tray.exe"),
-      join(root, "Programs", "MoneySiren Tray", "moneysiren-tray.exe"),
-      join(root, "MoneySiren Tray", "MoneySiren Tray.exe"),
-      join(root, "MoneySiren Tray", "moneysiren-tray.exe"),
-    ]);
+  for (const candidate of installedDesktopAppCandidates({
+    env,
+    platform: process.platform,
+  })) {
+    const executable = await executableFromPath(candidate, true);
 
-    for (const candidate of candidates) {
-      const executable = await executableFromPath(candidate, true);
-
-      if (executable !== null) {
-        return executable;
-      }
+    if (executable !== null) {
+      return executable;
     }
-  }
-
-  if (process.platform === "darwin") {
-    return await executableFromPath("/Applications/MoneySiren Tray.app", true);
   }
 
   return null;

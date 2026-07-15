@@ -1,7 +1,13 @@
 "use client";
 
 import { ExternalLink, Gauge, RefreshCw, Terminal } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { connectAndSyncOpenAi } from "../lib/local-client";
+import {
+  interpretOpenAiFirstSyncResult,
+  interpretOpenAiFirstSyncTransportFailure,
+} from "../lib/openai-first-sync-ui";
 import { findAvailableProvider, type ProviderKey } from "../lib/provider-catalog";
 import { withAppLoading } from "./AppLoadingOverlay";
 
@@ -17,6 +23,14 @@ interface CredentialControlLabels {
   credentialSaveError: string;
   credentialDeleteError: string;
   saveCredential: string;
+  saveCredentialAndSync: string;
+  openAiFirstSyncRunning: string;
+  openAiFirstSyncSuccess: string;
+  openAiFirstSyncPartial: string;
+  openAiFirstSyncValidationError: string;
+  openAiFirstSyncSaveError: string;
+  openAiFirstSyncUnknown: string;
+  retryFirstSync: string;
   removeCredential: string;
   startOAuth: string;
   toolLoadingTitle: string;
@@ -212,8 +226,12 @@ export function CredentialControls({
   connections: readonly CredentialConnectionView[];
   labels: CredentialControlLabels;
 }) {
+  const router = useRouter();
   const catalog = findAvailableProvider(providerKey);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [canRetryFirstSync, setCanRetryFirstSync] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [credentialSecret, setCredentialSecret] = useState("");
   const [accountIds, setAccountIds] = useState("");
@@ -318,11 +336,16 @@ export function CredentialControls({
           </div>
           <div className="credential-actions">
             <button
+              aria-busy={savingCredential}
               className="primary-button"
               disabled={savingCredential || credentialSecret.trim().length < 8 || (providerKey === "cloudflare" && accountIds.trim().length < 8)}
               type="submit"
             >
-              {labels.saveCredential}
+              {savingCredential && providerKey === "openai"
+                ? labels.openAiFirstSyncRunning
+                : providerKey === "openai"
+                  ? labels.saveCredentialAndSync
+                  : labels.saveCredential}
             </button>
           </div>
         </form>
@@ -337,6 +360,22 @@ export function CredentialControls({
         {providerKey === "openai" ? (
           <p className="credential-hint">{labels.openAiAdminKeyHint}</p>
         ) : null}
+        {success === null ? null : <p className="credential-success" role="status">{success}</p>}
+        {warning === null ? null : (
+          <div className="credential-warning" role="status">
+            <span>{warning}</span>
+            {providerKey === "openai" && canRetryFirstSync ? (
+              <button
+                className="ghost-button"
+                disabled={savingCredential}
+                onClick={() => void retryOpenAiFirstSync()}
+                type="button"
+              >
+                {savingCredential ? labels.openAiFirstSyncRunning : labels.retryFirstSync}
+              </button>
+            ) : null}
+          </div>
+        )}
         {error === null ? null : <p className="credential-error" role="alert">{error}</p>}
       </div>
     </div>
@@ -345,11 +384,19 @@ export function CredentialControls({
   async function saveCredential(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setError(null);
+    setSuccess(null);
+    setWarning(null);
+    setCanRetryFirstSync(false);
 
     await withAppLoading(labels.toolLoadingPreparingView, async () => {
       setSavingCredential(true);
 
       try {
+        if (providerKey === "openai") {
+          await performOpenAiFirstSync(credentialSecret);
+          return;
+        }
+
         const session = await createSessionOrThrow(labels.credentialSaveError);
         const response = await fetch("/api/local-tools/provider-env", {
           body: JSON.stringify({
@@ -370,11 +417,76 @@ export function CredentialControls({
 
         window.location.reload();
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : labels.credentialSaveError);
+        if (providerKey === "openai") {
+          applyOpenAiTransportFailure(false);
+        } else {
+          setError(caught instanceof Error ? caught.message : labels.credentialSaveError);
+        }
       } finally {
         setSavingCredential(false);
       }
     });
+  }
+
+  async function retryOpenAiFirstSync(): Promise<void> {
+    setError(null);
+    setSuccess(null);
+
+    await withAppLoading(labels.toolLoadingPreparingView, async () => {
+      setSavingCredential(true);
+
+      try {
+        await performOpenAiFirstSync();
+      } catch {
+        applyOpenAiTransportFailure(true);
+      } finally {
+        setSavingCredential(false);
+      }
+    });
+  }
+
+  async function performOpenAiFirstSync(adminKey?: string): Promise<void> {
+    const result = await connectAndSyncOpenAi(adminKey);
+    const outcome = interpretOpenAiFirstSyncResult(result);
+
+    if (outcome.clearSecret) {
+      setCredentialSecret("");
+    }
+
+    setCanRetryFirstSync(outcome.canRetryWithoutSecret);
+
+    if (outcome.refreshConnectionState) {
+      router.refresh();
+    }
+
+    if (outcome.kind === "success") {
+      setWarning(null);
+      setSuccess(labels.openAiFirstSyncSuccess);
+      return;
+    }
+
+    if (outcome.kind === "partial") {
+      setWarning(labels.openAiFirstSyncPartial);
+      return;
+    }
+
+    setWarning(null);
+    setError(
+      outcome.kind === "validation_error"
+        ? labels.openAiFirstSyncValidationError
+        : labels.openAiFirstSyncSaveError,
+    );
+  }
+
+  function applyOpenAiTransportFailure(retryingSavedCredential: boolean): void {
+    const outcome = interpretOpenAiFirstSyncTransportFailure(retryingSavedCredential);
+
+    setWarning(labels.openAiFirstSyncUnknown);
+    setCanRetryFirstSync(outcome.canRetryWithoutSecret);
+
+    if (outcome.refreshConnectionState) {
+      router.refresh();
+    }
   }
 }
 

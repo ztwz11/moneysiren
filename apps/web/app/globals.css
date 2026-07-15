@@ -1747,6 +1747,7 @@ select {
 
 .credential-hint,
 .credential-success,
+.credential-warning,
 .credential-error {
   font-size: 11px;
   line-height: 1.35;
@@ -1770,6 +1771,18 @@ select {
   border: 1px solid #b9dfca;
   border-radius: 5px;
   color: var(--green);
+  padding: 7px 9px;
+}
+
+.credential-warning {
+  align-items: center;
+  background: var(--amber-soft);
+  border: 1px solid #e5c47f;
+  border-radius: 5px;
+  color: var(--amber);
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
   padding: 7px 9px;
 }
 

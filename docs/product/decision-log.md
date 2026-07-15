@@ -111,3 +111,64 @@ Decision: emergency actions are implemented in stages. The first implementation 
 Reason: critical spend and credential states need operator guidance, but MoneySiren's default provider connectors must remain read-only and local-first until destructive operations have stronger controls.
 
 Status: accepted.
+
+## D015 - Persist local AI usage as daily numeric buckets
+
+Decision: Codex CLI and Claude CLI history is persisted as sanitized daily
+numeric buckets. Weekly and monthly views are derived from those daily rows.
+Quota percentages remain live gauges and are not summed as historical tokens.
+
+Reason: the existing local collector returns a mutable current-month aggregate.
+Snapshotting that value as if it were a daily delta would misstate usage, while
+daily timestamp-based buckets provide idempotent storage and correct week/month
+aggregation without retaining raw local logs.
+
+Security boundary: persisted rows contain numeric counters, safe timestamps,
+provider/date/timezone keys, source scope, parser version, and local-only metadata
+only. Prompt/response text, command bodies, tool input, raw JSONL, source paths,
+auth data, credentials, and native IDs remain outside SQLite and API JSON.
+
+Status: accepted.
+
+## D016 - Explicit local OpenAI connection orchestration
+
+Decision: the OpenAI connection form uses one explicit, CSRF-protected local
+POST to collect read-only Usage/Costs data, save the submitted Admin API key
+through the existing env-only boundary, and persist the already-normalized
+collection as canonical SQLite history.
+
+Reason: saving a key and telling the user to run a separate CLI command leaves
+the first-value path incomplete. Reusing one successful read-only collection for
+validation and persistence avoids a duplicate provider request while preserving
+the canonical/live separation.
+
+Failure boundary: a failed collection saves neither the key nor canonical data;
+a failed env save writes no canonical data; a failed SQLite write returns a safe
+partial result because the env save may already have completed. Provider error
+bodies, credentials, raw payloads, identifiers, and paths never enter the API
+response.
+
+Scope: OpenAI only. Scheduler work, all-provider sync, live-today refresh,
+credential-store multi-connection sync, backup/export, and native notifications
+remain separate slices.
+
+Status: accepted.
+
+## D017 - Deterministic installed desktop runtime resolution
+
+Decision: CLI and web HUD launch paths share deterministic desktop application
+candidates. Resolution order is an explicit process-owned configuration, fixed
+operating-system installation locations, then fixed repository artifacts for
+source-checkout execution. Repository discovery is not a prerequisite for a
+packaged production launch.
+
+Reason: the standalone web runtime does not contain repository scripts, while
+the installed Windows tray lives under `%LOCALAPPDATA%`. Requiring a repository
+root made a valid installation appear unavailable and returned HTTP 500.
+
+Security boundary: HTTP input never controls an executable path. Resolved
+commands must use an absolute expected MoneySiren executable path, direct spawn
+without a shell, and fixed secret-free error responses. A configured but invalid
+path fails closed instead of silently launching another executable.
+
+Status: accepted.

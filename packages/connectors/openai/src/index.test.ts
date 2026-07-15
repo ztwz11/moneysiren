@@ -101,6 +101,27 @@ describe("createOpenAiUsageCostsConnector", () => {
     ]);
   });
 
+  it("propagates an abort signal to every Usage and Costs request", async () => {
+    const payload = await loadFixture();
+    const controller = new AbortController();
+    const signals: Array<AbortSignal | undefined> = [];
+    const transport: OpenAiUsageCostsTransport = {
+      async getJson(request) {
+        signals.push(request.signal);
+        return request.path === "/v1/organization/costs" ? payload.costs : payload.usage;
+      },
+    };
+    const client = createOpenAiUsageCostsClient({
+      adminKey: "FAKE_OPENAI_ADMIN_KEY_FOR_ABORT_TEST",
+      transport,
+      signal: controller.signal,
+    });
+
+    await client.fetchUsageCosts({ startTime: 1780272000, endTime: 1782864000 });
+
+    expect(signals).toEqual([controller.signal, controller.signal]);
+  });
+
   it("follows Usage and Costs pagination until has_more is false", async () => {
     const fixture = await loadPaginatedFixture();
     const requests: OpenAiUsageCostsRequest[] = [];

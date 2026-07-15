@@ -258,7 +258,9 @@ describe("MoneySiren CLI", () => {
     expect(doctorOutput).toContain("openai: configured via local process environment");
     expect(doctorOutput).not.toContain("sk-fake-openai-admin-key");
 
-    const modes = await runCli(["/modes"], testContext(cwd));
+    const modes = await runCli(["/modes"], testContext(cwd, {
+      MONEYSIREN_INSTALL_PROFILE_PATH: join(cwd, "install-profile.json"),
+    }));
     expect(modes.exitCode).toBe(0);
     expect(modes.stdout.join("\n")).toContain("MoneySiren modes");
     expect(modes.stdout.join("\n")).toContain("Install profile: CLI, Web dashboard, HUD");
@@ -340,6 +342,7 @@ describe("MoneySiren CLI", () => {
       { id: "0001_init" },
       { id: "0002_read_model_indexes" },
       { id: "0003_emergency_action_runs" },
+      { id: "0004_local_ai_usage_daily" },
     ]);
     expect(persistedText).not.toContain("sqlite-placeholder-v1");
     expect(persistedText).not.toMatch(/sk-|hooks\.slack|@/i);

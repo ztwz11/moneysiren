@@ -33,7 +33,9 @@ describe("HUD navigation", () => {
 
   it("starts the desktop HUD runtime instead of opening a browser fallback for desktop HUD requests", async () => {
     const open = vi.fn();
-    const fetch = vi.fn(async () => new Response("{}", { status: 202 }));
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({ csrfToken: "fake-csrf-token" }))
+      .mockResolvedValueOnce(new Response("{}", { status: 202 }));
     vi.stubGlobal("window", {
       location: { origin: "http://127.0.0.1:3000" },
       open,
@@ -41,10 +43,14 @@ describe("HUD navigation", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(openHudDashboardRoute("/hud?locale=ko", { allowBrowserFallback: false })).resolves.toBe(true);
-    expect(fetch).toHaveBeenCalledWith(
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
       "/api/local/desktop-runtime",
       expect.objectContaining({
         body: JSON.stringify({ path: "/hud?locale=ko" }),
+        headers: expect.objectContaining({
+          "X-MoneySiren-CSRF": "fake-csrf-token",
+        }),
         method: "POST",
       }),
     );
@@ -53,7 +59,9 @@ describe("HUD navigation", () => {
 
   it("does not open a browser fallback when the desktop HUD runtime cannot start", async () => {
     const open = vi.fn();
-    const fetch = vi.fn(async () => new Response("{}", { status: 500 }));
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({ csrfToken: "fake-csrf-token" }))
+      .mockResolvedValueOnce(new Response("{}", { status: 500 }));
     vi.stubGlobal("window", {
       location: { origin: "http://127.0.0.1:3000" },
       open,

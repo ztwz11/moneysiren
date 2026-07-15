@@ -253,6 +253,14 @@ export interface Messages {
     credentialSaveError: string;
     credentialDeleteError: string;
     saveCredential: string;
+    saveCredentialAndSync: string;
+    openAiFirstSyncRunning: string;
+    openAiFirstSyncSuccess: string;
+    openAiFirstSyncPartial: string;
+    openAiFirstSyncValidationError: string;
+    openAiFirstSyncSaveError: string;
+    openAiFirstSyncUnknown: string;
+    retryFirstSync: string;
     removeCredential: string;
     startOAuth: string;
     toolLoadingTitle: string;
@@ -616,10 +624,18 @@ const baseMessages = {
       credentialSecret: "Credential",
       accountIds: "Account IDs",
       openAiAdminKeyHint: "Use an OpenAI Admin API key with organization usage and costs access.",
-      envOnlySecrets: "MoneySiren v0.1 uses environment variables only. New API keys and OAuth tokens are not saved locally.",
+      envOnlySecrets: "MoneySiren v0.1 uses environment variables only. Secrets are never written to SQLite or returned by dashboard APIs.",
       credentialSaveError: "Credential was not saved.",
       credentialDeleteError: "Credential was not removed.",
       saveCredential: "Save",
+      saveCredentialAndSync: "Validate, save, and sync",
+      openAiFirstSyncRunning: "Validating and syncing...",
+      openAiFirstSyncSuccess: "OpenAI access was validated, saved, and synced to local history.",
+      openAiFirstSyncPartial: "The credential was saved, but local history could not be updated. Retry without re-entering the key.",
+      openAiFirstSyncValidationError: "Read-only OpenAI Usage/Costs access could not be validated. Check the Admin API key and network, then retry.",
+      openAiFirstSyncSaveError: "OpenAI access was validated, but the credential could not be saved.",
+      openAiFirstSyncUnknown: "MoneySiren could not confirm the result. Refresh the connection status or retry.",
+      retryFirstSync: "Retry first sync",
       removeCredential: "Remove local",
       startOAuth: "OAuth",
       toolLoadingTitle: "Loading local tools",
@@ -1018,10 +1034,18 @@ const baseMessages = {
       credentialSecret: "자격 증명",
       accountIds: "계정 ID",
       openAiAdminKeyHint: "조직 사용량과 비용 조회 권한이 있는 OpenAI Admin API key가 필요합니다.",
-      envOnlySecrets: "MoneySiren v0.1은 환경 변수만 사용합니다. 새 API key와 OAuth token은 로컬에 저장하지 않습니다.",
+      envOnlySecrets: "MoneySiren v0.1은 환경 변수만 사용합니다. secret은 SQLite에 기록하거나 dashboard API로 반환하지 않습니다.",
       credentialSaveError: "자격 증명이 저장되지 않았습니다.",
       credentialDeleteError: "자격 증명이 삭제되지 않았습니다.",
       saveCredential: "저장",
+      saveCredentialAndSync: "검증·저장·첫 동기화",
+      openAiFirstSyncRunning: "읽기 권한 확인 및 동기화 중...",
+      openAiFirstSyncSuccess: "OpenAI 읽기 권한을 확인하고 환경 변수 저장과 로컬 이력 동기화를 완료했습니다.",
+      openAiFirstSyncPartial: "자격 증명은 저장했지만 로컬 이력 갱신에 실패했습니다. key를 다시 입력하지 않고 재시도할 수 있습니다.",
+      openAiFirstSyncValidationError: "OpenAI Usage/Costs 읽기 권한을 확인하지 못했습니다. Admin API key와 네트워크를 확인한 뒤 다시 시도하세요.",
+      openAiFirstSyncSaveError: "OpenAI 읽기 권한은 확인했지만 자격 증명을 저장하지 못했습니다.",
+      openAiFirstSyncUnknown: "처리 결과를 확인하지 못했습니다. 연결 상태를 새로고침하거나 다시 시도하세요.",
+      retryFirstSync: "첫 동기화 다시 시도",
       removeCredential: "로컬 제거",
       startOAuth: "OAuth",
       toolLoadingTitle: "로컬 도구 확인 중",
@@ -1420,10 +1444,18 @@ const baseMessages = {
       credentialSecret: "認証情報",
       accountIds: "アカウント ID",
       openAiAdminKeyHint: "組織の使用量とコストを読める OpenAI Admin API key が必要です。",
-      envOnlySecrets: "MoneySiren v0.1 は環境変数のみを使用します。新しい API key と OAuth token はローカルに保存しません。",
+      envOnlySecrets: "MoneySiren v0.1 は環境変数のみを使用します。secret を SQLite に保存したり dashboard API から返したりしません。",
       credentialSaveError: "認証情報は保存されませんでした。",
       credentialDeleteError: "認証情報は削除されませんでした。",
       saveCredential: "保存",
+      saveCredentialAndSync: "検証・保存・初回同期",
+      openAiFirstSyncRunning: "読み取り権限を確認して同期中...",
+      openAiFirstSyncSuccess: "OpenAI の読み取り権限を確認し、環境変数の保存とローカル履歴の同期を完了しました。",
+      openAiFirstSyncPartial: "認証情報は保存しましたが、ローカル履歴を更新できませんでした。key を再入力せずに再試行できます。",
+      openAiFirstSyncValidationError: "OpenAI Usage/Costs の読み取り権限を確認できませんでした。Admin API key とネットワークを確認して再試行してください。",
+      openAiFirstSyncSaveError: "OpenAI の読み取り権限は確認できましたが、認証情報を保存できませんでした。",
+      openAiFirstSyncUnknown: "処理結果を確認できませんでした。接続状態を更新するか、もう一度お試しください。",
+      retryFirstSync: "初回同期を再試行",
       removeCredential: "ローカルから外す",
       startOAuth: "OAuth",
       toolLoadingTitle: "ローカルツール確認中",

@@ -60,6 +60,12 @@ jobs:
       - run: npm run secret:scan:all
       - run: node tools/scripts/run-pnpm.mjs --filter @moneysiren/web build
       - run: npm run release:web-runtime
+      - name: Pack source-free app candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/app-candidate
+          npm pack ./apps/app --pack-destination dist/app-candidate
       - name: Archive web runtime
         shell: bash
         env:
@@ -80,6 +86,12 @@ jobs:
         with:
           name: moneysiren-web-runtime
           path: dist/release/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: moneysiren-app-candidate
+          path: dist/app-candidate/*
           if-no-files-found: error
 
   desktop:
@@ -218,6 +230,14 @@ jobs:
           WINDOWS_TSP: ${{ vars.WINDOWS_TSP }}
         run: node tools/scripts/prepare-tauri-signing-config.mjs --platform ${{ matrix.name }} --out apps/tray/.tmp/tauri-signing-${{ matrix.name }}.json
 
+      - name: Require Windows signing for public release
+        if: runner.os == 'Windows' && (github.event_name == 'push' || inputs.create_release)
+        shell: pwsh
+        run: |
+          if ($env:WINDOWS_SIGNING_READY -ne 'true') {
+            throw 'A signed Windows HUD artifact is required before a public release can continue.'
+          }
+
       - name: Build desktop bundle
         if: (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name) && (runner.os != 'macOS' || env.APPLE_SIGNING_READY == 'true')
         env:
@@ -344,8 +364,14 @@ jobs:
     needs:
       - web-runtime
       - desktop
+      - candidate-smoke
     runs-on: ubuntu-latest
-    if: always() && needs.web-runtime.result == 'success' && (github.event_name == 'push' || inputs.create_release)
+    if: >-
+      always() &&
+      needs.web-runtime.result == 'success' &&
+      needs.desktop.result == 'success' &&
+      (needs.candidate-smoke.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.desktop_targets == 'macos')) &&
+      (github.event_name == 'push' || inputs.create_release)
 
     steps:
       - uses: actions/checkout@v4
@@ -359,6 +385,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          rm -f dist/release-assets/moneysiren-app-*.tgz
           shopt -s nullglob
           web_assets=(dist/release-assets/moneysiren-web-runtime-*.tar.gz)
           if [ "${#web_assets[@]}" -eq 0 ]; then
@@ -433,3 +460,86 @@ jobs:
               --notes-file "$notes_file" \
               "${prerelease_flag[@]}"
           fi
+
+  candidate-smoke:
+    name: candidate-smoke-windows-hud
+    needs:
+      - web-runtime
+      - desktop
+    if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == 'windows'
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist/smoke-candidate
+          merge-multiple: true
+
+      - name: Run source-free Windows HUD candidate smoke
+        shell: pwsh
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:GITHUB_REF_NAME
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            $tag = $env:DISPATCH_TAG
+          }
+          node tools/scripts/smoke-installed-package.mjs `
+            --candidate-dir dist/smoke-candidate `
+            --tag $tag `
+            --source-commit $env:GITHUB_SHA
+
+  public-smoke:
+    name: public-release-windows-hud-smoke
+    needs: publish
+    if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == 'windows'
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: moneysiren-app-candidate
+          path: dist/public-smoke
+
+      - name: Verify public assets through the candidate npm package
+        shell: pwsh
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:GITHUB_REF_NAME
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            $tag = $env:DISPATCH_TAG
+          }
+          $packages = @(Get-ChildItem -LiteralPath dist/public-smoke -Filter 'moneysiren-app-*.tgz')
+          if ($packages.Count -ne 1) {
+            throw 'Public smoke requires exactly one app candidate package.'
+          }
+          node tools/scripts/smoke-installed-package.mjs `
+            --package $packages[0].FullName `
+            --tag $tag `
+            --source-commit $env:GITHUB_SHA
+
+  publish-npm:
+    name: publish-npm-after-public-smoke
+    needs: public-smoke
+    if: needs.public-smoke.result == 'success'
+    uses: ./.github/workflows/npm-publish-cli.yml
+    with:
+      release_tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      source_commit: ${{ github.sha }}
+      dist_tag: ${{ ((github.event_name == 'workflow_dispatch' && inputs.prerelease) || contains(github.ref_name, '-')) && 'next' || 'latest' }}
+    secrets: inherit

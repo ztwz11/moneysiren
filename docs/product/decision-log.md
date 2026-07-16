@@ -172,3 +172,17 @@ without a shell, and fixed secret-free error responses. A configured but invalid
 path fails closed instead of silently launching another executable.
 
 Status: accepted.
+
+## D018 - npm package waits for complete Windows release assets
+
+Decision: the global `@moneysiren/app` postinstall requests both web and HUD
+surfaces. The public release workflow must assemble and candidate-smoke matching
+web and Windows desktop artifacts before the matching npm package is published.
+
+Rationale: a web-only postinstall leaves the dashboard HUD button dependent on a
+manual follow-up command, while independent tag-triggered npm and desktop jobs
+can expose an npm version before its runtime assets exist. Ordering the release
+and keeping the existing verified release installer produces a retryable,
+source-free install without weakening credential or artifact trust boundaries.
+
+Status: accepted.

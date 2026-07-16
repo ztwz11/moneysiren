@@ -1,19 +1,24 @@
 name: npm-publish-cli
 
 on:
-  push:
-    tags:
-      - "v*"
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      tag:
-        description: "npm dist-tag"
+      release_tag:
+        description: "Versioned GitHub release tag"
         required: true
+        type: string
+      source_commit:
+        description: "Exact source commit that produced the release assets"
+        required: true
+        type: string
+      dist_tag:
+        description: "npm dist-tag"
+        required: false
         default: "latest"
-        type: choice
-        options:
-          - latest
-          - next
+        type: string
+    secrets:
+      NPM_TOKEN:
+        required: true
 
 permissions:
   contents: read
@@ -25,12 +30,15 @@ jobs:
     env:
       NPM_CONFIG_CACHE: ${{ github.workspace }}/.tmp/npm-cache
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      NPM_DIST_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || 'latest' }}
+      NPM_DIST_TAG: ${{ inputs.dist_tag }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ inputs.source_commit }}
 
       - uses: pnpm/action-setup@v6
         with:
@@ -51,6 +59,15 @@ jobs:
             exit 1
           fi
 
+      - name: Verify release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_version="${RELEASE_TAG#v}"
+          test "$(git rev-parse HEAD)" = "${SOURCE_COMMIT}"
+          test "$(node -p "require('./apps/cli/package.json').version")" = "${expected_version}"
+          test "$(node -p "require('./apps/app/package.json').version")" = "${expected_version}"
+
       - run: pnpm install --frozen-lockfile
       - run: npm run secret:scan:all
       - run: node tools/scripts/run-pnpm.mjs --filter @moneysiren/cli test -- cli.test.ts release-installer.test.ts
@@ -67,10 +84,3 @@ jobs:
         working-directory: apps/app
         shell: bash
         run: npm publish --tag "${NPM_DIST_TAG}" --access public
-
-      - name: Keep app prereleases off latest dist-tag
-        if: env.NPM_DIST_TAG != 'latest'
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm dist-tag rm @moneysiren/app latest || true

@@ -499,3 +499,65 @@ SPEC_LOCKED: YES
 CODING_LOOP_ALLOWED: YES
 IMPLEMENTATION_STATUS: COMPLETE
 ```
+
+## M15 - npm-installed Windows HUD
+
+Status: Completed locally on 2026-07-16.
+
+Goal: make the source-free npm app installation produce a complete Windows
+dashboard and HUD installation instead of a CLI plus web-only partial install.
+
+Spec files:
+
+- `docs/moneysiren_oss_workpack/tasks/EPIC-14-npm-installed-windows-hud.md`
+
+Implementation slices:
+
+1. Make app postinstall request the complete web/HUD profile by default while
+   preserving an explicit retry path when release assets are unavailable.
+2. Add regression tests that lock the postinstall arguments and ensure failures
+   remain bounded and secret-free.
+3. Add an installed-package candidate smoke that stages matching web and Windows
+   portable HUD artifacts, starts the packaged dashboard, launches HUD, and
+   validates managed runtime state in an isolated user data root.
+4. Serialize release assembly, candidate smoke, GitHub asset publication,
+   public smoke, and npm publication so npm cannot race missing assets.
+5. Run the Windows local candidate path plus full repository validation.
+
+Security boundary:
+
+- Download only version-matched release assets selected by the existing
+  release installer and preserve checksum/signature verification.
+- Candidate smoke uses mock provider data only and isolated local paths.
+- Do not print manifest paths, credentials, provider payloads, prompt text,
+  command bodies, or auth-file contents.
+- Do not weaken public signature policy to make unsigned local smoke pass.
+
+Completion criteria:
+
+- default global app postinstall requests both web and HUD surfaces;
+- the release workflow cannot publish npm before matching public assets pass;
+- an isolated Windows candidate install starts the packaged web runtime and HUD;
+- dashboard HUD requests resolve the installed portable artifact;
+- focused tests, full tests, typecheck, lint, build, secret scan, and diff check
+  pass;
+- Cargo.lock remains outside the slice.
+
+Completion evidence:
+
+- an isolated `@moneysiren/app` tarball installation created command shims,
+  loaded a matching packaged web runtime and portable Windows HUD, and reported
+  both managed processes as running;
+- postinstall and release-workflow contract tests passed, including the
+  web-only recovery path and public Windows signature gate;
+- 417 test cases, typecheck, lint, YAML parsing, the 74-route production build,
+  the 527-file secret scan, and `git diff --check` passed;
+- the pre-existing `apps/tray/src-tauri/Cargo.lock` SHA256 remained unchanged.
+
+Review gate:
+
+```text
+SPEC_LOCKED: YES
+CODING_LOOP_ALLOWED: YES
+IMPLEMENTATION_STATUS: COMPLETE
+```

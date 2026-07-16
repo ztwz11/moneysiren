@@ -40,6 +40,7 @@
     "dist/apps/cli/src/**/*.d.ts",
     "dist/packages/**/*.js",
     "dist/packages/**/*.d.ts",
+    "scripts/postinstall-assets.mjs",
     "scripts/postinstall.mjs",
     "README.md",
     "LICENSE"
@@ -52,8 +53,8 @@
     "prepack": "node ../../tools/scripts/build-app-package.mjs",
     "postinstall": "node scripts/postinstall.mjs",
     "pack:dry-run": "npm pack --dry-run",
-    "test": "node --check scripts/postinstall.mjs",
-    "typecheck": "node --check scripts/postinstall.mjs",
-    "lint": "node --check scripts/postinstall.mjs"
+    "test": "node --test --test-isolation=none scripts/postinstall.test.mjs",
+    "typecheck": "node --check scripts/postinstall.mjs && node --check scripts/postinstall-assets.mjs",
+    "lint": "node --check scripts/postinstall.mjs && node --check scripts/postinstall-assets.mjs"
   }
 }

@@ -9,10 +9,10 @@ The canonical detailed execution plan lives at `docs/product/execution-plan.md`.
 
 ## Current Approved Slice
 
-- Current milestone: `M14`
-- Current slice: `S14-installed-hud-runtime-resolution`
-- Canonical source: `docs/product/execution-plan.md`, section `M14 - Installed HUD runtime resolution`
-- Approval: `M14/S14-installed-hud-runtime-resolution` was approved interactively on 2026-07-13 after the installed HUD failure was reproduced.
+- Current milestone: `M15`
+- Current slice: `S15-npm-install-windows-hud`
+- Canonical source: `docs/product/execution-plan.md`, section `M15 - npm-installed Windows HUD`
+- Approval: `M15/S15-npm-install-windows-hud` was approved interactively on 2026-07-16 with the explicit goal that npm installation produces a working HUD.
 
 ## Slice History
 
@@ -27,9 +27,10 @@ The canonical detailed execution plan lives at `docs/product/execution-plan.md`.
 - `M9/S9-local-dashboard` completed locally.
 - `M10/S10-alpha-release` completed locally.
 - `M11/S11-live-dashboard` completed locally.
-- `M12/S12-local-ai-usage-history` completed locally and remains intentionally uncommitted for review.
-- `M13/S13-unified-connect-first-sync` completed locally and remains intentionally uncommitted for review.
-- `M14/S14-installed-hud-runtime-resolution` completed locally and remains intentionally uncommitted for review.
+- `M12/S12-local-ai-usage-history` completed and was committed in `24e3cab`.
+- `M13/S13-unified-connect-first-sync` completed and was committed in `24e3cab`.
+- `M14/S14-installed-hud-runtime-resolution` completed and was committed in `24e3cab`.
+- `M15/S15-npm-install-windows-hud` completed locally on 2026-07-16.
 
 ## M10/S10 Summary
 
@@ -155,6 +156,46 @@ Validation result: 75 test files / 412 tests passed; typecheck, lint, full build
 node tools/scripts/run-pnpm.mjs --filter @moneysiren/runtime test
 node tools/scripts/run-pnpm.mjs --filter @moneysiren/web exec vitest run app/api/local/desktop-runtime/route.test.ts
 node tools/scripts/run-pnpm.mjs --filter @moneysiren/web typecheck
+npm run build
+npm run secret:scan
+git diff --check
+```
+
+## M15/S15 Summary
+
+Status: Completed locally on 2026-07-16.
+
+Make `npm install -g @moneysiren/app` install the matching verified web runtime
+and Windows HUD artifact, then ensure the installed CLI can start the dashboard
+and launch the portable or installed HUD without source checkout files.
+
+- Postinstall requests the complete selected profile instead of silently
+  stopping after the web runtime.
+- Release assets are assembled and candidate-smoked before npm publication can
+  make the matching package visible.
+- Windows candidate smoke uses an isolated npm prefix and application-data root,
+  starts the packaged web runtime, launches the packaged HUD, and verifies the
+  managed runtime state without provider calls or credential material.
+- Release errors remain retryable and never print secrets, raw provider
+  payloads, local AI text, auth files, or private local paths.
+- The pre-existing `apps/tray/src-tauri/Cargo.lock` change remains excluded.
+
+Validation result: the isolated npm candidate installed successfully, started
+the packaged web runtime, launched the portable Windows HUD, and reported both
+managed processes as running. The full suite passed with 417 test cases,
+typecheck, lint, YAML parsing, the 74-route production build, 527-file secret
+scan, and `git diff --check`. The pre-existing Cargo.lock SHA256 remained
+`80EEB876BF3E926821501292214C3BB868441BC1CACE52F74A26B937EDE8514F`.
+
+## Validation Commands For M15/S15 Review
+
+```powershell
+node --test --test-isolation=none apps/app/scripts/postinstall.test.mjs
+npm run test:release-workflow
+node tools/scripts/smoke-installed-package.mjs --candidate-dir <candidate-dir> --tag <tag> --source-commit <sha>
+npm run test
+npm run typecheck
+npm run lint
 npm run build
 npm run secret:scan
 git diff --check

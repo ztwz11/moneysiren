@@ -121,6 +121,7 @@ interface ManagedDesktopProcess {
 
 interface StartedBackgroundProcess {
   pid?: number;
+  notes?: readonly string[];
 }
 
 const DESKTOP_STATE_ENV_KEY = "MONEYSIREN_DESKTOP_RUNTIME_STATE_PATH";
@@ -156,9 +157,24 @@ async function startHiddenWebRuntimeProcess(input: {
   env: NodeJS.ProcessEnv;
 }): Promise<StartedBackgroundProcess> {
   if (process.platform === "win32") {
-    return startWindowsHiddenProcess(input);
+    try {
+      return await startWindowsHiddenProcess(input);
+    } catch {
+      return startDetachedWebRuntimeProcess(input, [
+        "PowerShell hidden launcher was unavailable; used the direct detached Windows fallback.",
+      ]);
+    }
   }
 
+  return startDetachedWebRuntimeProcess(input);
+}
+
+function startDetachedWebRuntimeProcess(input: {
+  command: string;
+  args: readonly string[];
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+}, notes: readonly string[] = []): StartedBackgroundProcess {
   const child = spawn(input.command, input.args, {
     cwd: input.cwd,
     ...desktopBackgroundSpawnOptions(),
@@ -166,7 +182,10 @@ async function startHiddenWebRuntimeProcess(input: {
   });
 
   child.unref();
-  return child.pid === undefined ? {} : { pid: child.pid };
+  return {
+    ...(child.pid === undefined ? {} : { pid: child.pid }),
+    ...(notes.length === 0 ? {} : { notes }),
+  };
 }
 
 async function startWindowsHiddenProcess(input: {
@@ -303,6 +322,7 @@ export function createFallbackDesktopRuntimeAdapter(context: CliExecutionContext
       let webNotes = [
         ...portSelection.notes,
         ...startScript.notes,
+        ...(webProcess.notes ?? []),
       ];
 
       if (webProcess.pid !== undefined) {

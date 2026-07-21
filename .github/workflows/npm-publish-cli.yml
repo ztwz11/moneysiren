@@ -72,8 +72,8 @@ jobs:
       - run: npm run secret:scan:all
       - run: node tools/scripts/run-pnpm.mjs --filter @moneysiren/cli test -- cli.test.ts release-installer.test.ts
       - run: node tools/scripts/run-pnpm.mjs --filter @moneysiren/cli typecheck
-      - run: npm run publish:cli:dry-run
-      - run: npm run publish:app:dry-run
+      - run: MONEYSIREN_NPM_DIST_TAG="${NPM_DIST_TAG}" npm run publish:cli:dry-run
+      - run: MONEYSIREN_NPM_DIST_TAG="${NPM_DIST_TAG}" npm run publish:app:dry-run
 
       - name: Publish CLI to npm
         working-directory: apps/cli

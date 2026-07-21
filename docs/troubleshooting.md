@@ -31,7 +31,7 @@ msiren sync --provider mock
 msiren start
 ```
 
-If `msiren install --web` reports `404 Not Found` for a release such as `ztwz11/moneysiren@v0.1.6`, the npm command package is installed but the matching source-free dashboard runtime asset is not available on GitHub Releases for that tag. Use the source setup in `docs/install.md` until the release asset is published.
+If `msiren install --web` reports `404 Not Found` for a release such as `ztwz11/moneysiren@v0.1.7-beta.1`, the npm command package is installed but the matching source-free dashboard runtime asset is not available on GitHub Releases for that tag. Use the source setup in `docs/install.md` until the release asset is published.
 
 Do not work around this by pasting provider credentials into issue reports. Include only the MoneySiren version, OS, command names, and sanitized error summary.
 

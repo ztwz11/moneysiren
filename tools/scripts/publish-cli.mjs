@@ -10,7 +10,7 @@ const packageJsonPath = resolve(cliRoot, "package.json");
 const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 const shouldPublish = process.argv.includes("--publish");
 const publishOtp = getCliValue("--otp");
-const npmTag = "latest";
+const npmTag = getCliValue("--dist-tag") ?? process.env.MONEYSIREN_NPM_DIST_TAG ?? "latest";
 const npmBin = "npm";
 const npmSpawnOptions = process.platform === "win32" ? { shell: true } : {};
 const npmCache = resolve(repoRoot, ".tmp", "npm-cache");
@@ -42,7 +42,11 @@ if (packageJson.publishConfig?.access !== "public") {
   fail(`${packageJson.name} must publish with public access.`);
 }
 
-if (/-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(packageJson.version)) {
+if (!/^[a-z0-9][a-z0-9._-]*$/i.test(npmTag)) {
+  fail(`Invalid npm dist-tag: ${npmTag}`);
+}
+
+if (/-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(packageJson.version) && npmTag === "latest") {
   fail(`Refusing to publish ${packageJson.name}@${packageJson.version} to latest; expected a public release version.`);
 }
 

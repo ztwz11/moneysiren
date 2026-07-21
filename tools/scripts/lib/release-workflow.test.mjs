@@ -19,6 +19,8 @@ test("npm publication is reusable-only", async () => {
   assert.match(source, /release_tag:/);
   assert.match(source, /source_commit:/);
   assert.match(source, /NPM_TOKEN:\s*\r?\n\s+required: true/);
+  assert.match(source, /MONEYSIREN_NPM_DIST_TAG="\$\{NPM_DIST_TAG\}" npm run publish:cli:dry-run/);
+  assert.match(source, /MONEYSIREN_NPM_DIST_TAG="\$\{NPM_DIST_TAG\}" npm run publish:app:dry-run/);
 });
 
 test("Windows candidate and public HUD smokes gate npm publication", async () => {

@@ -92,7 +92,7 @@ git diff --check
 
 ## M16/S16 Unsigned Windows Preview
 
-Status: In progress.
+Status: Implemented and validated locally; preview publication pending.
 
 - Keep stable tag pushes fail-closed when Windows signing is unavailable.
 - Permit unsigned Windows publication only for a manually dispatched prerelease

@@ -417,6 +417,19 @@ msiren hud
 
 This does not change public release validation and does not remove Windows publisher warnings. Without the explicit flag, public release HUD installs still require Windows signature metadata. `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for advanced npm postinstall or CI smoke paths. For prerelease tags such as `alpha`, `beta`, or `rc`, set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
 
+### Unsigned Windows preview channel
+
+Until trusted Windows signing is available, maintainers may publish an explicitly marked prerelease preview. The release workflow permits this only for a manual dispatch where `prerelease` and `unsigned_windows_preview` are both enabled and the tag is a prerelease such as `v0.1.7-beta.1`. Stable tag pushes still fail when signing is unavailable. Preview assets include SHA256 checksums and `moneysiren-tray-windows-UNSIGNED-PREVIEW.json`, are published to the npm `next` channel, and never claim a verified publisher.
+
+Preview users must opt into the non-stable channel and should expect Windows Unknown Publisher or SmartScreen warnings:
+
+```powershell
+npm install -g @moneysiren/app@next
+msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.1
+```
+
+Do not disable Windows security controls globally. If Windows policy blocks unsigned applications, use the web dashboard or wait for a signed release.
+
 For local tarball review without publishing:
 
 ```bash

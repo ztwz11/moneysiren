@@ -90,6 +90,17 @@ npm run secret:scan
 git diff --check
 ```
 
+## M16/S16 Unsigned Windows Preview
+
+Status: In progress.
+
+- Keep stable tag pushes fail-closed when Windows signing is unavailable.
+- Permit unsigned Windows publication only for a manually dispatched prerelease
+  with explicit `unsigned_windows_preview` consent.
+- Publish SHA256 checksums and machine-readable unsigned-preview metadata.
+- Gate npm `next` publication on candidate and public installed-HUD smokes.
+- Preserve the existing explicit CLI opt-in and never claim a verified publisher.
+
 ## M13/S13 Summary
 
 Status: Completed locally on 2026-07-13.

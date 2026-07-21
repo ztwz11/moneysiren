@@ -7,9 +7,14 @@ import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createServer } from "node:net";
+import {
+  validateUnsignedPreviewMetadata,
+  validateUnsignedPreviewRelease,
+} from "./lib/unsigned-preview.mjs";
 
 const MAX_CAPTURE_BYTES = 16 * 1024;
 const MAX_MANIFEST_BYTES = 256 * 1024;
+const MAX_PREVIEW_METADATA_BYTES = 64 * 1024;
 const COMMAND_TIMEOUT_MS = 120_000;
 const SECRET_PATTERN = /(?:sk|sbp|xox[baprs])[-_][A-Za-z0-9_-]+|hooks\.slack\.com\/services\/[^\s]+|acct[_-][A-Za-z0-9_-]+|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 const args = parseArgs(process.argv.slice(2));
@@ -26,6 +31,7 @@ try {
 
   const candidate = await resolveCandidate(args);
   const env = smokeEnvironment({
+    allowUnsignedPreview: args.allowUnsignedPreview,
     candidateMode: candidate.webArchive !== null,
     data,
     dbPath,
@@ -66,11 +72,18 @@ try {
   }
 
   await verifyInstalledRuntime({
+    allowUnsignedPreview: args.allowUnsignedPreview,
     candidateMode: candidate.webArchive !== null,
     installDir,
     sourceCommit: args.sourceCommit,
     tag: args.tag,
   });
+  if (args.allowUnsignedPreview) {
+    await verifyUnsignedPreviewReleaseMetadata({
+      sourceCommit: args.sourceCommit,
+      tag: args.tag,
+    });
+  }
   run("install-status", cli.command, [...cli.prefixArgs, "install", "--status"], { env });
   run("doctor", cli.command, [...cli.prefixArgs, "doctor"], { env, allowedExitCodes: [0, 1] });
   run("mock-sync", cli.command, [...cli.prefixArgs, "sync", "--provider", "mock"], { env });
@@ -97,6 +110,7 @@ try {
 
   console.log("MoneySiren installed-package HUD smoke passed.");
   console.log(`Mode: ${candidate.webArchive === null ? "public-release" : "candidate-artifacts"}.`);
+  console.log(`Unsigned Windows preview: ${args.allowUnsignedPreview ? "explicitly accepted" : "not accepted"}.`);
   console.log("Provider calls: mock only.");
   console.log("Secrets returned: false.");
 } catch (error) {
@@ -208,7 +222,12 @@ async function verifyInstalledRuntime(input) {
     throw new Error("INSTALL_MANIFEST_SURFACES_INVALID");
   }
   if (!input.candidateMode && hud.signatureVerified !== true) {
-    throw new Error("PUBLIC_HUD_SIGNATURE_NOT_VERIFIED");
+    const explicitUnsignedPreview = input.allowUnsignedPreview === true &&
+      hud.signatureStatus === "unsigned-opt-in-accepted";
+
+    if (!explicitUnsignedPreview) {
+      throw new Error("PUBLIC_HUD_SIGNATURE_NOT_VERIFIED");
+    }
   }
 }
 
@@ -228,6 +247,47 @@ function validAsset(asset, surface) {
   } catch {
     return false;
   }
+}
+
+async function verifyUnsignedPreviewReleaseMetadata(input) {
+  const githubHeaders = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "moneysiren-installed-preview-smoke",
+    "X-GitHub-Api-Version": "2022-11-28",
+    ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
+  };
+  const releaseResponse = await fetch(
+    `https://api.github.com/repos/ztwz11/moneysiren/releases/tags/${encodeURIComponent(input.tag)}`,
+    {
+      headers: githubHeaders,
+      signal: AbortSignal.timeout(30_000),
+    },
+  );
+  if (!releaseResponse.ok) {
+    throw new Error("UNSIGNED_PREVIEW_RELEASE_METADATA_UNAVAILABLE");
+  }
+
+  const release = await releaseResponse.json();
+  if (release?.tag_name !== input.tag || release?.prerelease !== true || !Array.isArray(release?.assets)) {
+    throw new Error("UNSIGNED_PREVIEW_RELEASE_IDENTITY_INVALID");
+  }
+
+  const metadataUrl = validateUnsignedPreviewRelease(release, input);
+
+  const metadataResponse = await fetch(metadataUrl, {
+    headers: githubHeaders,
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!metadataResponse.ok) {
+    throw new Error("UNSIGNED_PREVIEW_METADATA_DOWNLOAD_FAILED");
+  }
+
+  const metadataBytes = Buffer.from(await metadataResponse.arrayBuffer());
+  if (metadataBytes.byteLength === 0 || metadataBytes.byteLength > MAX_PREVIEW_METADATA_BYTES) {
+    throw new Error("UNSIGNED_PREVIEW_METADATA_SIZE_INVALID");
+  }
+
+  validateUnsignedPreviewMetadata(JSON.parse(metadataBytes.toString("utf8")), input);
 }
 
 function run(label, command, commandArgs, options) {
@@ -292,6 +352,7 @@ function smokeEnvironment(input) {
     HOME: input.home,
     LOCALAPPDATA: input.data,
     MONEYSIREN_APP_STRICT_POSTINSTALL: "true",
+    MONEYSIREN_ALLOW_UNSIGNED_HUD: input.allowUnsignedPreview ? "true" : "false",
     MONEYSIREN_DB_PATH: input.dbPath,
     MONEYSIREN_DISABLE_LIVE_PROVIDERS: "true",
     MONEYSIREN_NOTIFICATION_PREFS_PATH: input.prefsPath,
@@ -356,6 +417,7 @@ function sanitize(value) {
 
 function parseArgs(values) {
   const options = {
+    allowUnsignedPreview: false,
     candidateDir: null,
     packageSpec: null,
     sourceCommit: process.env.GITHUB_SHA ?? "",
@@ -364,7 +426,9 @@ function parseArgs(values) {
   for (let index = 0; index < values.length; index += 1) {
     const name = values[index];
     const value = values[index + 1];
-    if (["--candidate-dir", "--package", "--source-commit", "--tag"].includes(name) && value !== undefined && !value.startsWith("--")) {
+    if (name === "--allow-unsigned-preview") {
+      options.allowUnsignedPreview = true;
+    } else if (["--candidate-dir", "--package", "--source-commit", "--tag"].includes(name) && value !== undefined && !value.startsWith("--")) {
       if (name === "--candidate-dir") options.candidateDir = value;
       if (name === "--package") options.packageSpec = value;
       if (name === "--source-commit") options.sourceCommit = value;
@@ -375,6 +439,7 @@ function parseArgs(values) {
     }
   }
   if ((options.candidateDir === null) === (options.packageSpec === null)) throw new Error("SMOKE_REQUIRES_ONE_SOURCE");
+  if (options.allowUnsignedPreview && options.packageSpec === null) throw new Error("UNSIGNED_PREVIEW_REQUIRES_PUBLIC_PACKAGE");
   if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(options.tag)) throw new Error("SMOKE_TAG_INVALID");
   if (!/^[a-f0-9]{40}$/.test(options.sourceCommit)) throw new Error("SMOKE_SOURCE_COMMIT_INVALID");
   return options;

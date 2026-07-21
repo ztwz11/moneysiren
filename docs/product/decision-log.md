@@ -186,3 +186,23 @@ and keeping the existing verified release installer produces a retryable,
 source-free install without weakening credential or artifact trust boundaries.
 
 Status: accepted.
+
+## D019 - Explicit unsigned Windows preview channel
+
+Decision: Windows artifacts without a trusted Authenticode certificate may be
+published only through a manually dispatched prerelease with `prerelease` and
+`unsigned_windows_preview` both explicitly enabled. Stable tag pushes remain
+fail-closed and require a valid signing identity.
+
+Rationale: an unsigned preview lets early adopters exercise the packaged HUD
+without purchasing a certificate, while keeping the normal `latest` install
+and stable release trust boundary unchanged. Preview releases publish SHA256
+checksums and machine-readable unsigned metadata, run candidate and public HUD
+smokes, require explicit installer acceptance, and use the npm `next` tag.
+
+Security boundary: preview assets may display Unknown Publisher warnings or be
+blocked by Windows policy. They must never include signature metadata, claim a
+verified publisher, silently replace a stable asset, or be installed by the
+stable channel without explicit unsigned opt-in.
+
+Status: accepted.

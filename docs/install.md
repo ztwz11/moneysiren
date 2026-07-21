@@ -347,6 +347,17 @@ msiren hud
 
 This opt-in accepts an unsigned Windows HUD artifact only for that command. It does not change public release validation and does not remove Windows publisher warnings. Without the explicit flag, public release HUD installs still require Windows signature metadata. `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for advanced npm postinstall or CI smoke paths. For prerelease tags such as `alpha`, `beta`, or `rc`, set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
 
+### Install an unsigned Windows preview
+
+An unsigned preview is a prerelease, not a stable release. Install the npm `next` channel and explicitly accept the unsigned HUD artifact for the matching tag:
+
+```powershell
+npm install -g @moneysiren/app@next
+msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.1
+```
+
+The release must provide `moneysiren-tray-windows-SHA256SUMS.txt` and `moneysiren-tray-windows-UNSIGNED-PREVIEW.json`. The CLI verifies the SHA256 entry before installation, but Windows may still show Unknown Publisher or SmartScreen warnings and managed Windows policy may block execution. Do not turn off Defender, SmartScreen, or Smart App Control globally to install a preview.
+
 ## English Mock Screenshots
 
 The following screenshots were regenerated from a fresh fixture-backed SQLite database seeded by the commands above. The fake environment values only mark providers as connected for the local UI; no live provider credentials, provider account identifiers, webhook URLs, or local Codex/Claude session data are included.

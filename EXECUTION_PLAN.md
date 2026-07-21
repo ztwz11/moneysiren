@@ -92,7 +92,7 @@ git diff --check
 
 ## M16/S16 Unsigned Windows Preview
 
-Status: Implemented and validated locally; preview publication pending.
+Status: Completed and published on 2026-07-21.
 
 - Keep stable tag pushes fail-closed when Windows signing is unavailable.
 - Permit unsigned Windows publication only for a manually dispatched prerelease
@@ -100,6 +100,16 @@ Status: Implemented and validated locally; preview publication pending.
 - Publish SHA256 checksums and machine-readable unsigned-preview metadata.
 - Gate npm `next` publication on candidate and public installed-HUD smokes.
 - Preserve the existing explicit CLI opt-in and never claim a verified publisher.
+
+Publication evidence:
+
+- GitHub prerelease `v0.1.7-beta.1` is bound to commit `28e6256` and contains
+  Windows setup/portable executables, SHA256 manifests, the source-free web
+  runtime, and explicit unsigned-preview metadata.
+- Desktop release run `29813458666` passed the Windows candidate HUD smoke,
+  public-release HUD smoke, and npm publication gate.
+- npm `next` points to `@moneysiren/cli@0.1.7-beta.1` and
+  `@moneysiren/app@0.1.7-beta.1`.
 
 ## M13/S13 Summary
 

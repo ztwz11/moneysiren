@@ -190,7 +190,7 @@ scan, and `git diff --check`. The pre-existing Cargo.lock SHA256 remained
 ## Validation Commands For M15/S15 Review
 
 ```powershell
-node --test --test-isolation=none apps/app/scripts/postinstall.test.mjs
+node --test apps/app/scripts/postinstall.test.mjs
 npm run test:release-workflow
 node tools/scripts/smoke-installed-package.mjs --candidate-dir <candidate-dir> --tag <tag> --source-commit <sha>
 npm run test

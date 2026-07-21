@@ -55,6 +55,7 @@ export interface DesktopHudLaunchResolverOptions {
   execPath: string;
   platform: NodeJS.Platform;
   resolveRegularFile(path: string): string | null;
+  resolveExecutableFile?(path: string): string | null;
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -107,6 +108,7 @@ export async function POST(request: Request): Promise<Response> {
 
 export function resolveDesktopHudLaunch(options: DesktopHudLaunchResolverOptions): DesktopHudLaunch {
   const configuredValue = trimToNull(options.env.MONEYSIREN_DESKTOP_APP);
+  const resolveExecutableFile = options.resolveExecutableFile ?? options.resolveRegularFile;
 
   if (configuredValue !== null) {
     if (!isSafeConfiguredDesktopPath(configuredValue, options.platform)) {
@@ -120,7 +122,7 @@ export function resolveDesktopHudLaunch(options: DesktopHudLaunchResolverOptions
     });
     const executablePath = configuredPath === null
       ? null
-      : resolveDesktopExecutable(configuredPath, options.platform, options.resolveRegularFile);
+      : resolveDesktopExecutable(configuredPath, options.platform, resolveExecutableFile);
 
     if (executablePath === null) {
       throw new Error("Configured desktop runtime was not found.");
@@ -133,7 +135,7 @@ export function resolveDesktopHudLaunch(options: DesktopHudLaunchResolverOptions
     env: options.env,
     platform: options.platform,
   })) {
-    const executablePath = resolveDesktopExecutable(candidate, options.platform, options.resolveRegularFile);
+    const executablePath = resolveDesktopExecutable(candidate, options.platform, resolveExecutableFile);
 
     if (executablePath !== null) {
       return nativeDesktopLaunch(executablePath, options.platform);
@@ -147,7 +149,7 @@ export function resolveDesktopHudLaunch(options: DesktopHudLaunchResolverOptions
       const builtExecutable = findBuiltTrayExecutable(
         repoRoot,
         options.platform,
-        options.resolveRegularFile,
+        resolveExecutableFile,
       );
 
       if (builtExecutable !== null) {
@@ -210,6 +212,7 @@ async function startDesktopHudRuntime(options: { dashboardUrl: string; webBaseUr
     env: process.env,
     execPath: process.execPath,
     platform: process.platform,
+    resolveExecutableFile: resolveExecutableRegularFile,
     resolveRegularFile,
   });
   const env = desktopProcessEnvironment(process.env, {
@@ -355,11 +358,25 @@ function resolveRegularFile(path: string): string | null {
       return null;
     }
 
+    return realpathSync.native(path);
+  } catch {
+    return null;
+  }
+}
+
+function resolveExecutableRegularFile(path: string): string | null {
+  const resolved = resolveRegularFile(path);
+
+  if (resolved === null) {
+    return null;
+  }
+
+  try {
     if (process.platform !== "win32") {
-      accessSync(path, constants.X_OK);
+      accessSync(resolved, constants.X_OK);
     }
 
-    return realpathSync.native(path);
+    return resolved;
   } catch {
     return null;
   }

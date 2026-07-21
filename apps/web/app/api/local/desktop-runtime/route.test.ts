@@ -172,6 +172,24 @@ describe("desktop HUD launch resolution", () => {
     expect(launch.kind).toBe("desktop");
   });
 
+  it("does not require native execute permission for the Node launcher", () => {
+    const marker = "/work/stackspend/tools/scripts/run-web-with-tray.mjs";
+    const launch = resolveDesktopHudLaunch({
+      cwd: "/work/stackspend/apps/web",
+      env: {
+        NODE_ENV: "test",
+      },
+      execPath: "/usr/bin/node",
+      platform: "linux",
+      resolveExecutableFile: () => null,
+      resolveRegularFile: existingFiles(marker),
+    });
+
+    expect(launch.command).toBe("/usr/bin/node");
+    expect(launch.args[0]).toBe(marker);
+    expect(launch.kind).toBe("dev-launcher");
+  });
+
   it("fails when production has no configured, installed, or repository executable", () => {
     expect(() => resolveDesktopHudLaunch({
       cwd: "/opt/moneysiren/web-runtime/apps/web",

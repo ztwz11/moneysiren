@@ -45,7 +45,7 @@
     "prestart:hud": "node tools/scripts/ensure-precompiled.mjs --web",
     "start:hud": "node tools/scripts/run-web-with-tray.mjs --web-script start --tray-mode built --desktop-mode hud",
     "test": "node tools/scripts/run-pnpm.mjs --workspace-script test",
-    "test:release-workflow": "node --test --test-isolation=none tools/scripts/lib/release-workflow.test.mjs",
+    "test:release-workflow": "node --test tools/scripts/lib/release-workflow.test.mjs",
     "typecheck": "node tools/scripts/run-pnpm.mjs --workspace-script typecheck",
     "lint": "node tools/scripts/run-pnpm.mjs --workspace-script lint",
     "secret:scan": "node tools/scripts/secret-scan.mjs",

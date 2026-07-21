@@ -116,7 +116,7 @@ describe("desktop HUD launch resolution", () => {
   });
 
   it("accepts the verified portable Windows artifact name propagated by the CLI", () => {
-    const portable = "D:\\MoneySiren\\MoneySiren.Tray_0.1.5_x64-portable.exe";
+    const portable = "D:\\MoneySiren\\MoneySiren.Tray_0.1.6_x64-portable.exe";
     const launch = resolveDesktopHudLaunch({
       cwd: "C:\\runtime",
       env: {

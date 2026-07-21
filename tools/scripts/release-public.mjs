@@ -5,7 +5,7 @@ import { basename, extname, resolve } from "node:path";
 const args = parseArgs(process.argv.slice(2));
 const repoRoot = resolve(import.meta.dirname, "../..");
 const gitSafeDirectory = repoRoot.replaceAll("\\", "/");
-const expectedWorkflows = ["ci", "secret-scan", "npm-publish-cli", "desktop-release"];
+const expectedWorkflows = ["ci", "secret-scan", "desktop-release"];
 
 if (args.help) {
   printHelp();

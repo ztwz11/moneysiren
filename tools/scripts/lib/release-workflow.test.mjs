@@ -46,3 +46,10 @@ test("candidate layout includes app, web, and portable HUD artifacts", async () 
   assert.match(smoke, /HUD: running/);
   assert.match(smoke, /PUBLIC_HUD_SIGNATURE_NOT_VERIFIED/);
 });
+
+test("public release polling follows the caller workflow after npm became reusable", async () => {
+  const source = await readFile(resolve(root, "tools", "scripts", "release-public.mjs"), "utf8");
+
+  assert.match(source, /expectedWorkflows = \["ci", "secret-scan", "desktop-release"\]/);
+  assert.doesNotMatch(source, /expectedWorkflows = \[[^\]]*"npm-publish-cli"/);
+});

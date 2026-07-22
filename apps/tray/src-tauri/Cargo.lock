@@ -1742,7 +1742,7 @@ dependencies = [
 
 [[package]]
 name = "moneysiren-tray"
-version = "0.1.7-beta.2"
+version = "0.1.7-beta.3"
 dependencies = [
  "serde",
  "serde_json",

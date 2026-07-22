@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 
 export const DEFAULT_RELEASE_REPOSITORY = "ztwz11/moneysiren";
 // Keep the source-free installer pinned to the latest published desktop/web release tag.
-export const DEFAULT_RELEASE_TAG = "v0.1.7-beta.2";
+export const DEFAULT_RELEASE_TAG = "v0.1.7-beta.3";
 
 export interface ReleaseInstallOptions {
   env?: Record<string, string | undefined>;

@@ -220,6 +220,8 @@ export interface Messages {
     hudSaveSettings: string;
     hudWidgetsTitle: string;
     hudWidgetsSubtitle: string;
+    hudWidgetReorderHelp: string;
+    hudWidgetDragHandle: string;
     hudOpenWindow: string;
     hudBrowserPreviewOpened: string;
     hudDesktopUnavailable: string;
@@ -371,6 +373,7 @@ export interface Messages {
     aws_month_forecast: string;
     openai_today_cost: string;
     openai_today_tokens: string;
+    codex_total_tokens: string;
     claude_five_hour_percent: string;
     claude_weekly_percent: string;
     codex_five_hour_percent: string;
@@ -595,6 +598,8 @@ const baseMessages = {
       hudSaveSettings: "Save HUD",
       hudWidgetsTitle: "HUD items",
       hudWidgetsSubtitle: "Choose exactly what stays visible in the floating HUD.",
+      hudWidgetReorderHelp: "Drag selected items to set their HUD order. You can also use the arrow keys on a drag handle.",
+      hudWidgetDragHandle: "Reorder HUD item",
       hudOpenWindow: "Open HUD window",
       hudBrowserPreviewOpened: "Opened a browser HUD preview.",
       hudDesktopUnavailable: "Desktop HUD runtime is not available in this session.",
@@ -746,6 +751,7 @@ const baseMessages = {
       aws_month_forecast: "AWS month forecast",
       openai_today_cost: "OpenAI today cost",
       openai_today_tokens: "OpenAI today tokens",
+      codex_total_tokens: "Codex total tokens",
       claude_five_hour_percent: "Claude 5-hour usage",
       claude_weekly_percent: "Claude weekly usage",
       codex_five_hour_percent: "Codex 5-hour usage",
@@ -1005,6 +1011,8 @@ const baseMessages = {
       hudSaveSettings: "HUD 저장",
       hudWidgetsTitle: "HUD 표시 항목",
       hudWidgetsSubtitle: "떠 있는 HUD에 계속 보여줄 항목을 고릅니다.",
+      hudWidgetReorderHelp: "선택한 항목을 드래그해 HUD 순서를 정합니다. 이동 손잡이에서 방향키도 사용할 수 있습니다.",
+      hudWidgetDragHandle: "HUD 항목 순서 변경",
       hudOpenWindow: "HUD 창 열기",
       hudBrowserPreviewOpened: "브라우저 HUD 미리보기를 열었습니다.",
       hudDesktopUnavailable: "이 세션에서 Desktop HUD 런타임을 찾을 수 없습니다.",
@@ -1156,6 +1164,7 @@ const baseMessages = {
       aws_month_forecast: "AWS 이번 달 예상",
       openai_today_cost: "OpenAI 오늘 비용",
       openai_today_tokens: "OpenAI 오늘 토큰",
+      codex_total_tokens: "Codex 전체 토큰",
       claude_five_hour_percent: "Claude 5시간 사용률",
       claude_weekly_percent: "Claude 주간 사용률",
       codex_five_hour_percent: "Codex 5시간 사용률",
@@ -1415,6 +1424,8 @@ const baseMessages = {
       hudSaveSettings: "HUD を保存",
       hudWidgetsTitle: "HUD 表示項目",
       hudWidgetsSubtitle: "浮かせた HUD に表示する項目を選びます。",
+      hudWidgetReorderHelp: "選択した項目をドラッグして HUD の順序を設定します。移動ハンドルでは矢印キーも使用できます。",
+      hudWidgetDragHandle: "HUD 項目の順序を変更",
       hudOpenWindow: "HUD ウィンドウを開く",
       hudBrowserPreviewOpened: "ブラウザー HUD プレビューを開きました。",
       hudDesktopUnavailable: "このセッションでは Desktop HUD ランタイムを利用できません。",
@@ -1566,6 +1577,7 @@ const baseMessages = {
       aws_month_forecast: "AWS 月次予測",
       openai_today_cost: "OpenAI 今日のコスト",
       openai_today_tokens: "OpenAI 今日のトークン",
+      codex_total_tokens: "Codex 合計トークン",
       claude_five_hour_percent: "Claude 5時間使用率",
       claude_weekly_percent: "Claude 週間使用率",
       codex_five_hour_percent: "Codex 5時間使用率",

@@ -50,6 +50,10 @@ export const HUD_WIDGET_DISPLAY_EXAMPLES = {
     shortLabel: "OpenAI tokens",
     example: "OpenAI tokens 172k",
   },
+  codex_total_tokens: {
+    shortLabel: "Codex total tokens",
+    example: "Codex total tokens 1.9m",
+  },
   claude_five_hour_percent: {
     shortLabel: "Claude 5h",
     example: "Claude 5h 22%",
@@ -142,6 +146,7 @@ interface HudPreviewLabels {
   awsEstimate: string;
   cloudflareMonth: string;
   codexFiveHour: string;
+  codexTotalTokens: string;
   codexResetCreditCount: string;
   codexResetCreditExpiry: string;
   codexWeekly: string;
@@ -166,6 +171,7 @@ function hudPreviewLabels(locale: Locale = "en"): HudPreviewLabels {
       awsEstimate: "AWS 예상",
       cloudflareMonth: "Cloudflare 월간",
       codexFiveHour: "Codex 5시간",
+      codexTotalTokens: "Codex 전체 토큰",
       codexResetCreditCount: "Codex 초기화권",
       codexResetCreditExpiry: "Codex 초기화권 만료일",
       codexWeekly: "Codex 1주",
@@ -190,6 +196,7 @@ function hudPreviewLabels(locale: Locale = "en"): HudPreviewLabels {
       awsEstimate: "AWS estimate",
       cloudflareMonth: "Cloudflare month",
       codexFiveHour: "Codex 5h",
+      codexTotalTokens: "Codex total tokens",
       codexResetCreditCount: "Codex reset credits",
       codexResetCreditExpiry: "Codex reset expiry",
       codexWeekly: "Codex weekly",
@@ -213,6 +220,7 @@ function hudPreviewLabels(locale: Locale = "en"): HudPreviewLabels {
     awsEstimate: "AWS estimate",
     cloudflareMonth: "Cloudflare month",
     codexFiveHour: "Codex 5h",
+    codexTotalTokens: "Codex total tokens",
     codexResetCreditCount: "Codex reset credits",
     codexResetCreditExpiry: "Codex reset expiry",
     codexWeekly: "Codex weekly",
@@ -239,6 +247,7 @@ function widgetPreviewLabel(widgetKey: NotificationWidgetKey, labels: HudPreview
     claude_weekly_percent: labels.claudeWeekly,
     cloudflare_month_to_date: labels.cloudflareMonth,
     codex_five_hour_percent: labels.codexFiveHour,
+    codex_total_tokens: labels.codexTotalTokens,
     codex_reset_credit_count: labels.codexResetCreditCount,
     codex_reset_credit_expiry: labels.codexResetCreditExpiry,
     codex_weekly_percent: labels.codexWeekly,
@@ -268,6 +277,7 @@ function widgetPreviewValue(
     claude_weekly_percent: codexWeeklyPercent,
     cloudflare_month_to_date: "US$1.2",
     codex_five_hour_percent: codexFiveHourPercent,
+    codex_total_tokens: "1.9m",
     codex_reset_credit_count: "2",
     codex_reset_credit_expiry: labels.remaining === "남음" ? "18일 후" : "18d",
     codex_weekly_percent: codexWeeklyPercent,

@@ -887,6 +887,10 @@ function buildDigestItems(
   const awsOverview = findOverviewProvider(overview, AWS_PROVIDER_KEY);
   const openAiToday = amountFromTodayProviders(todayLive, OPENAI_PROVIDER_KEY);
   const openAiTokens = tokenTotalFromProviders(todayProviders(todayLive, OPENAI_PROVIDER_KEY));
+  const codexTokenEntry = largestProviderTokenTotal([
+    ...todayProviders(todayLive, CODEX_APP_PROVIDER_KEY),
+    ...todayProviders(todayLive, CODEX_CLI_PROVIDER_KEY),
+  ]);
   const supabaseOverview = findOverviewProvider(overview, SUPABASE_PROVIDER_KEY);
   const supabaseToday = firstTodayProvider(todayLive, SUPABASE_PROVIDER_KEY);
   const cloudflareOverview = findOverviewProvider(overview, CLOUDFLARE_PROVIDER_KEY);
@@ -974,6 +978,21 @@ function buildDigestItems(
         unit: "tokens",
       }),
       clickPath: "/ko/services/openai",
+    },
+    {
+      widgetKey: "codex_total_tokens",
+      kind: "usage",
+      severity: "info",
+      label: "Codex total tokens",
+      value: codexTokenEntry === null ? "Not available" : formatTokens(codexTokenEntry.totalTokens),
+      ...(codexTokenEntry === null ? {} : {
+        numericValue: codexTokenEntry.totalTokens,
+        unit: "tokens",
+        providerKey: codexTokenEntry.provider.providerKey,
+        freshness: codexTokenEntry.provider.freshness,
+        confidence: codexTokenEntry.provider.confidence,
+      }),
+      clickPath: `/ko/services/${codexTokenEntry?.provider.providerKey ?? CODEX_APP_PROVIDER_KEY}`,
     },
     cliRemainingPercentItem({
       widgetKey: "claude_five_hour_percent",
@@ -1266,6 +1285,22 @@ function tokenTotalFromProviders(providers: readonly TodayLiveProviderView[]): n
   ]);
 
   return componentTokens === 0 ? null : componentTokens;
+}
+
+function largestProviderTokenTotal(
+  providers: readonly TodayLiveProviderView[],
+): { provider: TodayLiveProviderView; totalTokens: number } | null {
+  let largest: { provider: TodayLiveProviderView; totalTokens: number } | null = null;
+
+  for (const provider of providers) {
+    const totalTokens = tokenTotalFromProviders([provider]);
+
+    if (totalTokens !== null && (largest === null || totalTokens > largest.totalTokens)) {
+      largest = { provider, totalTokens };
+    }
+  }
+
+  return largest;
 }
 
 function metricSum(providers: readonly TodayLiveProviderView[], metricKey: string): number | null {

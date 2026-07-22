@@ -6,6 +6,7 @@ export const NOTIFICATION_WIDGET_KEYS = [
   "aws_month_forecast",
   "openai_today_cost",
   "openai_today_tokens",
+  "codex_total_tokens",
   "claude_five_hour_percent",
   "claude_weekly_percent",
   "codex_five_hour_percent",
@@ -26,6 +27,7 @@ export const COST_NOTIFICATION_WIDGET_KEYS = [
 
 export const USAGE_NOTIFICATION_WIDGET_KEYS = [
   "openai_today_tokens",
+  "codex_total_tokens",
   "claude_five_hour_percent",
   "claude_weekly_percent",
   "codex_five_hour_percent",
@@ -185,12 +187,23 @@ export const DEFAULT_SELECTED_NOTIFICATION_WIDGET_KEYS: readonly NotificationWid
   "risk_high_count",
   "stale_connection_count",
   "openai_today_tokens",
+  "codex_total_tokens",
   "codex_five_hour_percent",
   "codex_reset_credit_count",
   "codex_reset_credit_expiry",
 ];
 
 const LEGACY_SELECTED_NOTIFICATION_WIDGET_KEY_SETS: readonly (readonly NotificationWidgetKey[])[] = [
+  [
+    "month_forecast",
+    "today_live_cost",
+    "risk_high_count",
+    "stale_connection_count",
+    "openai_today_tokens",
+    "codex_five_hour_percent",
+    "codex_reset_credit_count",
+    "codex_reset_credit_expiry",
+  ],
   [
     "month_forecast",
     "today_live_cost",

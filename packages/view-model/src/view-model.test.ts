@@ -108,6 +108,7 @@ describe("shared view model", () => {
       "risk_high_count",
       "stale_connection_count",
       "openai_today_tokens",
+      "codex_total_tokens",
       "codex_five_hour_percent",
       "codex_reset_credit_count",
       "codex_reset_credit_expiry",
@@ -119,6 +120,7 @@ describe("shared view model", () => {
       "widget-risk_high_count",
       "widget-stale_connection_count",
       "widget-openai_today_tokens",
+      "widget-codex_total_tokens",
       "widget-codex_five_hour_percent",
       "widget-codex_reset_credit_count",
       "widget-codex_reset_credit_expiry",
@@ -421,6 +423,23 @@ describe("shared view model", () => {
           ],
         },
         {
+          providerKey: "codex-app",
+          displayName: "Codex App",
+          checkedAt: NOW.toISOString(),
+          freshness: "live",
+          confidence: "low",
+          todayLiveAmountMinor: null,
+          currency: "USD",
+          included: false,
+          metrics: [
+            {
+              key: "total_tokens",
+              value: 1918539,
+              unit: "tokens",
+            },
+          ],
+        },
+        {
           providerKey: "codex-cli",
           displayName: "Codex CLI",
           checkedAt: NOW.toISOString(),
@@ -445,6 +464,11 @@ describe("shared view model", () => {
               value: 870,
               unit: "tokens",
             },
+            {
+              key: "total_tokens",
+              value: 83229,
+              unit: "tokens",
+            },
           ],
         },
       ],
@@ -454,6 +478,7 @@ describe("shared view model", () => {
       selectedWidgets: [
         "codex_five_hour_percent",
         "codex_weekly_percent",
+        "codex_total_tokens",
         "openai_today_tokens",
       ],
     });
@@ -462,11 +487,13 @@ describe("shared view model", () => {
     expect(digest.items.map((item) => [item.widgetKey, item.value])).toEqual([
       ["codex_five_hour_percent", "87.5%"],
       ["codex_weekly_percent", "87%"],
+      ["codex_total_tokens", "1,918,539"],
       ["openai_today_tokens", "4,200"],
     ]);
     expect(tray.items.filter((item) => item.id.startsWith("widget-")).map((item) => item.label)).toEqual([
       "Codex 5h remaining: 87.5%",
       "Codex weekly remaining: 87%",
+      "Codex total tokens: 1,918,539",
       "OpenAI tokens: 4,200",
     ]);
   });
@@ -507,6 +534,23 @@ describe("shared view model", () => {
           ],
         },
         {
+          providerKey: "codex-app",
+          displayName: "Codex App",
+          checkedAt: NOW.toISOString(),
+          freshness: "live",
+          confidence: "low",
+          todayLiveAmountMinor: null,
+          currency: "USD",
+          included: false,
+          metrics: [
+            {
+              key: "total_tokens",
+              value: 1918539,
+              unit: "tokens",
+            },
+          ],
+        },
+        {
           providerKey: "codex-cli",
           displayName: "Codex CLI",
           checkedAt: NOW.toISOString(),
@@ -528,6 +572,7 @@ describe("shared view model", () => {
     const selectedWidgets = [
       "today_live_cost",
       "codex_five_hour_percent",
+      "codex_total_tokens",
       "openai_today_tokens",
     ] as const;
     const digest = buildNotificationDigest(overview, todayLive, {
@@ -538,7 +583,8 @@ describe("shared view model", () => {
 
     expect(hud.items.map((item) => [item.kind, item.id])).toEqual([
       ["widget", "widget:today_live_cost"],
-      ["quota", "codex-cli:five_hour"],
+      ["quota", "codex-app:five_hour"],
+      ["widget", "widget:codex_total_tokens"],
       ["widget", "widget:openai_today_tokens"],
     ]);
     expect(hud.items[0]).toEqual(expect.objectContaining({
@@ -548,6 +594,12 @@ describe("shared view model", () => {
       unit: "USD",
     }));
     expect(hud.items[2]).toEqual(expect.objectContaining({
+      kind: "widget",
+      value: "1,918,539",
+      numericValue: 1918539,
+      unit: "tokens",
+    }));
+    expect(hud.items[3]).toEqual(expect.objectContaining({
       kind: "widget",
       value: "4,200",
       numericValue: 4200,
@@ -730,6 +782,18 @@ describe("shared view model", () => {
       showUsagePercent: DEFAULT_NOTIFICATION_PREFERENCES.hud.showUsagePercent,
       selectedWidgets: ["risk_high_count"],
     });
+    expect(parseNotificationPreferences({
+      selectedWidgets: [
+        "month_forecast",
+        "today_live_cost",
+        "risk_high_count",
+        "stale_connection_count",
+        "openai_today_tokens",
+        "codex_five_hour_percent",
+        "codex_reset_credit_count",
+        "codex_reset_credit_expiry",
+      ],
+    }).selectedWidgets).toEqual(DEFAULT_NOTIFICATION_PREFERENCES.selectedWidgets);
   });
 
   it("normalizes notification threshold cooldowns to integer minutes", () => {

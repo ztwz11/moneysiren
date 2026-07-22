@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type DragEvent, type KeyboardEvent } from "react";
 import {
   BellRing,
   Clock3,
   GalleryHorizontalEnd,
+  GripVertical,
   MonitorCheck,
   Send,
   SlidersHorizontal,
@@ -23,8 +24,10 @@ import {
   NOTIFICATION_THRESHOLD_MODES,
   NOTIFICATION_WIDGET_KEYS,
   USAGE_NOTIFICATION_WIDGET_KEYS,
+  orderHudWidgetCards,
   parseOptionalNonNegativeInteger,
   parseOptionalNonNegativeNumber,
+  reorderHudSelectedWidgets,
   type DigestInterval,
   type DashboardBudgetPreferences,
   type DashboardWidgetLayoutPreferences,
@@ -81,6 +84,9 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
   const [hudSelectedWidgets, setHudSelectedWidgets] = useState<NotificationWidgetKey[]>(
     [...DEFAULT_NOTIFICATION_PREFERENCES.hud.selectedWidgets],
   );
+  const [hudDraggedWidget, setHudDraggedWidget] = useState<NotificationWidgetKey | null>(null);
+  const [hudDragTargetWidget, setHudDragTargetWidget] = useState<NotificationWidgetKey | null>(null);
+  const [hudOrderAnnouncement, setHudOrderAnnouncement] = useState("");
   const [localCliDashboardMetricKeys, setLocalCliDashboardMetricKeys] = useState<LocalCliDashboardMetricKey[]>(
     [...DEFAULT_LOCAL_CLI_DASHBOARD_METRIC_KEYS],
   );
@@ -116,6 +122,7 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
     selectedWidgets: hudSelectedWidgets,
   });
   const hudPercentCopy = hudPercentDisplayCopy(locale);
+  const orderedHudWidgetCards = orderHudWidgetCards(hudSelectedWidgets);
 
   useEffect(() => {
     let mounted = true;
@@ -561,11 +568,14 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                 <div>
                   <strong>{messages.settings.hudWidgetsTitle}</strong>
                   <span className="metric-meta">{messages.settings.hudWidgetsSubtitle}</span>
+                  <span className="metric-meta" id="hud-widget-reorder-help">
+                    {messages.settings.hudWidgetReorderHelp}
+                  </span>
                 </div>
                 <span className="badge badge-live">{hudSelectedWidgets.length}</span>
               </div>
               <div className="notification-hud-widget-grid" aria-label={messages.settings.hudWidgetsTitle}>
-                {NOTIFICATION_WIDGET_KEYS.map((widgetKey) => {
+                {orderedHudWidgetCards.map((widgetKey) => {
                   const selectedIndex = hudSelectedWidgets.indexOf(widgetKey);
                   const selected = selectedIndex >= 0;
                   const widgetPreview = getHudWidgetDisplayExample(widgetKey, {
@@ -575,29 +585,58 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
                   });
 
                   return (
-                    <label
-                      className={selected ? "notification-hud-widget-card" : "notification-hud-widget-card notification-widget-card-muted"}
+                    <div
+                      className={[
+                        "notification-hud-widget-card",
+                        selected ? "" : "notification-widget-card-muted",
+                        hudDraggedWidget === widgetKey ? "notification-hud-widget-card-dragging" : "",
+                        hudDragTargetWidget === widgetKey ? "notification-hud-widget-card-drag-target" : "",
+                      ].filter(Boolean).join(" ")}
+                      data-hud-widget-key={widgetKey}
                       key={widgetKey}
+                      onDragOver={(event) => handleHudDragOver(event, widgetKey)}
+                      onDrop={(event) => handleHudDrop(event, widgetKey)}
                     >
-                      <input
-                        checked={selected}
-                        onChange={() => setHudSelectedWidgets((current) => toggleRequiredWidgetSelection(current, widgetKey))}
-                        type="checkbox"
-                      />
-                      <span>
-                        <strong>{messages.notificationWidgets[widgetKey]}</strong>
-                        <span className="metric-meta">
-                          {messages.settings.widgetOrder}: {selected ? selectedIndex + 1 : "-"}
+                      <label className="notification-hud-widget-select">
+                        <input
+                          checked={selected}
+                          onChange={() => setHudSelectedWidgets((current) => toggleRequiredWidgetSelection(current, widgetKey))}
+                          type="checkbox"
+                        />
+                        <span>
+                          <strong>{messages.notificationWidgets[widgetKey]}</strong>
+                          <span className="metric-meta">
+                            {messages.settings.widgetOrder}: {selected ? selectedIndex + 1 : "-"}
+                          </span>
+                          <span className="notification-hud-widget-example">
+                            <span>{widgetPreview.shortLabel}</span>
+                            <code>{widgetPreview.example}</code>
+                          </span>
                         </span>
-                        <span className="notification-hud-widget-example">
-                          <span>{widgetPreview.shortLabel}</span>
-                          <code>{widgetPreview.example}</code>
+                      </label>
+                      {selected ? (
+                        <span
+                          aria-describedby="hud-widget-reorder-help"
+                          aria-label={`${messages.settings.hudWidgetDragHandle}: ${messages.notificationWidgets[widgetKey]}`}
+                          className="notification-hud-drag-handle"
+                          draggable
+                          onDragEnd={handleHudDragEnd}
+                          onDragStart={(event) => handleHudDragStart(event, widgetKey)}
+                          onKeyDown={(event) => handleHudReorderKeyDown(event, widgetKey)}
+                          role="button"
+                          tabIndex={0}
+                          title={messages.settings.hudWidgetDragHandle}
+                        >
+                          <GripVertical aria-hidden="true" size={16} strokeWidth={2} />
                         </span>
-                      </span>
-                    </label>
+                      ) : null}
+                    </div>
                   );
                 })}
               </div>
+              <span aria-live="polite" className="notification-sr-only" role="status">
+                {hudOrderAnnouncement}
+              </span>
               <div className="notification-hud-actions">
                 <button
                   className="primary-button notification-hud-save-button"
@@ -753,6 +792,66 @@ export function NotificationSettingsPanel({ locale, messages }: { locale: Locale
         selectedWidgets: hudSelectedWidgets,
       },
     };
+  }
+
+  function commitHudWidgetOrder(sourceWidget: NotificationWidgetKey, targetWidget: NotificationWidgetKey) {
+    const reorderedWidgets = reorderHudSelectedWidgets(hudSelectedWidgets, sourceWidget, targetWidget);
+
+    setHudSelectedWidgets(reorderedWidgets);
+    setHudOrderAnnouncement(
+      `${messages.notificationWidgets[sourceWidget]} — ${messages.settings.widgetOrder}: ${reorderedWidgets.indexOf(sourceWidget) + 1}`,
+    );
+  }
+
+  function handleHudDragStart(event: DragEvent<HTMLElement>, widgetKey: NotificationWidgetKey) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", widgetKey);
+    setHudDraggedWidget(widgetKey);
+    setHudDragTargetWidget(null);
+  }
+
+  function handleHudDragOver(event: DragEvent<HTMLDivElement>, widgetKey: NotificationWidgetKey) {
+    if (!hudSelectedWidgets.includes(widgetKey)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setHudDragTargetWidget(widgetKey);
+  }
+
+  function handleHudDrop(event: DragEvent<HTMLDivElement>, widgetKey: NotificationWidgetKey) {
+    event.preventDefault();
+    const transferredWidget = event.dataTransfer.getData("text/plain");
+    const sourceWidget = hudSelectedWidgets.find((item) => item === transferredWidget) ?? hudDraggedWidget;
+
+    if (sourceWidget !== null && hudSelectedWidgets.includes(widgetKey)) {
+      commitHudWidgetOrder(sourceWidget, widgetKey);
+    }
+
+    handleHudDragEnd();
+  }
+
+  function handleHudDragEnd() {
+    setHudDraggedWidget(null);
+    setHudDragTargetWidget(null);
+  }
+
+  function handleHudReorderKeyDown(event: KeyboardEvent<HTMLElement>, widgetKey: NotificationWidgetKey) {
+    const currentIndex = hudSelectedWidgets.indexOf(widgetKey);
+    const direction = event.key === "ArrowUp" || event.key === "ArrowLeft"
+      ? -1
+      : event.key === "ArrowDown" || event.key === "ArrowRight"
+        ? 1
+        : 0;
+    const targetWidget = hudSelectedWidgets[currentIndex + direction];
+
+    if (direction === 0 || targetWidget === undefined) {
+      return;
+    }
+
+    event.preventDefault();
+    commitHudWidgetOrder(widgetKey, targetWidget);
   }
 
   async function saveNotificationPreferences() {
@@ -1165,7 +1264,7 @@ function defaultThresholdRuleForWidget(widgetKey: NotificationWidgetKey): Notifi
 }
 
 function defaultUsageThresholdRule(widgetKey: NotificationWidgetKey): NotificationAggregateThresholdRule {
-  if (widgetKey === "openai_today_tokens") {
+  if (widgetKey === "openai_today_tokens" || widgetKey === "codex_total_tokens") {
     return {
       operator: "gte",
       value: 100000,

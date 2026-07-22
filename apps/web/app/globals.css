@@ -2455,15 +2455,23 @@ select {
   background: var(--surface);
   border: 1px solid var(--border-soft);
   border-radius: 6px;
-  cursor: pointer;
   display: grid;
   gap: 7px;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   min-height: 48px;
   padding: 7px 8px;
 }
 
-.notification-hud-widget-card input {
+.notification-hud-widget-select {
+  align-items: start;
+  cursor: pointer;
+  display: grid;
+  gap: 7px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-width: 0;
+}
+
+.notification-hud-widget-select input {
   margin-top: 2px;
 }
 
@@ -2472,6 +2480,52 @@ select {
   font-size: 12px;
   line-height: 1.18;
   overflow-wrap: anywhere;
+}
+
+.notification-hud-drag-handle {
+  align-items: center;
+  align-self: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: grab;
+  display: inline-flex;
+  justify-content: center;
+  padding: 5px 3px;
+}
+
+.notification-hud-drag-handle:hover {
+  background: #edf9fb;
+  color: var(--teal);
+}
+
+.notification-hud-drag-handle:active {
+  cursor: grabbing;
+}
+
+.notification-hud-drag-handle:focus-visible {
+  border-color: var(--teal);
+  outline: 2px solid color-mix(in srgb, var(--teal) 24%, transparent);
+  outline-offset: 1px;
+}
+
+.notification-hud-widget-card-dragging {
+  opacity: 0.45;
+}
+
+.notification-hud-widget-card-drag-target {
+  border-color: var(--teal);
+  box-shadow: inset 0 0 0 1px var(--teal);
+}
+
+.notification-sr-only {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .notification-range {

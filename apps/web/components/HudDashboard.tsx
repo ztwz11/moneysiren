@@ -1004,7 +1004,7 @@ function widgetIconKind(widgetKey: Extract<HudItemView, { kind: "widget" }>["wid
     return "stale";
   }
 
-  if (widgetKey === "openai_today_tokens") {
+  if (widgetKey === "openai_today_tokens" || widgetKey === "codex_total_tokens") {
     return "tokens";
   }
 

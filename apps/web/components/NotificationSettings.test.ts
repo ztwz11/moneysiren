@@ -11,8 +11,10 @@ import {
   NOTIFICATION_THRESHOLD_MODES,
   NOTIFICATION_WIDGET_KEYS,
   USAGE_NOTIFICATION_WIDGET_KEYS,
+  orderHudWidgetCards,
   parseOptionalNonNegativeInteger,
   parseOptionalNonNegativeNumber,
+  reorderHudSelectedWidgets,
 } from "./NotificationSettingsModel";
 
 describe("notification settings defaults", () => {
@@ -84,5 +86,42 @@ describe("notification settings defaults", () => {
     expect(parseOptionalNonNegativeInteger("-15")).toBeNull();
     expect(parseOptionalNonNegativeInteger("0")).toBe(0);
     expect(parseOptionalNonNegativeInteger("12.7")).toBe(13);
+  });
+
+  it("places selected HUD cards first in their saved order", () => {
+    const selectedWidgets = [
+      "codex_weekly_percent",
+      "openai_today_tokens",
+      "codex_five_hour_percent",
+    ] as const;
+
+    const orderedCards = orderHudWidgetCards(selectedWidgets);
+
+    expect(orderedCards.slice(0, selectedWidgets.length)).toEqual(selectedWidgets);
+    expect(new Set(orderedCards)).toEqual(new Set(NOTIFICATION_WIDGET_KEYS));
+  });
+
+  it("reorders selected HUD widgets without changing the selection", () => {
+    const selectedWidgets = [
+      "openai_today_tokens",
+      "codex_five_hour_percent",
+      "codex_weekly_percent",
+    ] as const;
+
+    expect(reorderHudSelectedWidgets(
+      selectedWidgets,
+      "codex_weekly_percent",
+      "openai_today_tokens",
+    )).toEqual([
+      "codex_weekly_percent",
+      "openai_today_tokens",
+      "codex_five_hour_percent",
+    ]);
+
+    expect(reorderHudSelectedWidgets(
+      selectedWidgets,
+      "month_forecast",
+      "openai_today_tokens",
+    )).toEqual(selectedWidgets);
   });
 });

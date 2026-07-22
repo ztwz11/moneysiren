@@ -22,7 +22,9 @@ await mkdir(installDir, { recursive: true });
 const release = await fetchJson(`https://api.github.com/repos/${repository}/releases/tags/${encodeURIComponent(tag)}`);
 const assets = Array.isArray(release.assets) ? release.assets.filter(isAsset) : [];
 const checksumAssets = assets.filter((asset) => /sha256sums/i.test(asset.name));
-const payloadAssets = assets.filter((asset) => !/sha256sums|signature\.json/i.test(asset.name));
+const payloadAssets = assets.filter((asset) =>
+  !/sha256sums|signature\.json|unsigned-preview\.json/i.test(asset.name)
+);
 const windowsSignatureAsset = assets.find((asset) => /^moneysiren-tray-windows-SIGNATURE\.json$/i.test(asset.name));
 const windowsPayloadAssets = payloadAssets.filter((asset) => /\.(exe|msi)$/i.test(asset.name));
 const windowsSignatureMetadata = await readWindowsSignatureMetadata();

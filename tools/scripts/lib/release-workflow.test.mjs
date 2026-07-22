@@ -101,6 +101,12 @@ test("unsigned preview metadata is bound to the prerelease tag and source commit
   }, identity));
 });
 
+test("release readiness does not treat unsigned preview metadata as a checksummed payload", async () => {
+  const source = await readFile(resolve(root, "tools", "scripts", "check-release-readiness.mjs"), "utf8");
+
+  assert.match(source, /sha256sums\|signature\\\.json\|unsigned-preview\\\.json/i);
+});
+
 test("unsigned preview validation rejects stable, signed, or mismatched releases", () => {
   const identity = {
     sourceCommit: "b".repeat(40),

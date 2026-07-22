@@ -397,7 +397,7 @@ Release maintainers should verify published assets before announcing a desktop b
 ```bash
 npm run release:signing:encode-windows -- "<path-to-windows-code-signing.pfx>"
 npm run release:signing:check -- windows
-npm run release:check -- v0.1.7-beta.2 --allow-unsigned-prerelease-windows
+node tools/scripts/check-release-readiness.mjs --tag v0.1.7-beta.2 --allow-unsigned-prerelease-windows
 ```
 
 The encode helper writes the base64 certificate payload to `.tmp/codesign/windows-certificate.base64.txt` so maintainers can set the `WINDOWS_CERTIFICATE` repository secret without printing the private certificate to the terminal. Set `WINDOWS_CERTIFICATE_PASSWORD` to the PFX/P12 password in GitHub Secrets and in the local shell before running the signing readiness check. The signing check verifies local/CI signing inputs before a release run. The release check downloads the published assets, verifies SHA256 entries, requires Windows signature metadata, and validates Windows Authenticode signatures when run on Windows. If only one desktop signing identity is ready, run the `desktop-release` workflow with `desktop_targets=windows` or `desktop_targets=macos`; the publish step removes stale desktop assets for the skipped OS. Self-signed certificates are acceptable only for local smoke tests and do not fix public Windows publisher trust warnings.

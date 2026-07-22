@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../..");
 const iconDir = resolve(repoRoot, "apps/tray/src-tauri/icons");
-const size = 64;
+const traySize = 64;
+const appSize = 512;
+const appIcoSizes = [16, 20, 24, 32, 48, 64, 128, 256];
 const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
   let crc = index;
 
@@ -19,15 +21,23 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
 
 mkdirSync(iconDir, { recursive: true });
 
-const png = buildPng(size, size);
-writeFileSync(resolve(iconDir, "tray.png"), png);
-writeFileSync(resolve(iconDir, "tray.ico"), buildIco(png, size, size));
+const trayPng = buildPng(traySize, traySize);
+const appPng = buildPng(appSize, appSize);
+writeFileSync(resolve(iconDir, "tray.png"), trayPng);
+writeFileSync(resolve(iconDir, "tray.ico"), buildIco([{ png: trayPng, width: traySize, height: traySize }]));
+writeFileSync(resolve(iconDir, "app-icon.png"), appPng);
+writeFileSync(
+  resolve(iconDir, "app-icon.ico"),
+  buildIco(appIcoSizes.map((iconSize) => ({ png: buildPng(iconSize, iconSize), width: iconSize, height: iconSize }))),
+);
 writeFileSync(resolve(iconDir, "tray-template.svg"), buildTemplateSvg(), "utf8");
 
 console.log(`Generated tray icons in ${iconDir}`);
 
 function buildPng(width, height) {
   const data = Buffer.alloc((width * 4 + 1) * height);
+  const samplesPerAxis = 4;
+  const sampleCount = samplesPerAxis * samplesPerAxis;
 
   for (let y = 0; y < height; y += 1) {
     const rowOffset = y * (width * 4 + 1);
@@ -35,11 +45,32 @@ function buildPng(width, height) {
 
     for (let x = 0; x < width; x += 1) {
       const pixelOffset = rowOffset + 1 + x * 4;
-      const color = pixelColor(x, y, width, height);
-      data[pixelOffset] = color.r;
-      data[pixelOffset + 1] = color.g;
-      data[pixelOffset + 2] = color.b;
-      data[pixelOffset + 3] = color.a;
+      let alpha = 0;
+      let premultipliedRed = 0;
+      let premultipliedGreen = 0;
+      let premultipliedBlue = 0;
+
+      for (let sampleY = 0; sampleY < samplesPerAxis; sampleY += 1) {
+        for (let sampleX = 0; sampleX < samplesPerAxis; sampleX += 1) {
+          const color = pixelColor(
+            x + (sampleX + 0.5) / samplesPerAxis,
+            y + (sampleY + 0.5) / samplesPerAxis,
+            width,
+            height,
+          );
+          const sampleAlpha = color.a / 255;
+          alpha += sampleAlpha;
+          premultipliedRed += color.r * sampleAlpha;
+          premultipliedGreen += color.g * sampleAlpha;
+          premultipliedBlue += color.b * sampleAlpha;
+        }
+      }
+
+      const averageAlpha = alpha / sampleCount;
+      data[pixelOffset] = alpha === 0 ? 0 : Math.round(premultipliedRed / alpha);
+      data[pixelOffset + 1] = alpha === 0 ? 0 : Math.round(premultipliedGreen / alpha);
+      data[pixelOffset + 2] = alpha === 0 ? 0 : Math.round(premultipliedBlue / alpha);
+      data[pixelOffset + 3] = Math.round(averageAlpha * 255);
     }
   }
 
@@ -52,47 +83,74 @@ function buildPng(width, height) {
 }
 
 function pixelColor(x, y, width, height) {
-  const cx = width / 2;
-  const cy = height / 2;
-  const dx = x + 0.5 - cx;
-  const dy = y + 0.5 - cy;
-  const radius = Math.sqrt(dx * dx + dy * dy);
-  const inside = radius <= 29;
-  const inRing = radius >= 23 && radius <= 28;
-  const onLineA = distanceToSegment(x, y, 20, 22, 43, 34) < 2.1;
-  const onLineB = distanceToSegment(x, y, 20, 42, 43, 34) < 2.1;
-  const onNode = [
-    [20, 22],
-    [20, 42],
-    [43, 34],
-  ].some(([nodeX, nodeY]) => Math.hypot(x - nodeX, y - nodeY) < 5.4);
+  const scaleX = width / 64;
+  const scaleY = height / 64;
+  const px = x / scaleX;
+  const py = y / scaleY;
 
-  if (!inside) {
+  if (!insideRoundedRect(px, py, 2, 2, 60, 60, 13)) {
     return { r: 0, g: 0, b: 0, a: 0 };
   }
 
-  if (onLineA || onLineB || onNode) {
-    return { r: 255, g: 255, b: 255, a: 255 };
+  const darkTeal = { r: 0, g: 90, b: 109, a: 255 };
+  const cyan = { r: 66, g: 199, b: 217, a: 255 };
+  const amber = { r: 242, g: 160, b: 0, a: 255 };
+  const warmWhite = { r: 251, g: 250, b: 247, a: 255 };
+  const dx = px - 32;
+  const dy = py - 32.5;
+  const radius = Math.hypot(dx, dy);
+  let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+  if (angle < 0) {
+    angle += 360;
+  }
+  if (angle < 150) {
+    angle += 360;
   }
 
-  if (inRing) {
-    return { r: 48, g: 176, b: 189, a: 255 };
+  const inGaugeArc = radius >= 14.5 && radius <= 20 && angle >= 150 && angle <= 390;
+  const inBase = insideRoundedRect(px, py, 10.5, 40.5, 43, 6, 1.6);
+  const inNeedle = insideTriangle(px, py, 30.4, 32.6, 33.7, 35, 43.2, 21.2);
+  const inHub = Math.hypot(px - 32, py - 33.2) <= 3.3;
+  const inClapper = Math.hypot(px - 32, py - 49.2) <= 4.2 && py >= 47.2;
+
+  if (inClapper) {
+    return amber;
+  }
+  if (inBase) {
+    return warmWhite;
+  }
+  if (inNeedle || inHub) {
+    return cyan;
+  }
+  if (inGaugeArc) {
+    return angle >= 330 ? amber : cyan;
   }
 
-  return { r: 0, g: 98, b: 115, a: 255 };
+  return darkTeal;
 }
 
-function distanceToSegment(x, y, x1, y1, x2, y2) {
-  const ax = x - x1;
-  const ay = y - y1;
-  const bx = x2 - x1;
-  const by = y2 - y1;
-  const lengthSquared = bx * bx + by * by;
-  const t = Math.max(0, Math.min(1, (ax * bx + ay * by) / lengthSquared));
-  const px = x1 + t * bx;
-  const py = y1 + t * by;
+function insideRoundedRect(x, y, left, top, width, height, radius) {
+  const right = left + width;
+  const bottom = top + height;
+  const nearestX = Math.max(left + radius, Math.min(x, right - radius));
+  const nearestY = Math.max(top + radius, Math.min(y, bottom - radius));
 
-  return Math.hypot(x - px, y - py);
+  return x >= left && x <= right && y >= top && y <= bottom && Math.hypot(x - nearestX, y - nearestY) <= radius;
+}
+
+function insideTriangle(px, py, ax, ay, bx, by, cx, cy) {
+  const d1 = triangleSign(px, py, ax, ay, bx, by);
+  const d2 = triangleSign(px, py, bx, by, cx, cy);
+  const d3 = triangleSign(px, py, cx, cy, ax, ay);
+  const hasNegative = d1 < 0 || d2 < 0 || d3 < 0;
+  const hasPositive = d1 > 0 || d2 > 0 || d3 > 0;
+
+  return !(hasNegative && hasPositive);
+}
+
+function triangleSign(px, py, ax, ay, bx, by) {
+  return (px - bx) * (ay - by) - (ax - bx) * (py - by);
 }
 
 function ihdr(width, height) {
@@ -128,32 +186,39 @@ function crc32(buffer) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-function buildIco(png, width, height) {
+function buildIco(images) {
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);
   header.writeUInt16LE(1, 2);
-  header.writeUInt16LE(1, 4);
+  header.writeUInt16LE(images.length, 4);
 
-  const entry = Buffer.alloc(16);
-  entry[0] = width >= 256 ? 0 : width;
-  entry[1] = height >= 256 ? 0 : height;
-  entry[2] = 0;
-  entry[3] = 0;
-  entry.writeUInt16LE(1, 4);
-  entry.writeUInt16LE(32, 6);
-  entry.writeUInt32LE(png.length, 8);
-  entry.writeUInt32LE(header.length + entry.length, 12);
+  let imageOffset = header.length + images.length * 16;
+  const entries = images.map(({ png, width, height }) => {
+    const entry = Buffer.alloc(16);
+    entry[0] = width >= 256 ? 0 : width;
+    entry[1] = height >= 256 ? 0 : height;
+    entry[2] = 0;
+    entry[3] = 0;
+    entry.writeUInt16LE(1, 4);
+    entry.writeUInt16LE(32, 6);
+    entry.writeUInt32LE(png.length, 8);
+    entry.writeUInt32LE(imageOffset, 12);
+    imageOffset += png.length;
+    return entry;
+  });
 
-  return Buffer.concat([header, entry, png]);
+  return Buffer.concat([header, ...entries, ...images.map(({ png }) => png)]);
 }
 
 function buildTemplateSvg() {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <circle cx="32" cy="32" r="28" fill="#000"/>
-  <path d="M20 22 L43 34 L20 42" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="20" cy="22" r="6" fill="#fff"/>
-  <circle cx="20" cy="42" r="6" fill="#fff"/>
-  <circle cx="43" cy="34" r="6" fill="#fff"/>
+  <rect x="2" y="2" width="60" height="60" rx="13" fill="#005A6D"/>
+  <path d="M15.9 42.5 A17.5 17.5 0 0 1 45.3 19.1" fill="none" stroke="#42C7D9" stroke-width="5.5"/>
+  <path d="M45.3 19.1 A17.5 17.5 0 0 1 48.1 42.5" fill="none" stroke="#F2A000" stroke-width="5.5"/>
+  <rect x="10.5" y="40.5" width="43" height="6" rx="1.6" fill="#FBFAF7"/>
+  <path d="M30.4 32.6 L33.7 35 L43.2 21.2 Z" fill="#42C7D9"/>
+  <circle cx="32" cy="33.2" r="3.3" fill="#42C7D9"/>
+  <path d="M27.8 49.2 A4.2 4.2 0 0 0 36.2 49.2 L36.2 47.2 L27.8 47.2 Z" fill="#F2A000"/>
 </svg>
 `;
 }

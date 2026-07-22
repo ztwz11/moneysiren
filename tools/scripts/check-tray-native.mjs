@@ -15,6 +15,8 @@ const expectedFiles = [
   "src-tauri/icons/tray.png",
   "src-tauri/icons/tray.ico",
   "src-tauri/icons/tray-template.svg",
+  "src-tauri/icons/app-icon.png",
+  "src-tauri/icons/app-icon.ico",
 ];
 const actionIds = [
   "show-hud",
@@ -36,6 +38,16 @@ for (const file of expectedFiles) {
   assert(existsSync(resolve(trayRoot, file)), `Missing tray native file: ${file}`);
 }
 
+assertPngDimensions("src-tauri/icons/app-icon.png", 512, 512);
+assertPngDimensions("src-tauri/icons/tray.png", 64, 64);
+assertIcoSizes("src-tauri/icons/app-icon.ico", [16, 20, 24, 32, 48, 64, 128, 256]);
+assertIcoSizes("src-tauri/icons/tray.ico", [64]);
+
+const trayTemplate = read("src-tauri/icons/tray-template.svg");
+for (const brandColor of ["#005A6D", "#42C7D9", "#F2A000", "#FBFAF7"]) {
+  assert(trayTemplate.includes(brandColor), `Tray SVG must include brand color ${brandColor}.`);
+}
+
 const packageJson = JSON.parse(read("package.json"));
 for (const scriptName of ["native:check", "icons:generate", "tauri:dev", "tauri:build", "tauri:build:unsigned"]) {
   assert(typeof packageJson.scripts?.[scriptName] === "string", `Missing tray package script: ${scriptName}`);
@@ -52,8 +64,8 @@ assert(Array.isArray(config.app?.windows) && config.app.windows.length === 1, "T
 assert(config.app.windows[0]?.label === "main", "Tauri GUI window label must be main.");
 assert(config.app.windows[0]?.url === "http://127.0.0.1:3000/ko/dashboard/overview", "Tauri GUI window must open the local dashboard.");
 assert(config.app.windows[0]?.visible === true, "Tauri GUI window must be visible by default.");
-assert(JSON.stringify(config.bundle?.icon ?? []).includes("icons/tray.ico"), "Windows .ico icon must be configured.");
-assert(JSON.stringify(config.bundle?.icon ?? []).includes("icons/tray.png"), "PNG tray icon must be configured.");
+assert(JSON.stringify(config.bundle?.icon ?? []).includes("icons/app-icon.ico"), "Windows app .ico icon must be configured.");
+assert(JSON.stringify(config.bundle?.icon ?? []).includes("icons/app-icon.png"), "PNG app icon must be configured.");
 
 const capability = JSON.parse(read("src-tauri/capabilities/default.json"));
 assert(capability.windows?.includes("main"), "Tauri capability must include the main window.");
@@ -122,6 +134,31 @@ console.log("Tray native scaffold check passed.");
 
 function read(relativePath) {
   return readFileSync(resolve(trayRoot, relativePath), "utf8");
+}
+
+function assertPngDimensions(relativePath, expectedWidth, expectedHeight) {
+  const image = readFileSync(resolve(trayRoot, relativePath));
+  const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+  assert(image.subarray(0, 8).equals(pngSignature), `${relativePath} must be a PNG image.`);
+  assert(image.readUInt32BE(16) === expectedWidth, `${relativePath} must be ${expectedWidth}px wide.`);
+  assert(image.readUInt32BE(20) === expectedHeight, `${relativePath} must be ${expectedHeight}px high.`);
+}
+
+function assertIcoSizes(relativePath, expectedSizes) {
+  const image = readFileSync(resolve(trayRoot, relativePath));
+
+  assert(image.readUInt16LE(0) === 0 && image.readUInt16LE(2) === 1, `${relativePath} must be an ICO image.`);
+  assert(image.readUInt16LE(4) === expectedSizes.length, `${relativePath} must contain ${expectedSizes.length} images.`);
+
+  expectedSizes.forEach((expectedSize, index) => {
+    const entryOffset = 6 + index * 16;
+    const width = image[entryOffset] === 0 ? 256 : image[entryOffset];
+    const height = image[entryOffset + 1] === 0 ? 256 : image[entryOffset + 1];
+
+    assert(width === expectedSize, `${relativePath} entry ${index + 1} must be ${expectedSize}px wide.`);
+    assert(height === expectedSize, `${relativePath} entry ${index + 1} must be ${expectedSize}px high.`);
+  });
 }
 
 function assert(condition, message) {

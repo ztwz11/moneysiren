@@ -23,15 +23,19 @@ describe("MoneySiren release installer", () => {
       "",
     ].join("\n");
     const requests: string[] = [];
+    const releaseRequestAuthorization: string[] = [];
     const signatureVerifierInputs: string[] = [];
 
     const result = await installReleaseAssets({
-      env: {},
-      fetchImpl: async (input) => {
+      env: {
+        GITHUB_TOKEN: "FAKE_CI_GITHUB_TOKEN",
+      },
+      fetchImpl: async (input, init) => {
         const url = String(input);
         requests.push(url);
 
         if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.0")) {
+          releaseRequestAuthorization.push(new Headers(init?.headers).get("Authorization") ?? "");
           return Response.json({
             html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.0",
             assets: [
@@ -100,6 +104,7 @@ describe("MoneySiren release installer", () => {
     expect(manifest).toContain("\"signatureVerified\": true");
     expect(signatureVerifierInputs).toContain(`${hudAsset}:${expectedSignerThumbprint}`);
     expect(requests).toContain("https://api.github.com/repos/ztwz11/moneysiren/releases/tags/v0.1.0");
+    expect(releaseRequestAuthorization).toEqual(["Bearer FAKE_CI_GITHUB_TOKEN"]);
     expect(requests.some((url) => url.endsWith(hudInstallerAsset))).toBe(false);
   });
 
@@ -359,9 +364,9 @@ describe("MoneySiren release installer", () => {
     const fetchImpl = async (input: RequestInfo | URL) => {
       const url = String(input);
 
-      if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.7-beta.5")) {
+      if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.7-beta.6")) {
         return Response.json({
-          html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.7-beta.5",
+          html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.7-beta.6",
           assets: [
             releaseAsset(hudAsset),
             releaseAsset("moneysiren-tray-macos-SHA256SUMS.txt"),
@@ -391,7 +396,7 @@ describe("MoneySiren release installer", () => {
       installDir,
       platform: "darwin",
       selectedSurfaces: ["hud"],
-      tag: "v0.1.7-beta.5",
+      tag: "v0.1.7-beta.6",
     });
 
     expect(result.assets).toHaveLength(1);
@@ -405,7 +410,7 @@ describe("MoneySiren release installer", () => {
       installDir: join(cwd, "rejected"),
       platform: "darwin",
       selectedSurfaces: ["hud"],
-      tag: "v0.1.7-beta.5",
+      tag: "v0.1.7-beta.6",
     })).rejects.toThrow(`Release asset signature verification failed for ${hudAsset}: invalid-macos-signature`);
   });
 

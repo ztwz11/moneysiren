@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 
 export const DEFAULT_RELEASE_REPOSITORY = "ztwz11/moneysiren";
 // Keep the source-free installer pinned to the latest published desktop/web release tag.
-export const DEFAULT_RELEASE_TAG = "v0.1.7-beta.5";
+export const DEFAULT_RELEASE_TAG = "v0.1.7-beta.6";
 
 export interface ReleaseInstallOptions {
   env?: Record<string, string | undefined>;
@@ -97,8 +97,10 @@ export async function installReleaseAssets(options: ReleaseInstallOptions): Prom
     platform,
     tag,
   });
+  const githubToken = resolveGitHubToken(env);
   const release = await fetchRelease({
     fetchImpl: options.fetchImpl,
+    ...(githubToken === null ? {} : { githubToken }),
     repository,
     tag,
   });
@@ -261,6 +263,7 @@ function normalizePlatform(platform: string): NodeJS.Platform {
 
 async function fetchRelease(input: {
   fetchImpl: typeof fetch;
+  githubToken?: string;
   repository: string;
   tag: string;
 }): Promise<GitHubRelease> {
@@ -269,6 +272,7 @@ async function fetchRelease(input: {
     {
       headers: {
         Accept: "application/vnd.github+json",
+        ...(input.githubToken === undefined ? {} : { Authorization: `Bearer ${input.githubToken}` }),
         "User-Agent": "moneysiren-cli-release-installer",
       },
     },
@@ -728,6 +732,10 @@ function trimToNull(value: string | undefined): string | null {
   const trimmed = value?.trim();
 
   return trimmed === undefined || trimmed.length === 0 ? null : trimmed;
+}
+
+function resolveGitHubToken(env: Record<string, string | undefined>): string | null {
+  return trimToNull(env.GITHUB_TOKEN) ?? trimToNull(env.GH_TOKEN);
 }
 
 function joinForPlatform(platform: NodeJS.Platform, ...segments: string[]): string {

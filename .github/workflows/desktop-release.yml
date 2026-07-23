@@ -637,7 +637,10 @@ jobs:
   public-smoke:
     name: public-release-windows-hud-smoke
     needs: publish
-    if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == 'windows'
+    if: >-
+      always() &&
+      needs.publish.result == 'success' &&
+      (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == 'windows')
     runs-on: windows-latest
 
     steps:
@@ -681,7 +684,10 @@ jobs:
   public-smoke-macos:
     name: public-release-macos-hud-smoke
     needs: publish
-    if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == 'macos'
+    if: >-
+      always() &&
+      needs.publish.result == 'success' &&
+      (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == 'macos')
     runs-on: macos-latest
 
     steps:

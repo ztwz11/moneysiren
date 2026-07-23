@@ -49,6 +49,8 @@ test("Windows and macOS candidate and public HUD smokes gate npm publication", a
   assert.match(source, /moneysiren-tray-macos-UNSIGNED-PREVIEW\.json/);
   assert.match(source, /candidate-smoke-macos:[\s\S]*smoke-installed-package\.mjs[\s\S]*--candidate-dir/);
   assert.match(source, /public-smoke-macos:[\s\S]*smoke-installed-package\.mjs[\s\S]*--package/);
+  assert.match(source, /public-smoke:[\s\S]*always\(\)[\s\S]*needs\.publish\.result == 'success'/);
+  assert.match(source, /public-smoke-macos:[\s\S]*always\(\)[\s\S]*needs\.publish\.result == 'success'/);
   assert.match(source, /publish-npm:[\s\S]*dist_tag:[\s\S]*'next'/);
   assert.match(source, /publish-npm:[\s\S]*needs:[\s\S]*public-smoke[\s\S]*public-smoke-macos/);
   assert.match(source, /uses: \.\/\.github\/workflows\/npm-publish-cli\.yml/);

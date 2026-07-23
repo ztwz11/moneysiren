@@ -1,5 +1,5 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, win32 } from "node:path";
 import { promisify } from "node:util";
@@ -14,6 +14,9 @@ const CODEX_APP_SERVER_CACHE_MS = 30_000;
 const CODEX_RESET_CREDIT_DEFAULT_TTL_DAYS = 30;
 const CODEX_RESET_CREDIT_OBSERVATION_FILE = "codex-reset-credit-observations.json";
 const MAX_LOCAL_USAGE_FILES = 400;
+const MAX_LOCAL_STATUS_USAGE_FILES = 48;
+const MAX_LOCAL_STATUS_FILE_BYTES = 512 * 1024;
+const MAX_LOCAL_STATUS_CLASSIFICATION_BYTES = 64 * 1024;
 const LOCAL_AI_CLI_STATUS_CACHE_MS = 30_000;
 const AWS_PROFILE_NAME_PATTERN = /^[A-Za-z0-9_.:@+=,-]{1,80}$/;
 const PROVIDER_ENV_VALUE_MAX_LENGTH = 8_000;
@@ -1581,7 +1584,7 @@ async function readJsonlUsageFiles(options: {
   const periodStart = new Date(Date.UTC(options.now.getUTCFullYear(), options.now.getUTCMonth(), 1));
   const files = (await listJsonlFiles(options.root, periodStart))
     .sort((left, right) => right.modifiedAt.getTime() - left.modifiedAt.getTime())
-    .slice(0, MAX_LOCAL_USAGE_FILES);
+    .slice(0, MAX_LOCAL_STATUS_USAGE_FILES);
   const accumulator = createUsageAccumulator(options.providerKind, options.env, options.now, options.providerKey);
 
   for (const file of files) {
@@ -1730,13 +1733,7 @@ async function readJsonlDailyUsageBuckets(options: {
 }
 
 async function detectCodexSessionSurface(path: string): Promise<"app" | "cli" | "unknown"> {
-  let content = "";
-
-  try {
-    content = await readFile(path, "utf8");
-  } catch {
-    return "unknown";
-  }
+  const content = await readBoundedText(path, MAX_LOCAL_STATUS_CLASSIFICATION_BYTES, "start");
 
   for (const line of content.split(/\r?\n/)) {
     const trimmed = line.trim();
@@ -1768,13 +1765,7 @@ async function detectCodexSessionSurface(path: string): Promise<"app" | "cli" | 
 }
 
 async function readJsonlUsageFile(path: string, accumulator: UsageAccumulator): Promise<void> {
-  let content = "";
-
-  try {
-    content = await readFile(path, "utf8");
-  } catch {
-    return;
-  }
+  const content = await readBoundedText(path, MAX_LOCAL_STATUS_FILE_BYTES, "end");
 
   for (const line of content.split(/\r?\n/)) {
     const trimmed = line.trim();
@@ -1792,6 +1783,40 @@ async function readJsonlUsageFile(path: string, accumulator: UsageAccumulator): 
     } catch {
       // Some local session files include non-JSON control lines; skip them without exposing content.
     }
+  }
+}
+
+async function readBoundedText(
+  path: string,
+  maxBytes: number,
+  position: "start" | "end",
+): Promise<string> {
+  let handle: Awaited<ReturnType<typeof open>> | null = null;
+
+  try {
+    handle = await open(path, "r");
+    const fileStat = await handle.stat();
+    const byteLength = Math.min(fileStat.size, maxBytes);
+
+    if (byteLength <= 0) {
+      return "";
+    }
+
+    const offset = position === "end" ? Math.max(0, fileStat.size - byteLength) : 0;
+    const buffer = Buffer.allocUnsafe(byteLength);
+    const { bytesRead } = await handle.read(buffer, 0, byteLength, offset);
+    let content = buffer.subarray(0, bytesRead).toString("utf8");
+
+    if (offset > 0) {
+      const firstNewline = content.indexOf("\n");
+      content = firstNewline === -1 ? "" : content.slice(firstNewline + 1);
+    }
+
+    return content;
+  } catch {
+    return "";
+  } finally {
+    await handle?.close().catch(() => undefined);
   }
 }
 

@@ -945,6 +945,52 @@ describe("local tool status", () => {
     expect(JSON.stringify(status)).not.toContain("FAKE_CUSTOM_CODEX_PROMPT");
   });
 
+  it("reads only the bounded tail of oversized Codex status logs", async () => {
+    const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-bounded-codex-status-"));
+    const codexSessionDir = join(homeDir, ".codex", "sessions", "2026", "06", "10");
+    const promptSentinel = "FAKE_OVERSIZED_PRIVATE_PROMPT_DO_NOT_RETURN";
+    await mkdir(codexSessionDir, { recursive: true });
+    await writeFile(join(codexSessionDir, "rollout-oversized.jsonl"), [
+      JSON.stringify({
+        timestamp: "2026-06-10T00:00:00.000Z",
+        type: "session_meta",
+        payload: {
+          prompt: promptSentinel,
+          padding: "x".repeat(600 * 1024),
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-06-10T01:00:00.000Z",
+        type: "response_item",
+        payload: {
+          usage: {
+            input_tokens: 10,
+            output_tokens: 5,
+          },
+        },
+      }),
+    ].join("\n"), "utf8");
+
+    const status = await readLocalAiCliStatus({
+      homeDir,
+      now: () => new Date("2026-06-10T05:00:00.000Z"),
+      providerKeys: ["codex-cli"],
+      runCommand: async (file) => ({
+        stdout: `${file} 1.2.3`,
+      }),
+    });
+    const codex = status.providers.find((provider) => provider.providerKey === "codex-cli");
+
+    expect(codex?.usage).toMatchObject({
+      logFileCount: 1,
+      parsedUsageRecordCount: 1,
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+    });
+    expect(JSON.stringify(status)).not.toContain(promptSentinel);
+  });
+
   it("separates Codex App sessions and reads usage reset credit expiry metadata", async () => {
     const homeDir = await mkdtemp(join(tmpdir(), "moneysiren-codex-app-"));
     const codexAppDir = join(homeDir, "CodexApp");

@@ -1,6 +1,6 @@
 {
   "name": "moneysiren-workspace",
-  "version": "0.1.7-beta.6",
+  "version": "0.1.7-beta.7",
   "description": "Local-first AI/cloud/SaaS usage and cost observability dashboard for open-source maintainers.",
   "private": true,
   "license": "MIT",

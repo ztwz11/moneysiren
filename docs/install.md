@@ -115,7 +115,7 @@ For CLI-only automation, install `@moneysiren/cli` instead and run `msiren insta
 To pin a release tag or choose a directory for the web runtime:
 
 ```bash
-msiren install --web --tag v0.1.7-beta.8 --dir ./moneysiren-release
+msiren install --web --tag v0.1.7-beta.9 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -353,7 +353,7 @@ An unsigned preview is a prerelease, not a stable release. Install the npm `next
 
 ```powershell
 npm install -g @moneysiren/app@next
-msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.8
+msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.9
 ```
 
 The release must provide `moneysiren-tray-windows-SHA256SUMS.txt` and `moneysiren-tray-windows-UNSIGNED-PREVIEW.json`. The CLI verifies the SHA256 entry before installation, but Windows may still show Unknown Publisher or SmartScreen warnings and managed Windows policy may block execution. Do not turn off Defender, SmartScreen, or Smart App Control globally to install a preview.
@@ -366,7 +366,7 @@ Install the matching npm `next` package and opt in to the unsigned app:
 
 ```bash
 npm install -g @moneysiren/app@next
-msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.8
+msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.9
 msiren hud
 ```
 
@@ -376,7 +376,7 @@ Before announcing the preview, verify its published checksum and metadata bounda
 
 ```bash
 node tools/scripts/check-release-readiness.mjs \
-  --tag v0.1.7-beta.8 \
+  --tag v0.1.7-beta.9 \
   --allow-unsigned-prerelease-macos \
   --source-commit <40-hex-sha>
 ```

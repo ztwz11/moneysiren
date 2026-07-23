@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { mkdir, mkdtemp, readdir, rm, unlink, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, posix, resolve, win32 } from "node:path";
 import { promisify } from "node:util";
 import type { InstallSurface } from "./install-profile.js";
@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 
 export const DEFAULT_RELEASE_REPOSITORY = "ztwz11/moneysiren";
 // Keep the source-free installer pinned to the latest published desktop/web release tag.
-export const DEFAULT_RELEASE_TAG = "v0.1.7-beta.3";
+export const DEFAULT_RELEASE_TAG = "v0.1.7-beta.4";
 
 export interface ReleaseInstallOptions {
   env?: Record<string, string | undefined>;
@@ -439,7 +439,36 @@ async function verifyReleaseAssetSignature(input: {
 
 const defaultReleaseAssetSignatureVerifier: ReleaseAssetSignatureVerifier = {
   async verify(input) {
-    if (input.surface !== "hud" || input.platform !== "win32") {
+    if (input.surface !== "hud") {
+      return {
+        verified: true,
+        status: "not-required",
+        message: "No platform signature check is required for this release asset.",
+      };
+    }
+
+    if (input.platform === "darwin") {
+      if (!/\.tar\.gz$/i.test(input.assetName)) {
+        return {
+          verified: false,
+          status: "unsupported",
+          message: "macOS HUD release assets must be .tar.gz app archives.",
+        };
+      }
+
+      const unsignedHudAllowance = unsignedHudAllowanceStatus(input.env, input.tag, false);
+      if (unsignedHudAllowance !== null) {
+        return {
+          verified: true,
+          status: unsignedHudAllowance,
+          message: "Unsigned macOS HUD artifact accepted by explicit local opt-in.",
+        };
+      }
+
+      return verifyMacOSAppArchiveSignature(input.path);
+    }
+
+    if (input.platform !== "win32") {
       return {
         verified: true,
         status: "not-required",
@@ -456,7 +485,7 @@ const defaultReleaseAssetSignatureVerifier: ReleaseAssetSignatureVerifier = {
     }
 
     if (input.expectedSignerThumbprints === undefined || input.expectedSignerThumbprints.length === 0) {
-      const unsignedHudAllowance = unsignedHudAllowanceStatus(input.env, input.tag);
+      const unsignedHudAllowance = unsignedHudAllowanceStatus(input.env, input.tag, true);
 
       if (unsignedHudAllowance !== null) {
         return {
@@ -529,14 +558,79 @@ function isVerifiedSignatureStatus(status: string): boolean {
     status !== "unsigned-opt-in-accepted";
 }
 
-function unsignedHudAllowanceStatus(env: Record<string, string | undefined>, tag: string): string | null {
+function unsignedHudAllowanceStatus(
+  env: Record<string, string | undefined>,
+  tag: string,
+  allowPrereleaseDefault: boolean,
+): string | null {
   const configured = env[ALLOW_UNSIGNED_HUD_ENV_KEY]?.trim().toLowerCase();
 
   if (configured !== undefined && configured.length > 0) {
     return ["1", "true", "yes", "on"].includes(configured) ? "unsigned-opt-in-accepted" : null;
   }
 
-  return /-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(tag) ? "unsigned-prerelease-accepted" : null;
+  return allowPrereleaseDefault && /-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(tag)
+    ? "unsigned-prerelease-accepted"
+    : null;
+}
+
+async function verifyMacOSAppArchiveSignature(path: string): Promise<ReleaseAssetSignatureVerificationResult> {
+  const extractDir = await mkdtemp(join(tmpdir(), "moneysiren-macos-signature-"));
+
+  try {
+    const { stdout: listing } = await execFileAsync("tar", ["-tzf", path], {
+      maxBuffer: 1024 * 1024,
+      timeout: 30_000,
+    });
+    const entries = listing.split(/\r?\n/).filter(Boolean);
+
+    if (
+      entries.length === 0 ||
+      entries.some((entry) =>
+        entry.startsWith("/") ||
+        entry.startsWith("\\") ||
+        entry.split(/[\\/]/).includes("..")
+      )
+    ) {
+      return {
+        verified: false,
+        status: "invalid-archive",
+        message: "macOS HUD archive contains an unsafe or empty path layout.",
+      };
+    }
+
+    await execFileAsync("tar", ["-xzf", path, "-C", extractDir], { timeout: 60_000 });
+    const topLevel = await readdir(extractDir, { withFileTypes: true });
+    const appEntries = topLevel.filter((entry) => entry.isDirectory() && entry.name.endsWith(".app"));
+
+    if (appEntries.length !== 1) {
+      return {
+        verified: false,
+        status: "invalid-app-bundle",
+        message: "macOS HUD archive must contain exactly one top-level .app bundle.",
+      };
+    }
+
+    const appPath = join(extractDir, appEntries[0]!.name);
+    await execFileAsync("codesign", ["--verify", "--deep", "--strict", "--verbose=2", appPath], {
+      timeout: 60_000,
+    });
+    await execFileAsync("spctl", ["-a", "-t", "exec", appPath], { timeout: 60_000 });
+
+    return {
+      verified: true,
+      status: "verified-macos-signature",
+      message: "macOS HUD app signature and Gatekeeper assessment are valid.",
+    };
+  } catch {
+    return {
+      verified: false,
+      status: "invalid-macos-signature",
+      message: "macOS HUD app signature or Gatekeeper assessment failed.",
+    };
+  } finally {
+    await rm(extractDir, { recursive: true, force: true }).catch(() => undefined);
+  }
 }
 
 async function verifyWindowsAuthenticodeSignature(

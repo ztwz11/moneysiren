@@ -206,3 +206,23 @@ verified publisher, silently replace a stable asset, or be installed by the
 stable channel without explicit unsigned opt-in.
 
 Status: accepted.
+
+## D020 - Explicit unsigned macOS preview channel
+
+Decision: macOS `.app` archives without Apple Developer signing and notarization
+may be published only through a manually dispatched prerelease with `prerelease`
+and `unsigned_macos_preview` explicitly enabled. Stable tag pushes remain
+fail-closed.
+
+Rationale: this permits early macOS HUD testing without purchasing an Apple
+Developer membership while preserving the stable trust boundary. The workflow
+builds on `macos-latest`, publishes a SHA256 manifest and machine-readable
+unsigned metadata, and gates publication with macOS candidate and public smokes.
+
+Security boundary: the CLI requires `--allow-unsigned-hud`, the metadata must be
+bound to the exact prerelease tag and source commit, and the UI/docs must state
+that Gatekeeper can warn or block first launch. MoneySiren never disables
+Gatekeeper, claims a verified publisher, or treats an unsigned preview as stable.
+Signed macOS archives continue to be verified with `codesign` and `spctl`.
+
+Status: accepted.

@@ -3,6 +3,10 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { promisify } from "node:util";
+import {
+  validateUnsignedPreviewMetadata,
+  validateUnsignedPreviewRelease,
+} from "./lib/unsigned-preview.mjs";
 
 const execFileAsync = promisify(execFile);
 const args = parseArgs(process.argv.slice(2));
@@ -14,6 +18,8 @@ const downloadLimit = Number.parseInt(args.maxBytes ?? `${256 * 1024 * 1024}`, 1
 const metadataDownloadLimit = 1024 * 1024;
 const allowUnsignedPrereleaseWindows =
   args.allowUnsignedPrereleaseWindows === true && /-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(tag);
+const allowUnsignedPrereleaseMacos =
+  args.allowUnsignedPrereleaseMacos === true && /-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(tag);
 const failures = [];
 
 await rm(installDir, { recursive: true, force: true });
@@ -38,6 +44,7 @@ for (const asset of payloadAssets) {
 }
 
 await verifyWindowsSignatureMetadata();
+await verifyMacOSPreviewMetadata();
 
 if (failures.length > 0) {
   console.error(`Release readiness failed for ${repository}@${tag}`);
@@ -120,6 +127,35 @@ async function verifyWindowsSignatureMetadata() {
         failures.push(`Missing valid signature metadata entry for ${asset.name}.`);
       }
     }
+  }
+}
+
+async function verifyMacOSPreviewMetadata() {
+  const macOSPayloadAssets = payloadAssets.filter((asset) =>
+    /macos/i.test(asset.name) && /\.tar\.gz$/i.test(asset.name)
+  );
+
+  if (macOSPayloadAssets.length === 0 || !allowUnsignedPrereleaseMacos) {
+    return;
+  }
+
+  try {
+    const identity = {
+      platform: "darwin",
+      sourceCommit: typeof release.target_commitish === "string" && /^[a-f0-9]{40}$/i.test(release.target_commitish)
+        ? release.target_commitish
+        : args.sourceCommit,
+      tag,
+    };
+    if (typeof identity.sourceCommit !== "string" || !/^[a-f0-9]{40}$/i.test(identity.sourceCommit)) {
+      failures.push("Unsigned macOS preview validation requires --source-commit <40-hex-sha>.");
+      return;
+    }
+
+    const metadataUrl = validateUnsignedPreviewRelease(release, identity);
+    validateUnsignedPreviewMetadata(await fetchJson(metadataUrl), identity);
+  } catch (error) {
+    failures.push(error instanceof Error ? error.message : "UNSIGNED_MACOS_PREVIEW_METADATA_INVALID");
   }
 }
 
@@ -294,6 +330,10 @@ function parseArgs(values) {
       parsed.maxBytes = values[++index];
     } else if (value === "--allow-unsigned-prerelease-windows") {
       parsed.allowUnsignedPrereleaseWindows = true;
+    } else if (value === "--allow-unsigned-prerelease-macos") {
+      parsed.allowUnsignedPrereleaseMacos = true;
+    } else if (value === "--source-commit") {
+      parsed.sourceCommit = values[++index];
     } else if (!value.startsWith("--") && parsed.tag === undefined) {
       parsed.tag = value;
     } else {

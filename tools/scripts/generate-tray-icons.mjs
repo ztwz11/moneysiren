@@ -6,9 +6,19 @@ import { fileURLToPath } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../..");
 const iconDir = resolve(repoRoot, "apps/tray/src-tauri/icons");
+const webAppDir = resolve(repoRoot, "apps/web/app");
 const traySize = 64;
 const appSize = 512;
 const appIcoSizes = [16, 20, 24, 32, 48, 64, 128, 256];
+const appIcnsSizes = [
+  ["icp4", 16],
+  ["icp5", 32],
+  ["icp6", 64],
+  ["ic07", 128],
+  ["ic08", 256],
+  ["ic09", 512],
+  ["ic10", 1024],
+];
 const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
   let crc = index;
 
@@ -20,23 +30,35 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
 });
 
 mkdirSync(iconDir, { recursive: true });
+mkdirSync(webAppDir, { recursive: true });
 
 const trayPng = buildPng(traySize, traySize);
 const appPng = buildPng(appSize, appSize);
+const appPngBySize = new Map(
+  [...new Set([...appIcoSizes, ...appIcnsSizes.map(([, size]) => size)])]
+    .map((size) => [size, size === appSize ? appPng : buildPng(size, size)]),
+);
 writeFileSync(resolve(iconDir, "tray.png"), trayPng);
 writeFileSync(resolve(iconDir, "tray.ico"), buildIco([{ png: trayPng, width: traySize, height: traySize }]));
+writeFileSync(resolve(iconDir, "tray-macos-template.png"), buildPng(traySize, traySize, templatePixelColor));
 writeFileSync(resolve(iconDir, "app-icon.png"), appPng);
 writeFileSync(
   resolve(iconDir, "app-icon.ico"),
-  buildIco(appIcoSizes.map((iconSize) => ({ png: buildPng(iconSize, iconSize), width: iconSize, height: iconSize }))),
+  buildIco(appIcoSizes.map((iconSize) => ({ png: appPngBySize.get(iconSize), width: iconSize, height: iconSize }))),
+);
+writeFileSync(
+  resolve(iconDir, "app-icon.icns"),
+  buildIcns(appIcnsSizes.map(([type, size]) => ({ type, png: appPngBySize.get(size) }))),
 );
 writeFileSync(resolve(iconDir, "tray-template.svg"), buildTemplateSvg(), "utf8");
+writeFileSync(resolve(webAppDir, "icon.png"), appPng);
+writeFileSync(resolve(webAppDir, "apple-icon.png"), buildPng(180, 180));
 
 console.log(`Generated tray icons in ${iconDir}`);
 
-function buildPng(width, height) {
+function buildPng(width, height, colorAt = pixelColor) {
   const data = Buffer.alloc((width * 4 + 1) * height);
-  const samplesPerAxis = 4;
+  const samplesPerAxis = width > 512 || height > 512 ? 2 : 4;
   const sampleCount = samplesPerAxis * samplesPerAxis;
 
   for (let y = 0; y < height; y += 1) {
@@ -52,7 +74,7 @@ function buildPng(width, height) {
 
       for (let sampleY = 0; sampleY < samplesPerAxis; sampleY += 1) {
         for (let sampleX = 0; sampleX < samplesPerAxis; sampleX += 1) {
-          const color = pixelColor(
+          const color = colorAt(
             x + (sampleX + 0.5) / samplesPerAxis,
             y + (sampleY + 0.5) / samplesPerAxis,
             width,
@@ -80,6 +102,34 @@ function buildPng(width, height) {
     chunk("IDAT", deflateSync(data)),
     chunk("IEND", Buffer.alloc(0)),
   ]);
+}
+
+function templatePixelColor(x, y, width, height) {
+  const scaleX = width / 64;
+  const scaleY = height / 64;
+  const px = x / scaleX;
+  const py = y / scaleY;
+  const dx = px - 32;
+  const dy = py - 32.5;
+  const radius = Math.hypot(dx, dy);
+  let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+  if (angle < 0) {
+    angle += 360;
+  }
+  if (angle < 150) {
+    angle += 360;
+  }
+
+  const inGaugeArc = radius >= 14.5 && radius <= 20 && angle >= 150 && angle <= 390;
+  const inBase = insideRoundedRect(px, py, 10.5, 40.5, 43, 6, 1.6);
+  const inNeedle = insideTriangle(px, py, 30.4, 32.6, 33.7, 35, 43.2, 21.2);
+  const inHub = Math.hypot(px - 32, py - 33.2) <= 3.3;
+  const inClapper = Math.hypot(px - 32, py - 49.2) <= 4.2 && py >= 47.2;
+
+  return inGaugeArc || inBase || inNeedle || inHub || inClapper
+    ? { r: 0, g: 0, b: 0, a: 255 }
+    : { r: 0, g: 0, b: 0, a: 0 };
 }
 
 function pixelColor(x, y, width, height) {
@@ -208,6 +258,19 @@ function buildIco(images) {
   });
 
   return Buffer.concat([header, ...entries, ...images.map(({ png }) => png)]);
+}
+
+function buildIcns(images) {
+  const chunks = images.map(({ type, png }) => {
+    const header = Buffer.alloc(8);
+    header.write(type, 0, 4, "ascii");
+    header.writeUInt32BE(png.length + 8, 4);
+    return Buffer.concat([header, png]);
+  });
+  const header = Buffer.alloc(8);
+  header.write("icns", 0, 4, "ascii");
+  header.writeUInt32BE(8 + chunks.reduce((total, value) => total + value.length, 0), 4);
+  return Buffer.concat([header, ...chunks]);
 }
 
 function buildTemplateSvg() {

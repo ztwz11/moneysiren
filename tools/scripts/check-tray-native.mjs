@@ -14,9 +14,13 @@ const expectedFiles = [
   "src-tauri/assets/index.html",
   "src-tauri/icons/tray.png",
   "src-tauri/icons/tray.ico",
+  "src-tauri/icons/tray-macos-template.png",
   "src-tauri/icons/tray-template.svg",
   "src-tauri/icons/app-icon.png",
   "src-tauri/icons/app-icon.ico",
+  "src-tauri/icons/app-icon.icns",
+  "../web/app/icon.png",
+  "../web/app/apple-icon.png",
 ];
 const actionIds = [
   "show-hud",
@@ -40,8 +44,12 @@ for (const file of expectedFiles) {
 
 assertPngDimensions("src-tauri/icons/app-icon.png", 512, 512);
 assertPngDimensions("src-tauri/icons/tray.png", 64, 64);
+assertPngDimensions("src-tauri/icons/tray-macos-template.png", 64, 64);
+assertPngDimensions("../web/app/icon.png", 512, 512);
+assertPngDimensions("../web/app/apple-icon.png", 180, 180);
 assertIcoSizes("src-tauri/icons/app-icon.ico", [16, 20, 24, 32, 48, 64, 128, 256]);
 assertIcoSizes("src-tauri/icons/tray.ico", [64]);
+assertIcnsChunks("src-tauri/icons/app-icon.icns", ["icp4", "icp5", "icp6", "ic07", "ic08", "ic09", "ic10"]);
 
 const trayTemplate = read("src-tauri/icons/tray-template.svg");
 for (const brandColor of ["#005A6D", "#42C7D9", "#F2A000", "#FBFAF7"]) {
@@ -65,6 +73,7 @@ assert(config.app.windows[0]?.label === "main", "Tauri GUI window label must be 
 assert(config.app.windows[0]?.url === "http://127.0.0.1:3000/ko/dashboard/overview", "Tauri GUI window must open the local dashboard.");
 assert(config.app.windows[0]?.visible === true, "Tauri GUI window must be visible by default.");
 assert(JSON.stringify(config.bundle?.icon ?? []).includes("icons/app-icon.ico"), "Windows app .ico icon must be configured.");
+assert(JSON.stringify(config.bundle?.icon ?? []).includes("icons/app-icon.icns"), "macOS app .icns icon must be configured.");
 assert(JSON.stringify(config.bundle?.icon ?? []).includes("icons/app-icon.png"), "PNG app icon must be configured.");
 
 const capability = JSON.parse(read("src-tauri/capabilities/default.json"));
@@ -95,6 +104,8 @@ for (const feature of ["image-ico", "image-png", "macos-private-api", "tray-icon
 
 const mainRs = read("src-tauri/src/main.rs");
 assert(mainRs.includes("TrayIconBuilder"), "Rust entrypoint must build a tray icon.");
+assert(mainRs.includes("tray-macos-template.png"), "Rust entrypoint must use the macOS template tray icon.");
+assert(mainRs.includes("icon_as_template(true)"), "macOS tray icon must opt into system template tinting.");
 assert(mainRs.includes("show_menu_on_left_click(true)"), "Tray menu should open from the tray icon.");
 assert(mainRs.includes("get_webview_window(\"main\")"), "Tray menu actions must target the main Tauri GUI window.");
 assert(mainRs.includes("WebviewWindowBuilder"), "Rust entrypoint must build a HUD webview window.");
@@ -159,6 +170,27 @@ function assertIcoSizes(relativePath, expectedSizes) {
     assert(width === expectedSize, `${relativePath} entry ${index + 1} must be ${expectedSize}px wide.`);
     assert(height === expectedSize, `${relativePath} entry ${index + 1} must be ${expectedSize}px high.`);
   });
+}
+
+function assertIcnsChunks(relativePath, expectedTypes) {
+  const image = readFileSync(resolve(trayRoot, relativePath));
+  assert(image.subarray(0, 4).toString("ascii") === "icns", `${relativePath} must be an ICNS container.`);
+  assert(image.readUInt32BE(4) === image.length, `${relativePath} ICNS length must match the file size.`);
+
+  const actualTypes = [];
+  let offset = 8;
+  while (offset < image.length) {
+    const type = image.subarray(offset, offset + 4).toString("ascii");
+    const length = image.readUInt32BE(offset + 4);
+    assert(length >= 8 && offset + length <= image.length, `${relativePath} has an invalid ${type} chunk.`);
+    actualTypes.push(type);
+    offset += length;
+  }
+
+  assert(
+    JSON.stringify(actualTypes) === JSON.stringify(expectedTypes),
+    `${relativePath} must include the expected macOS icon sizes.`,
+  );
 }
 
 function assert(condition, message) {

@@ -80,6 +80,7 @@ try {
   });
   if (args.allowUnsignedPreview) {
     await verifyUnsignedPreviewReleaseMetadata({
+      platform: process.platform,
       sourceCommit: args.sourceCommit,
       tag: args.tag,
     });
@@ -110,7 +111,7 @@ try {
 
   console.log("MoneySiren installed-package HUD smoke passed.");
   console.log(`Mode: ${candidate.webArchive === null ? "public-release" : "candidate-artifacts"}.`);
-  console.log(`Unsigned Windows preview: ${args.allowUnsignedPreview ? "explicitly accepted" : "not accepted"}.`);
+  console.log(`Unsigned desktop preview: ${args.allowUnsignedPreview ? "explicitly accepted" : "not accepted"}.`);
   console.log("Provider calls: mock only.");
   console.log("Secrets returned: false.");
 } catch (error) {
@@ -134,7 +135,10 @@ async function resolveCandidate(options) {
   const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
   const packageNames = files.filter((name) => /^moneysiren-app-.*\.tgz$/i.test(name));
   const webNames = files.filter((name) => /^moneysiren-web-runtime-v.*\.tar\.gz$/i.test(name));
-  const hudNames = files.filter((name) => /^MoneySiren\.Tray_.*_x64-portable\.exe$/i.test(name));
+  const hudPattern = process.platform === "darwin"
+    ? /^MoneySiren\.Tray-macos-.*\.tar\.gz$/i
+    : /^MoneySiren\.Tray_.*_x64-portable\.exe$/i;
+  const hudNames = files.filter((name) => hudPattern.test(name));
 
   if (packageNames.length !== 1 || webNames.length !== 1 || hudNames.length !== 1) {
     throw new Error("SMOKE_CANDIDATE_LAYOUT_INVALID");

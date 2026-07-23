@@ -9,7 +9,7 @@ on:
       tag:
         description: "Release tag to create or update"
         required: true
-        default: "v0.1.7-beta.3"
+        default: "v0.1.7-beta.4"
       create_release:
         description: "Create/update the GitHub Release and upload assets"
         required: true
@@ -22,6 +22,11 @@ on:
         default: false
       unsigned_windows_preview:
         description: "Allow an unsigned Windows artifact only for an explicitly marked prerelease preview"
+        required: true
+        type: boolean
+        default: false
+      unsigned_macos_preview:
+        description: "Allow an unsigned macOS artifact only for an explicitly marked prerelease preview"
         required: true
         type: boolean
         default: false
@@ -199,7 +204,7 @@ jobs:
           set -euo pipefail
           if [ -z "${APPLE_CERTIFICATE:-}" ] || [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ] || [ -z "${KEYCHAIN_PASSWORD:-}" ]; then
             echo "APPLE_SIGNING_READY=false" >> "$GITHUB_ENV"
-            echo "Missing Apple signing secret(s). Skipping public macOS release artifact." >&2
+            echo "Missing Apple signing secret(s). A gated unsigned prerelease preview may still continue." >&2
             exit 0
           fi
 
@@ -263,8 +268,38 @@ jobs:
             throw 'A signed Windows HUD artifact is required before a public release can continue.'
           }
 
+      - name: Require macOS signing for public release
+        if: runner.os == 'macOS' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
+        shell: bash
+        env:
+          DISPATCH_PRERELEASE: ${{ inputs.prerelease }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+          DISPATCH_UNSIGNED_MACOS_PREVIEW: ${{ inputs.unsigned_macos_preview }}
+        run: |
+          set -euo pipefail
+          if [ "${APPLE_SIGNING_READY:-false}" = "true" ]; then
+            exit 0
+          fi
+
+          preview_allowed=false
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] &&
+             [ "${DISPATCH_PRERELEASE:-false}" = "true" ] &&
+             [ "${DISPATCH_UNSIGNED_MACOS_PREVIEW:-false}" = "true" ] &&
+             [[ "${DISPATCH_TAG:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(alpha|beta|rc|preview)([.-][0-9A-Za-z.-]+)?$ ]]; then
+            preview_allowed=true
+          fi
+
+          if [ "$preview_allowed" = "true" ]; then
+            echo "MONEYSIREN_UNSIGNED_MACOS_PREVIEW=true" >> "$GITHUB_ENV"
+            echo "::warning::Continuing with an explicitly requested unsigned macOS prerelease preview. Gatekeeper will warn users and stable releases still require signing."
+            exit 0
+          fi
+
+          echo "A signed and notarized macOS HUD artifact is required before a public release can continue." >&2
+          exit 1
+
       - name: Build desktop bundle
-        if: (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name) && (runner.os != 'macOS' || env.APPLE_SIGNING_READY == 'true')
+        if: (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name) && (runner.os != 'macOS' || env.APPLE_SIGNING_READY == 'true' || env.MONEYSIREN_UNSIGNED_MACOS_PREVIEW == 'true')
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -367,7 +402,7 @@ jobs:
             Set-Content -LiteralPath dist\desktop-release\moneysiren-tray-windows-SIGNATURE.json
 
       - name: Collect macOS app archive
-        if: runner.os == 'macOS' && env.APPLE_SIGNING_READY == 'true' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
+        if: runner.os == 'macOS' && (env.APPLE_SIGNING_READY == 'true' || env.MONEYSIREN_UNSIGNED_MACOS_PREVIEW == 'true') && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
         shell: bash
         run: |
           set -euo pipefail
@@ -382,6 +417,26 @@ jobs:
           tar -czf "dist/desktop-release/${safe_app_name}-macos-${RUNNER_ARCH}.tar.gz" -C "$(dirname "$app_path")" "$(basename "$app_path")"
           cd dist/desktop-release
           shasum -a 256 *.tar.gz > moneysiren-tray-macos-SHA256SUMS.txt
+
+      - name: Write unsigned macOS preview metadata
+        if: runner.os == 'macOS' && env.MONEYSIREN_UNSIGNED_MACOS_PREVIEW == 'true' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
+        shell: bash
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          cat > dist/desktop-release/moneysiren-tray-macos-UNSIGNED-PREVIEW.json <<EOF
+          {
+            "version": 1,
+            "tag": "${DISPATCH_TAG}",
+            "sourceCommit": "${GITHUB_SHA}",
+            "signatureStatus": "unsigned-preview",
+            "verifiedPublisher": false,
+            "checksumManifest": "moneysiren-tray-macos-SHA256SUMS.txt",
+            "explicitUserOptInRequired": true,
+            "warning": "Unsigned macOS preview. Gatekeeper will warn or block first launch; users must explicitly approve the app in Privacy & Security."
+          }
+          EOF
 
       - name: Verify macOS app signature and notarization
         if: runner.os == 'macOS' && env.APPLE_SIGNING_READY == 'true' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
@@ -399,7 +454,7 @@ jobs:
           spctl -a -vv -t exec "$app_path"
 
       - uses: actions/upload-artifact@v7
-        if: (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name) && (runner.os != 'macOS' || env.APPLE_SIGNING_READY == 'true')
+        if: (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name) && (runner.os != 'macOS' || env.APPLE_SIGNING_READY == 'true' || env.MONEYSIREN_UNSIGNED_MACOS_PREVIEW == 'true')
         with:
           name: moneysiren-desktop-${{ matrix.name }}
           path: dist/desktop-release/*
@@ -411,12 +466,14 @@ jobs:
       - web-runtime
       - desktop
       - candidate-smoke
+      - candidate-smoke-macos
     runs-on: ubuntu-latest
     if: >-
       always() &&
       needs.web-runtime.result == 'success' &&
       needs.desktop.result == 'success' &&
       (needs.candidate-smoke.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.desktop_targets == 'macos')) &&
+      (needs.candidate-smoke-macos.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.desktop_targets == 'windows')) &&
       (github.event_name == 'push' || inputs.create_release)
 
     steps:
@@ -493,7 +550,7 @@ jobs:
               --notes-file "$notes_file"
             while IFS= read -r asset_name; do
               case "$asset_name" in
-                moneysiren-web-runtime-*.tar.gz|moneysiren-web-runtime-SHA256SUMS.txt|MoneySiren.Tray*.exe|MoneySiren.Tray*.msi|*macos*|moneysiren-tray-windows-SHA256SUMS.txt|moneysiren-tray-windows-SIGNATURE.json|moneysiren-tray-windows-UNSIGNED-PREVIEW.json|moneysiren-tray-macos-SHA256SUMS.txt)
+                moneysiren-web-runtime-*.tar.gz|moneysiren-web-runtime-SHA256SUMS.txt|MoneySiren.Tray*.exe|MoneySiren.Tray*.msi|*macos*|moneysiren-tray-windows-SHA256SUMS.txt|moneysiren-tray-windows-SIGNATURE.json|moneysiren-tray-windows-UNSIGNED-PREVIEW.json|moneysiren-tray-macos-SHA256SUMS.txt|moneysiren-tray-macos-UNSIGNED-PREVIEW.json)
                   gh release delete-asset "$tag" "$asset_name" -y || true
                   ;;
               esac
@@ -542,6 +599,41 @@ jobs:
             --tag $tag `
             --source-commit $env:GITHUB_SHA
 
+  candidate-smoke-macos:
+    name: candidate-smoke-macos-hud
+    needs:
+      - web-runtime
+      - desktop
+    if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == 'macos'
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist/smoke-candidate
+          merge-multiple: true
+
+      - name: Run source-free macOS HUD candidate smoke
+        shell: bash
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$DISPATCH_TAG"
+          fi
+          node tools/scripts/smoke-installed-package.mjs \
+            --candidate-dir dist/smoke-candidate \
+            --tag "$tag" \
+            --source-commit "$GITHUB_SHA"
+
   public-smoke:
     name: public-release-windows-hud-smoke
     needs: publish
@@ -586,10 +678,60 @@ jobs:
             --source-commit $env:GITHUB_SHA `
             @previewArgs
 
+  public-smoke-macos:
+    name: public-release-macos-hud-smoke
+    needs: publish
+    if: github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == 'macos'
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: moneysiren-app-candidate
+          path: dist/public-smoke
+
+      - name: Verify public macOS assets through the candidate npm package
+        shell: bash
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+          DISPATCH_UNSIGNED_MACOS_PREVIEW: ${{ inputs.unsigned_macos_preview }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$DISPATCH_TAG"
+          fi
+          packages=(dist/public-smoke/moneysiren-app-*.tgz)
+          if [ "${#packages[@]}" -ne 1 ] || [ ! -f "${packages[0]}" ]; then
+            echo "Public smoke requires exactly one app candidate package." >&2
+            exit 1
+          fi
+          preview_args=()
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${DISPATCH_UNSIGNED_MACOS_PREVIEW:-false}" = "true" ]; then
+            preview_args=(--allow-unsigned-preview)
+          fi
+          node tools/scripts/smoke-installed-package.mjs \
+            --package "${packages[0]}" \
+            --tag "$tag" \
+            --source-commit "$GITHUB_SHA" \
+            "${preview_args[@]}"
+
   publish-npm:
     name: publish-npm-after-public-smoke
-    needs: public-smoke
-    if: needs.public-smoke.result == 'success'
+    needs:
+      - public-smoke
+      - public-smoke-macos
+    if: >-
+      always() &&
+      (needs.public-smoke.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.desktop_targets == 'macos')) &&
+      (needs.public-smoke-macos.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.desktop_targets == 'windows'))
     uses: ./.github/workflows/npm-publish-cli.yml
     with:
       release_tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}

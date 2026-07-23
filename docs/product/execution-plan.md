@@ -561,3 +561,51 @@ SPEC_LOCKED: YES
 CODING_LOOP_ALLOWED: YES
 IMPLEMENTATION_STATUS: COMPLETE
 ```
+
+## M16 - macOS preview and cross-surface icon completion
+
+Status: Completed locally on 2026-07-23; deployment intentionally pending.
+
+Goal: make the selected MoneySiren identity complete across web, Windows, and
+macOS, then make a no-certificate macOS preview possible without opening the
+stable release path.
+
+Implementation slices:
+
+1. Connect real provider assets to service navigation and use the selected
+   MoneySiren app icon for the web brand and browser metadata.
+2. Generate macOS `.icns` sizes through 1024 px plus a monochrome menu-bar
+   template icon, while preserving the existing Windows assets.
+3. Add `unsigned_macos_preview` as a manual-prerelease-only release gate with
+   checksum and source-commit-bound metadata.
+4. Add macOS candidate/public installed-package smokes and require them before
+   release/npm publication for macOS or all-platform workflows.
+5. Verify signed macOS archives locally at install time with `codesign` and
+   `spctl`; require explicit `--allow-unsigned-hud` for unsigned archives.
+
+Security boundary:
+
+- Stable tag pushes still require Apple signing and notarization.
+- Unsigned previews never claim a verified publisher and cannot install without
+  explicit user opt-in.
+- Archive extraction rejects empty, absolute, and parent-traversal layouts.
+- No provider credentials, auth files, raw local AI content, or payloads enter
+  icon assets, workflow metadata, fixtures, or test output.
+
+Completion evidence:
+
+- web production build completed with 76 routes;
+- web 236/236, CLI 63/63, release workflow 8/8, and postinstall 5/5 tests passed;
+- web and CLI typechecks, YAML parsing, native icon checks, 538-file secret
+  scan, and `git diff --check` passed;
+- `apps/tray/src-tauri/Cargo.lock` remained unchanged;
+- macOS `.app` build, signature/notarization validation, and Gatekeeper launch
+  remain bounded to the macOS GitHub runner at release time.
+
+Review gate:
+
+```text
+SPEC_LOCKED: YES
+CODING_LOOP_ALLOWED: YES
+IMPLEMENTATION_STATUS: COMPLETE_LOCAL_RELEASE_PENDING
+```

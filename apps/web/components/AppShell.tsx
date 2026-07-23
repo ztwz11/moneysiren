@@ -10,13 +10,11 @@ import {
   ChevronDown,
   ChevronsLeft,
   CircleHelp,
-  Cloud,
   FileText,
   Home,
   KeyRound,
   Link2,
   Monitor,
-  Share2,
   Settings,
   SlidersHorizontal,
   WalletCards,
@@ -34,6 +32,7 @@ import {
   desktopPreferenceFromEvent,
 } from "../lib/desktop-preference-events";
 import { openHudDashboardRoute } from "../lib/hud-navigation";
+import { ProviderIcon } from "./ProviderIcon";
 
 interface AppShellProps {
   children: ReactNode;
@@ -53,7 +52,8 @@ interface NavItem {
   action?: "open-hud";
   href?: string;
   label: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  providerKey?: string;
 }
 
 interface NavGroup {
@@ -146,9 +146,7 @@ export function AppShell({
         <aside className={sidebarCollapsed ? "sidebar sidebar-collapsed" : "sidebar"}>
           <div>
             <div className="brand">
-              <span className="brand-mark" aria-hidden="true">
-                <Share2 size={19} strokeWidth={2.5} />
-              </span>
+              <img alt="" aria-hidden="true" className="brand-logo" draggable={false} src="/icon.png" />
               <p className="brand-title">{messages.app.title}</p>
             </div>
             <Navigation
@@ -195,7 +193,6 @@ function Navigation({
         <div key={group.label}>
           {group.items.map((item) => {
             const active = item.href !== undefined && pathname === item.href;
-            const Icon = item.icon;
             const key = item.href ?? item.action ?? item.label;
 
             if (item.action === "open-hud") {
@@ -218,7 +215,7 @@ function Navigation({
                   type="button"
                 >
                   <span className="nav-link-body">
-                    <Icon aria-hidden="true" size={16} strokeWidth={1.8} />
+                    <NavItemIcon item={item} />
                     <span className="nav-link-label">{item.label}</span>
                   </span>
                 </button>
@@ -237,7 +234,7 @@ function Navigation({
                 {...(onNavigate === undefined ? {} : { onClick: onNavigate })}
               >
                 <span className="nav-link-body">
-                  <Icon aria-hidden="true" size={16} strokeWidth={1.8} />
+                  <NavItemIcon item={item} />
                   <span className="nav-link-label">{item.label}</span>
                 </span>
               </Link>
@@ -247,6 +244,16 @@ function Navigation({
       ))}
     </nav>
   );
+}
+
+function NavItemIcon({ item }: { item: NavItem }) {
+  if (item.providerKey !== undefined) {
+    return <ProviderIcon className={`nav-provider-icon provider-mark-${item.providerKey}`} providerKey={item.providerKey} />;
+  }
+
+  const Icon = item.icon;
+
+  return Icon === undefined ? null : <Icon aria-hidden="true" size={16} strokeWidth={1.8} />;
 }
 
 function ShellFooter({
@@ -379,7 +386,7 @@ function buildNavGroups(
         ...serviceNavItems.map((item) => ({
           href: `${base}/services/${item.providerKey}`,
           label: item.label,
-          icon: Cloud,
+          providerKey: item.providerKey,
         })),
       ],
     },

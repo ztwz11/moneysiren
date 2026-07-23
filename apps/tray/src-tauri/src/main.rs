@@ -107,16 +107,23 @@ fn main() {
         .setup(|app| {
             let handle = app.handle().clone();
             let menu = build_tray_menu(app.handle())?;
+            #[cfg(target_os = "macos")]
+            let icon = Image::from_bytes(include_bytes!("../icons/tray-macos-template.png"))?;
+            #[cfg(not(target_os = "macos"))]
             let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
             let desktop_mode = desktop_mode();
 
-            TrayIconBuilder::with_id("moneysiren-tray")
+            let tray_builder = TrayIconBuilder::with_id("moneysiren-tray")
                 .icon(icon)
                 .tooltip(if desktop_mode == DesktopMode::Hud {
                     "MoneySiren HUD"
                 } else {
                     "MoneySiren"
-                })
+                });
+            #[cfg(target_os = "macos")]
+            let tray_builder = tray_builder.icon_as_template(true);
+
+            tray_builder
                 .menu(&menu)
                 .show_menu_on_left_click(true)
                 .on_menu_event(move |app_handle, event| {

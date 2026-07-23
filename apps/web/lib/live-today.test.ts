@@ -259,6 +259,49 @@ describe("live today cache", () => {
     });
   });
 
+  it("passes the HUD scope to local collectors so optional network enrichment can stay non-blocking", async () => {
+    const connections = await readConnectionsStatus({
+      credentialStore: createMemoryCredentialStore({
+        now: () => NOW,
+      }),
+      localAiCliStatus: emptyLocalAiCliStatus(),
+      now: () => NOW,
+    });
+    const codexConnection = connections.providers.find((provider) => provider.providerKey === "codex-app");
+    let observedScope: string | null = null;
+
+    await readLiveTodaySnapshot({
+      connections: {
+        ...connections,
+        providers: codexConnection === undefined
+          ? []
+          : [{
+              ...codexConnection,
+              connectionState: "env_configured",
+            }],
+      },
+      now: () => NOW,
+      scope: "hud",
+      collectors: {
+        "codex-app": async (context) => {
+          observedScope = context.scope;
+
+          return {
+            providerKey: "codex-app",
+            status: "partial",
+            checkedAt: NOW.toISOString(),
+            todayLiveAmountMinor: null,
+            currency: "USD",
+            included: false,
+            confidence: "none",
+          };
+        },
+      },
+    });
+
+    expect(observedScope).toBe("hud");
+  });
+
   it("refreshes stale local AI CLI usage on read without refreshing external providers", async () => {
     const store = createMemoryCredentialStore({
       now: () => NOW,

@@ -115,7 +115,7 @@ test("unsigned macOS preview metadata uses the macOS checksum boundary", () => {
   const identity = {
     platform: "darwin",
     sourceCommit: "d".repeat(40),
-    tag: "v0.1.7-beta.7",
+    tag: "v0.1.7-beta.8",
   };
   const metadataUrl = validateUnsignedPreviewRelease({
     assets: [

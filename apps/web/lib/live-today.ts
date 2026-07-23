@@ -112,6 +112,7 @@ export type LiveTodayProviderCollector = (
 
 export interface LiveTodayCollectionContext {
   providerKey: ProviderKey;
+  scope: RefreshScope;
   connection: ProviderConnectionStatus;
   credentialConnection?: ProviderCredentialConnectionStatus;
   env: Record<string, string | undefined>;
@@ -259,6 +260,7 @@ async function collectAndCacheLiveTodayTargetUncached(
   try {
     const collected = await collector({
       providerKey,
+      scope: context.scope,
       connection: target.connection,
       ...(target.credentialConnection === undefined ? {} : { credentialConnection: target.credentialConnection }),
       env: context.env,
@@ -777,7 +779,9 @@ async function collectLocalAiCliLiveToday(context: LiveTodayCollectionContext): 
 
   const usageSummary = summarizeLocalAiCliUsage(
     provider,
-    isCodexLocalAiProviderKey(providerKey) ? await readCodexResetCreditMetrics(context) : [],
+    isCodexLocalAiProviderKey(providerKey) && context.scope !== "hud"
+      ? await readCodexResetCreditMetrics(context)
+      : [],
   );
   const hasUsage = usageSummary !== null;
 

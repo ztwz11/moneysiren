@@ -55,7 +55,7 @@ export interface LocalApiServer {
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 47831;
-const DEFAULT_VERSION = "0.1.7-beta.7";
+const DEFAULT_VERSION = "0.1.7-beta.8";
 
 export async function startLocalApiServer(options: LocalApiServerOptions = {}): Promise<LocalApiServer> {
   const host = options.host ?? DEFAULT_HOST;

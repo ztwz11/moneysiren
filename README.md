@@ -59,7 +59,7 @@ See [docs/data-we-never-store.md](docs/data-we-never-store.md), [docs/security-m
 
 ## Current Status
 
-MoneySiren `v0.1.7-beta.4` is the current unsigned Windows preview; `v0.1.5` remains the latest stable public release.
+MoneySiren `v0.1.7-beta.5` is the current unsigned Windows preview; `v0.1.5` remains the latest stable public release.
 
 It provides source-free local installation through `@moneysiren/app`, a CLI-first setup flow, local SQLite snapshots, a local Next.js dashboard, and a Tauri tray/HUD desktop surface. MoneySiren remains early and local-first: provider connectors are read-only, telemetry is off by default, and raw provider payloads or credential material must not be persisted.
 
@@ -381,7 +381,7 @@ msiren stop
 To install the web runtime from a specific release tag or into a custom directory:
 
 ```bash
-msiren install --web --tag v0.1.7-beta.4 --dir ./moneysiren-release
+msiren install --web --tag v0.1.7-beta.5 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -397,9 +397,9 @@ Release maintainers should verify published assets before announcing a desktop b
 ```bash
 npm run release:signing:encode-windows -- "<path-to-windows-code-signing.pfx>"
 npm run release:signing:check -- windows
-node tools/scripts/check-release-readiness.mjs --tag v0.1.7-beta.4 --allow-unsigned-prerelease-windows
+node tools/scripts/check-release-readiness.mjs --tag v0.1.7-beta.5 --allow-unsigned-prerelease-windows
 # Unsigned macOS previews additionally require the exact source commit:
-node tools/scripts/check-release-readiness.mjs --tag v0.1.7-beta.4 --allow-unsigned-prerelease-macos --source-commit <40-hex-sha>
+node tools/scripts/check-release-readiness.mjs --tag v0.1.7-beta.5 --allow-unsigned-prerelease-macos --source-commit <40-hex-sha>
 ```
 
 The encode helper writes the base64 certificate payload to `.tmp/codesign/windows-certificate.base64.txt` so maintainers can set the `WINDOWS_CERTIFICATE` repository secret without printing the private certificate to the terminal. Set `WINDOWS_CERTIFICATE_PASSWORD` to the PFX/P12 password in GitHub Secrets and in the local shell before running the signing readiness check. The signing check verifies local/CI signing inputs before a release run. The release check downloads the published assets, verifies SHA256 entries, requires Windows signature metadata, and validates Windows Authenticode signatures when run on Windows. If only one desktop signing identity is ready, run the `desktop-release` workflow with `desktop_targets=windows` or `desktop_targets=macos`; the publish step removes stale desktop assets for the skipped OS. Self-signed certificates are acceptable only for local smoke tests and do not fix public Windows publisher trust warnings.
@@ -421,13 +421,13 @@ This does not change public release validation and does not remove Windows publi
 
 ### Unsigned Windows preview channel
 
-Until trusted Windows signing is available, maintainers may publish an explicitly marked prerelease preview. The release workflow permits this only for a manual dispatch where `prerelease` and `unsigned_windows_preview` are both enabled and the tag is a prerelease such as `v0.1.7-beta.4`. Stable tag pushes still fail when signing is unavailable. Preview assets include SHA256 checksums and `moneysiren-tray-windows-UNSIGNED-PREVIEW.json`, are published to the npm `next` channel, and never claim a verified publisher.
+Until trusted Windows signing is available, maintainers may publish an explicitly marked prerelease preview. The release workflow permits this only for a manual dispatch where `prerelease` and `unsigned_windows_preview` are both enabled and the tag is a prerelease such as `v0.1.7-beta.5`. Stable tag pushes still fail when signing is unavailable. Preview assets include SHA256 checksums and `moneysiren-tray-windows-UNSIGNED-PREVIEW.json`, are published to the npm `next` channel, and never claim a verified publisher.
 
 Preview users must opt into the non-stable channel and should expect Windows Unknown Publisher or SmartScreen warnings:
 
 ```powershell
 npm install -g @moneysiren/app@next
-msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.4
+msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.5
 ```
 
 Do not disable Windows security controls globally. If Windows policy blocks unsigned applications, use the web dashboard or wait for a signed release.
@@ -440,7 +440,7 @@ Preview users must opt in explicitly:
 
 ```bash
 npm install -g @moneysiren/app@next
-msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.4
+msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.5
 msiren hud
 ```
 

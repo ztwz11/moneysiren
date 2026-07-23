@@ -346,7 +346,19 @@ function reserveEphemeralPort() {
 
 function smokeEnvironment(input) {
   const base = {};
-  for (const key of ["PATH", "Path", "PATHEXT", "SystemRoot", "COMSPEC", "TMP", "TEMP", "LANG", "LC_ALL"]) {
+  for (const key of [
+    "PATH",
+    "Path",
+    "PATHEXT",
+    "SystemRoot",
+    "COMSPEC",
+    "TMP",
+    "TEMP",
+    "LANG",
+    "LC_ALL",
+    "GITHUB_TOKEN",
+    "GH_TOKEN",
+  ]) {
     if (process.env[key] !== undefined) base[key] = process.env[key];
   }
   return {

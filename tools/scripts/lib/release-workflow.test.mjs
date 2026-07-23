@@ -72,6 +72,7 @@ test("candidate layout includes app, web, and portable HUD artifacts", async () 
   assert.match(smoke, /signatureStatus === "unsigned-opt-in-accepted"/);
   assert.match(smoke, /validateUnsignedPreviewRelease/);
   assert.match(smoke, /validateUnsignedPreviewMetadata/);
+  assert.match(smoke, /"GITHUB_TOKEN"[\s\S]*"GH_TOKEN"/);
 });
 
 test("public release polling follows the caller workflow after npm became reusable", async () => {
@@ -114,7 +115,7 @@ test("unsigned macOS preview metadata uses the macOS checksum boundary", () => {
   const identity = {
     platform: "darwin",
     sourceCommit: "d".repeat(40),
-    tag: "v0.1.7-beta.5",
+    tag: "v0.1.7-beta.6",
   };
   const metadataUrl = validateUnsignedPreviewRelease({
     assets: [

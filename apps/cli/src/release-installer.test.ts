@@ -359,9 +359,9 @@ describe("MoneySiren release installer", () => {
     const fetchImpl = async (input: RequestInfo | URL) => {
       const url = String(input);
 
-      if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.7-beta.4")) {
+      if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.7-beta.5")) {
         return Response.json({
-          html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.7-beta.4",
+          html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.7-beta.5",
           assets: [
             releaseAsset(hudAsset),
             releaseAsset("moneysiren-tray-macos-SHA256SUMS.txt"),
@@ -391,7 +391,7 @@ describe("MoneySiren release installer", () => {
       installDir,
       platform: "darwin",
       selectedSurfaces: ["hud"],
-      tag: "v0.1.7-beta.4",
+      tag: "v0.1.7-beta.5",
     });
 
     expect(result.assets).toHaveLength(1);
@@ -405,7 +405,7 @@ describe("MoneySiren release installer", () => {
       installDir: join(cwd, "rejected"),
       platform: "darwin",
       selectedSurfaces: ["hud"],
-      tag: "v0.1.7-beta.4",
+      tag: "v0.1.7-beta.5",
     })).rejects.toThrow(`Release asset signature verification failed for ${hudAsset}: invalid-macos-signature`);
   });
 

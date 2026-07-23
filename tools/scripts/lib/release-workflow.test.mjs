@@ -23,7 +23,7 @@ test("npm publication is reusable-only", async () => {
   assert.match(source, /MONEYSIREN_NPM_DIST_TAG="\$\{NPM_DIST_TAG\}" npm run publish:app:dry-run/);
 });
 
-test("Windows candidate and public HUD smokes gate npm publication", async () => {
+test("Windows and macOS candidate and public HUD smokes gate npm publication", async () => {
   const source = await readFile(resolve(workflows, "desktop-release.yml"), "utf8");
   const candidate = source.indexOf("candidate-smoke:");
   const publish = source.indexOf("publish:\n");
@@ -43,8 +43,14 @@ test("Windows candidate and public HUD smokes gate npm publication", async () =>
   assert.match(source, /MONEYSIREN_UNSIGNED_WINDOWS_PREVIEW=true/);
   assert.match(source, /moneysiren-tray-windows-UNSIGNED-PREVIEW\.json/);
   assert.match(source, /public-smoke:[\s\S]*--allow-unsigned-preview/);
+  assert.match(source, /Require macOS signing for public release/);
+  assert.match(source, /unsigned_macos_preview:/);
+  assert.match(source, /MONEYSIREN_UNSIGNED_MACOS_PREVIEW=true/);
+  assert.match(source, /moneysiren-tray-macos-UNSIGNED-PREVIEW\.json/);
+  assert.match(source, /candidate-smoke-macos:[\s\S]*smoke-installed-package\.mjs[\s\S]*--candidate-dir/);
+  assert.match(source, /public-smoke-macos:[\s\S]*smoke-installed-package\.mjs[\s\S]*--package/);
   assert.match(source, /publish-npm:[\s\S]*dist_tag:[\s\S]*'next'/);
-  assert.match(source, /publish-npm:\s*\r?\n\s+name: publish-npm-after-public-smoke\s*\r?\n\s+needs: public-smoke/);
+  assert.match(source, /publish-npm:[\s\S]*needs:[\s\S]*public-smoke[\s\S]*public-smoke-macos/);
   assert.match(source, /uses: \.\/\.github\/workflows\/npm-publish-cli\.yml/);
   assert.match(source, /secrets: inherit/);
 });
@@ -55,6 +61,7 @@ test("candidate layout includes app, web, and portable HUD artifacts", async () 
   assert.match(smoke, /moneysiren-app-/);
   assert.match(smoke, /moneysiren-web-runtime-/);
   assert.match(smoke, /x64-portable\\\.exe/);
+  assert.match(smoke, /MoneySiren\\\.Tray-macos-/);
   assert.match(smoke, /Web runtime: running/);
   assert.match(smoke, /HUD: running/);
   assert.match(smoke, /PUBLIC_HUD_SIGNATURE_NOT_VERIFIED/);
@@ -92,6 +99,36 @@ test("unsigned preview metadata is bound to the prerelease tag and source commit
   assert.equal(metadataUrl, "https://example.invalid/unsigned-preview.json");
   assert.doesNotThrow(() => validateUnsignedPreviewMetadata({
     checksumManifest: "moneysiren-tray-windows-SHA256SUMS.txt",
+    explicitUserOptInRequired: true,
+    signatureStatus: "unsigned-preview",
+    sourceCommit: identity.sourceCommit,
+    tag: identity.tag,
+    verifiedPublisher: false,
+    version: 1,
+  }, identity));
+});
+
+test("unsigned macOS preview metadata uses the macOS checksum boundary", () => {
+  const identity = {
+    platform: "darwin",
+    sourceCommit: "d".repeat(40),
+    tag: "v0.1.7-beta.4",
+  };
+  const metadataUrl = validateUnsignedPreviewRelease({
+    assets: [
+      { name: "moneysiren-tray-macos-SHA256SUMS.txt" },
+      {
+        browser_download_url: "https://example.invalid/macos-unsigned-preview.json",
+        name: "moneysiren-tray-macos-UNSIGNED-PREVIEW.json",
+      },
+    ],
+    prerelease: true,
+    tag_name: identity.tag,
+  }, identity);
+
+  assert.equal(metadataUrl, "https://example.invalid/macos-unsigned-preview.json");
+  assert.doesNotThrow(() => validateUnsignedPreviewMetadata({
+    checksumManifest: "moneysiren-tray-macos-SHA256SUMS.txt",
     explicitUserOptInRequired: true,
     signatureStatus: "unsigned-preview",
     sourceCommit: identity.sourceCommit,

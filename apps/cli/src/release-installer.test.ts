@@ -350,6 +350,65 @@ describe("MoneySiren release installer", () => {
     await expect(readFile(join(installDir, hudAsset), "utf8")).resolves.toBe(hudBytes.toString("utf8"));
   });
 
+  it("accepts unsigned macOS HUD archives only with explicit local preview opt-in", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
+    const installDir = join(cwd, "installed");
+    const hudAsset = "MoneySiren.Tray-macos-ARM64.tar.gz";
+    const hudBytes = Buffer.from("fake unsigned macOS app archive");
+    const checksum = `${sha256Hex(hudBytes)}  ${hudAsset}\n`;
+    const fetchImpl = async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.endsWith("/repos/ztwz11/moneysiren/releases/tags/v0.1.7-beta.4")) {
+        return Response.json({
+          html_url: "https://github.com/ztwz11/moneysiren/releases/tag/v0.1.7-beta.4",
+          assets: [
+            releaseAsset(hudAsset),
+            releaseAsset("moneysiren-tray-macos-SHA256SUMS.txt"),
+          ],
+        });
+      }
+
+      if (url.endsWith(hudAsset)) {
+        return new Response(hudBytes);
+      }
+
+      if (url.endsWith("SHA256SUMS.txt")) {
+        return new Response(checksum);
+      }
+
+      return new Response("missing", {
+        status: 404,
+        statusText: "Not Found",
+      });
+    };
+
+    const result = await installReleaseAssets({
+      env: {
+        MONEYSIREN_ALLOW_UNSIGNED_HUD: "true",
+      },
+      fetchImpl,
+      installDir,
+      platform: "darwin",
+      selectedSurfaces: ["hud"],
+      tag: "v0.1.7-beta.4",
+    });
+
+    expect(result.assets).toHaveLength(1);
+    expect(result.assets[0]?.signatureVerified).toBe(false);
+    expect(result.assets[0]?.signatureStatus).toBe("unsigned-opt-in-accepted");
+    await expect(readFile(join(installDir, hudAsset), "utf8")).resolves.toBe(hudBytes.toString("utf8"));
+
+    await expect(installReleaseAssets({
+      env: {},
+      fetchImpl,
+      installDir: join(cwd, "rejected"),
+      platform: "darwin",
+      selectedSurfaces: ["hud"],
+      tag: "v0.1.7-beta.4",
+    })).rejects.toThrow(`Release asset signature verification failed for ${hudAsset}: invalid-macos-signature`);
+  });
+
   it("fails unsigned Windows HUD prerelease installs when explicitly disabled", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "moneysiren-release-"));
     const installDir = join(cwd, "installed");

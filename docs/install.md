@@ -115,7 +115,7 @@ For CLI-only automation, install `@moneysiren/cli` instead and run `msiren insta
 To pin a release tag or choose a directory for the web runtime:
 
 ```bash
-msiren install --web --tag v0.1.7-beta.3 --dir ./moneysiren-release
+msiren install --web --tag v0.1.7-beta.4 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:
@@ -285,7 +285,7 @@ npm run build:native
 open "apps/tray/src-tauri/target/release/bundle/macos/MoneySiren Tray.app"
 ```
 
-If macOS blocks an unsigned local development app, use Finder, right-click the app, and choose Open. Do not use this unsigned build as a distribution artifact.
+If macOS blocks an unsigned local development app, use Finder, right-click the app, and choose Open. Distribution is allowed only through the explicitly gated unsigned prerelease path described below; stable releases still require Apple signing and notarization.
 
 ## Maintainer Desktop Release
 
@@ -330,7 +330,7 @@ npm run release:public:dry-run
 npm run release:public
 ```
 
-`release:public` creates and pushes the annotated `v*` tag after validation. It does not run `npm publish` locally; the tag-push GitHub Actions workflow owns npm publishing and GitHub Release asset creation. If only one signing identity is ready, run the workflow manually from GitHub Actions with `desktop_targets` set to `windows` or `macos`; skipped desktop assets are removed from the updated GitHub Release so stale unsigned desktop artifacts do not remain published. The workflow uploads SHA256 checksum files and Windows signature metadata next to the release artifacts when signing is configured.
+`release:public` creates and pushes the annotated `v*` tag after validation. It does not run `npm publish` locally; the tag-push GitHub Actions workflow owns npm publishing and GitHub Release asset creation. If only one signing identity is ready, run the workflow manually from GitHub Actions with `desktop_targets` set to `windows` or `macos`; skipped desktop assets are removed from the updated GitHub Release so stale unsigned desktop artifacts do not remain published. The workflow uploads SHA256 checksum files and platform trust metadata next to the release artifacts. Signed macOS archives are verified with `codesign`, `stapler`, and `spctl` before upload.
 
 Unsigned Windows HUD artifacts are allowed only for explicit prerelease or local smoke review paths. Keep unsigned validation explicit and out of the public release check:
 
@@ -353,10 +353,33 @@ An unsigned preview is a prerelease, not a stable release. Install the npm `next
 
 ```powershell
 npm install -g @moneysiren/app@next
-msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.3
+msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.4
 ```
 
 The release must provide `moneysiren-tray-windows-SHA256SUMS.txt` and `moneysiren-tray-windows-UNSIGNED-PREVIEW.json`. The CLI verifies the SHA256 entry before installation, but Windows may still show Unknown Publisher or SmartScreen warnings and managed Windows policy may block execution. Do not turn off Defender, SmartScreen, or Smart App Control globally to install a preview.
+
+### Install an unsigned macOS preview
+
+Without Apple Developer credentials, manually dispatch `desktop-release` with a prerelease tag, `desktop_targets=macos` (or `all`), and `unsigned_macos_preview=true`. Stable tag pushes and dispatches without all three gates fail closed.
+
+Install the matching npm `next` package and opt in to the unsigned app:
+
+```bash
+npm install -g @moneysiren/app@next
+msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.4
+msiren hud
+```
+
+The release must provide `moneysiren-tray-macos-SHA256SUMS.txt` and `moneysiren-tray-macos-UNSIGNED-PREVIEW.json`. The public smoke verifies those files are bound to the prerelease tag and source commit. Gatekeeper may still block first launch; approve only the MoneySiren app through Finder > Open or System Settings > Privacy & Security. Never disable Gatekeeper globally.
+
+Before announcing the preview, verify its published checksum and metadata boundary:
+
+```bash
+node tools/scripts/check-release-readiness.mjs \
+  --tag v0.1.7-beta.4 \
+  --allow-unsigned-prerelease-macos \
+  --source-commit <40-hex-sha>
+```
 
 ## English Mock Screenshots
 

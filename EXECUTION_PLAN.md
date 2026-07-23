@@ -221,3 +221,42 @@ npm run build
 npm run secret:scan
 git diff --check
 ```
+
+## M16/S16 Summary
+
+Status: Completed locally on 2026-07-23; deployment intentionally pending.
+
+Prepare the selected MoneySiren identity and a gated macOS desktop preview
+without weakening stable-release signing requirements.
+
+- Use the selected gauge/siren artwork for the web icon, Apple touch icon,
+  Windows icon, and a complete macOS `.icns` set through 1024 px.
+- Use a monochrome macOS menu-bar template icon with native system tinting.
+- Replace generic service-cloud navigation marks with downloaded provider
+  assets for AWS, Codex/OpenAI, Claude/Anthropic, and Antigravity/Vertex AI.
+- Permit unsigned macOS artifacts only for a manually dispatched prerelease
+  with `unsigned_macos_preview` explicitly enabled.
+- Bind unsigned preview metadata to the tag, source commit, checksum manifest,
+  explicit opt-in, and unverified-publisher state.
+- Gate release publication and npm publication on macOS candidate and public
+  HUD smokes; signed archives are checked with `codesign` and `spctl`.
+- Keep `apps/tray/src-tauri/Cargo.lock` unchanged.
+
+Validation result: web production build completed with 76 routes; web tests
+passed 236/236, CLI tests passed 63/63, release workflow tests passed 8/8,
+postinstall tests passed 5/5, web and CLI typechecks passed, YAML parsing and
+native icon scaffold checks passed, the 538-file secret scan passed, and
+`git diff --check` passed. A real `.app` build and Gatekeeper launch remain for
+the macOS GitHub runner because this workstation is Windows.
+
+## Validation Commands For M16/S16 Review
+
+```powershell
+node tools/scripts/check-tray-native.mjs
+node --test --test-isolation=none tools/scripts/lib/release-workflow.test.mjs
+npm run test
+npm run typecheck
+npm run build
+npm run secret:scan
+git diff --check
+```

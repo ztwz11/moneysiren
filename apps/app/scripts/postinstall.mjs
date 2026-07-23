@@ -35,7 +35,7 @@ if (isTruthy(process.env.MONEYSIREN_SKIP_RELEASE_ASSET_INSTALL)) {
 if (!shouldInstallReleaseAssets()) {
   console.log("MoneySiren app package installed.");
   console.log("Run `msiren install --web` to download the local web dashboard runtime.");
-  console.log("For temporary unsigned HUD smoke testing, run `msiren install --hud --allow-unsigned-hud`.");
+  console.log("For temporary unsigned Windows/macOS HUD preview testing, run `msiren install --hud --allow-unsigned-hud`.");
   process.exit(0);
 }
 
@@ -174,7 +174,7 @@ function handleAssetInstallFailure(fallbackComplete) {
   if (!fallbackComplete) {
     console.warn("If needed, restore only the web dashboard with `msiren install --web`.");
   }
-  console.warn("For temporary unsigned HUD smoke testing only, run `msiren install --hud --allow-unsigned-hud`.");
+  console.warn("For temporary unsigned Windows/macOS HUD preview testing only, run `msiren install --hud --allow-unsigned-hud`.");
 
   if (isTruthy(process.env.MONEYSIREN_APP_STRICT_POSTINSTALL)) {
     process.exit(1);

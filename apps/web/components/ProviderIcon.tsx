@@ -37,10 +37,11 @@ export function ProviderIcon({
   return (
     <span aria-hidden="true" className={className}>
       {filename === undefined ? (
-        <span className="provider-icon-fallback">{providerKey.slice(0, 1).toUpperCase()}</span>
+        <Cloud aria-hidden="true" className="provider-icon-fallback" strokeWidth={1.8} />
       ) : (
         <img alt="" draggable={false} src={`/provider-icons/${filename}`} />
       )}
     </span>
   );
 }
+import { Cloud } from "lucide-react";

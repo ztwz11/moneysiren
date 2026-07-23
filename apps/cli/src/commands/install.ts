@@ -28,7 +28,7 @@ const INSTALL_USAGE = [
   installSelectionHelp(),
   "",
   "Default: all components selected (recommended).",
-  "Temporary Windows HUD smoke testing: pass --allow-unsigned-hud explicitly to accept an unsigned HUD artifact.",
+  "Temporary Windows/macOS HUD preview testing: pass --allow-unsigned-hud explicitly to accept an unsigned desktop artifact.",
   `Release default: ${DEFAULT_RELEASE_REPOSITORY}@${DEFAULT_RELEASE_TAG}.`,
 ].join("\n");
 
@@ -309,7 +309,7 @@ async function installReleaseAssetsForSelectionSafely(input: {
     if (input.selectedSurfaces.includes("hud")) {
       input.context.stderr("The selected HUD desktop artifact must be present, checksummed, and signed before MoneySiren will install it.");
       input.context.stderr("For now, use `moneysiren install --web` to install only the web runtime, or retry after a signed desktop release is published.");
-      input.context.stderr("Temporary local smoke only: rerun `moneysiren install --hud --allow-unsigned-hud` to accept an unsigned HUD artifact explicitly.");
+      input.context.stderr("Temporary local preview only: rerun `moneysiren install --hud --allow-unsigned-hud` to accept an unsigned Windows or macOS HUD artifact explicitly.");
     }
     input.context.stderr("Install profile was not changed.");
     return "failed";

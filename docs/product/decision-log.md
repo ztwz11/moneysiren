@@ -226,3 +226,27 @@ Gatekeeper, claims a verified publisher, or treats an unsigned preview as stable
 Signed macOS archives continue to be verified with `codesign` and `spctl`.
 
 Status: accepted.
+
+## D021 - Maintainer-approved unsigned stable Windows channel
+
+Decision: a Windows artifact without a trusted Authenticode certificate may be
+published as stable only through a manual `desktop-release` dispatch with an
+exact stable tag, `prerelease=false`, `desktop_targets=windows`, and
+`unsigned_windows_preview=false` plus `unsigned_windows_stable=true`. Normal
+stable tag pushes, macOS stable releases, and dispatches without every gate
+remain fail-closed.
+
+Rationale: the project can ship a maintainer-approved Windows release without
+purchasing a certificate while preserving explicit consent at both publication
+and installation. The release publishes SHA256 checksums and a source-commit-
+bound `moneysiren-tray-windows-UNSIGNED-RELEASE.json`, runs candidate and public
+HUD smokes, and requires `--allow-unsigned-hud` or the equivalent opt-in
+environment variable during HUD installation.
+
+Security boundary: the release must not publish Windows signature metadata,
+claim a verified publisher, silently install the HUD, disable Windows security
+controls, or enable unsigned macOS stable distribution. Windows may show
+Unknown Publisher or SmartScreen warnings, and managed policy may block
+execution.
+
+Status: accepted.

@@ -5,6 +5,8 @@ import test from "node:test";
 import {
   validateUnsignedPreviewMetadata,
   validateUnsignedPreviewRelease,
+  validateUnsignedStableMetadata,
+  validateUnsignedStableRelease,
 } from "./unsigned-preview.mjs";
 
 const root = resolve(import.meta.dirname, "../../..");
@@ -43,6 +45,13 @@ test("Windows and macOS candidate and public HUD smokes gate npm publication", a
   assert.match(source, /MONEYSIREN_UNSIGNED_WINDOWS_PREVIEW=true/);
   assert.match(source, /moneysiren-tray-windows-UNSIGNED-PREVIEW\.json/);
   assert.match(source, /public-smoke:[\s\S]*--allow-unsigned-preview/);
+  assert.match(source, /unsigned_windows_stable:/);
+  assert.match(source, /DISPATCH_DESKTOP_TARGETS -eq 'windows'/);
+  assert.match(source, /DISPATCH_UNSIGNED_WINDOWS_PREVIEW -ne 'true'/);
+  assert.match(source, /DISPATCH_UNSIGNED_WINDOWS_STABLE -eq 'true'/);
+  assert.match(source, /MONEYSIREN_UNSIGNED_WINDOWS_STABLE=true/);
+  assert.match(source, /moneysiren-tray-windows-UNSIGNED-RELEASE\.json/);
+  assert.match(source, /public-smoke:[\s\S]*--allow-unsigned-stable/);
   assert.match(source, /Require macOS signing for public release/);
   assert.match(source, /unsigned_macos_preview:/);
   assert.match(source, /MONEYSIREN_UNSIGNED_MACOS_PREVIEW=true/);
@@ -68,10 +77,12 @@ test("candidate layout includes app, web, and portable HUD artifacts", async () 
   assert.match(smoke, /HUD: running/);
   assert.match(smoke, /PUBLIC_HUD_SIGNATURE_NOT_VERIFIED/);
   assert.match(smoke, /UNSIGNED_PREVIEW_REQUIRES_PUBLIC_PACKAGE/);
-  assert.match(smoke, /MONEYSIREN_ALLOW_UNSIGNED_HUD: input\.allowUnsignedPreview \? "true" : "false"/);
+  assert.match(smoke, /MONEYSIREN_ALLOW_UNSIGNED_HUD: input\.allowUnsignedRelease \? "true" : "false"/);
   assert.match(smoke, /signatureStatus === "unsigned-opt-in-accepted"/);
   assert.match(smoke, /validateUnsignedPreviewRelease/);
   assert.match(smoke, /validateUnsignedPreviewMetadata/);
+  assert.match(smoke, /validateUnsignedStableRelease/);
+  assert.match(smoke, /validateUnsignedStableMetadata/);
   assert.match(smoke, /"GITHUB_TOKEN"[\s\S]*"GH_TOKEN"/);
 });
 
@@ -144,7 +155,65 @@ test("unsigned macOS preview metadata uses the macOS checksum boundary", () => {
 test("release readiness does not treat unsigned preview metadata as a checksummed payload", async () => {
   const source = await readFile(resolve(root, "tools", "scripts", "check-release-readiness.mjs"), "utf8");
 
-  assert.match(source, /sha256sums\|signature\\\.json\|unsigned-preview\\\.json/i);
+  assert.match(source, /unsigned-preview\\\.json\|unsigned-release\\\.json/i);
+});
+
+test("unsigned stable metadata requires a stable release, explicit warning, and matching source commit", () => {
+  const identity = {
+    sourceCommit: "e".repeat(40),
+    tag: "v0.1.7",
+  };
+  const metadataUrl = validateUnsignedStableRelease({
+    assets: [
+      { name: "moneysiren-tray-windows-SHA256SUMS.txt" },
+      {
+        browser_download_url: "https://example.invalid/unsigned-release.json",
+        name: "moneysiren-tray-windows-UNSIGNED-RELEASE.json",
+      },
+    ],
+    prerelease: false,
+    tag_name: identity.tag,
+  }, identity);
+
+  assert.equal(metadataUrl, "https://example.invalid/unsigned-release.json");
+  assert.doesNotThrow(() => validateUnsignedStableMetadata({
+    checksumManifest: "moneysiren-tray-windows-SHA256SUMS.txt",
+    distributionChannel: "stable",
+    explicitUserOptInRequired: true,
+    signatureStatus: "unsigned-stable-opt-in",
+    sourceCommit: identity.sourceCommit,
+    tag: identity.tag,
+    verifiedPublisher: false,
+    version: 1,
+    warning: "Unsigned stable Windows release. Windows will show Unknown Publisher.",
+  }, identity));
+  assert.throws(() => validateUnsignedStableMetadata({
+    checksumManifest: "moneysiren-tray-windows-SHA256SUMS.txt",
+    distributionChannel: "stable",
+    explicitUserOptInRequired: true,
+    signatureStatus: "unsigned-stable-opt-in",
+    sourceCommit: identity.sourceCommit,
+    tag: identity.tag,
+    verifiedPublisher: false,
+    version: 1,
+  }, identity), /UNSIGNED_STABLE_METADATA_INVALID/);
+  assert.throws(() => validateUnsignedStableRelease({
+    assets: [],
+    prerelease: true,
+    tag_name: identity.tag,
+  }, identity), /UNSIGNED_STABLE_RELEASE_IDENTITY_INVALID/);
+  assert.throws(() => validateUnsignedStableRelease({
+    assets: [
+      { name: "moneysiren-tray-windows-SHA256SUMS.txt" },
+      { name: "moneysiren-tray-windows-SIGNATURE.json" },
+      {
+        browser_download_url: "https://example.invalid/unsigned-release.json",
+        name: "moneysiren-tray-windows-UNSIGNED-RELEASE.json",
+      },
+    ],
+    prerelease: false,
+    tag_name: identity.tag,
+  }, identity), /UNSIGNED_STABLE_RELEASE_ASSETS_INVALID/);
 });
 
 test("unsigned preview validation rejects stable, signed, or mismatched releases", () => {

@@ -6,6 +6,8 @@ import { promisify } from "node:util";
 import {
   validateUnsignedPreviewMetadata,
   validateUnsignedPreviewRelease,
+  validateUnsignedStableMetadata,
+  validateUnsignedStableRelease,
 } from "./lib/unsigned-preview.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -18,6 +20,8 @@ const downloadLimit = Number.parseInt(args.maxBytes ?? `${256 * 1024 * 1024}`, 1
 const metadataDownloadLimit = 1024 * 1024;
 const allowUnsignedPrereleaseWindows =
   args.allowUnsignedPrereleaseWindows === true && /-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(tag);
+const allowUnsignedStableWindows =
+  args.allowUnsignedStableWindows === true && /^v\d+\.\d+\.\d+$/.test(tag);
 const allowUnsignedPrereleaseMacos =
   args.allowUnsignedPrereleaseMacos === true && /-(?:alpha|beta|rc)(?:[.\d-]*)?$/i.test(tag);
 const failures = [];
@@ -29,7 +33,7 @@ const release = await fetchJson(`https://api.github.com/repos/${repository}/rele
 const assets = Array.isArray(release.assets) ? release.assets.filter(isAsset) : [];
 const checksumAssets = assets.filter((asset) => /sha256sums/i.test(asset.name));
 const payloadAssets = assets.filter((asset) =>
-  !/sha256sums|signature\.json|unsigned-preview\.json/i.test(asset.name)
+  !/sha256sums|signature\.json|unsigned-preview\.json|unsigned-release\.json/i.test(asset.name)
 );
 const windowsSignatureAsset = assets.find((asset) => /^moneysiren-tray-windows-SIGNATURE\.json$/i.test(asset.name));
 const windowsPayloadAssets = payloadAssets.filter((asset) => /\.(exe|msi)$/i.test(asset.name));
@@ -44,6 +48,7 @@ for (const asset of payloadAssets) {
 }
 
 await verifyWindowsSignatureMetadata();
+await verifyWindowsStableMetadata();
 await verifyMacOSPreviewMetadata();
 
 if (failures.length > 0) {
@@ -84,8 +89,8 @@ async function readWindowsSignatureMetadata() {
   }
 
   if (windowsSignatureAsset === undefined) {
-    if (allowUnsignedPrereleaseWindows) {
-      console.warn(`Skipping Windows signature metadata check for unsigned prerelease ${tag}.`);
+    if (allowUnsignedPrereleaseWindows || allowUnsignedStableWindows) {
+      console.warn(`Skipping Windows signature metadata check for explicitly allowed unsigned release ${tag}.`);
       return metadataByAsset;
     }
 
@@ -121,12 +126,36 @@ async function verifyWindowsSignatureMetadata() {
       entry.signerThumbprint.trim().length === 0 ||
       entry.signatureStatus !== "Valid"
     ) {
-      if (allowUnsignedPrereleaseWindows) {
-        console.warn(`Skipping missing Windows signature metadata for unsigned prerelease asset ${asset.name}.`);
+      if (allowUnsignedPrereleaseWindows || allowUnsignedStableWindows) {
+        console.warn(`Skipping missing Windows signature metadata for explicitly allowed unsigned asset ${asset.name}.`);
       } else {
         failures.push(`Missing valid signature metadata entry for ${asset.name}.`);
       }
     }
+  }
+}
+
+async function verifyWindowsStableMetadata() {
+  if (!allowUnsignedStableWindows) {
+    return;
+  }
+
+  try {
+    const identity = {
+      sourceCommit: typeof release.target_commitish === "string" && /^[a-f0-9]{40}$/i.test(release.target_commitish)
+        ? release.target_commitish
+        : args.sourceCommit,
+      tag,
+    };
+    if (typeof identity.sourceCommit !== "string" || !/^[a-f0-9]{40}$/i.test(identity.sourceCommit)) {
+      failures.push("Unsigned stable Windows validation requires --source-commit <40-hex-sha>.");
+      return;
+    }
+
+    const metadataUrl = validateUnsignedStableRelease(release, identity);
+    validateUnsignedStableMetadata(await fetchJson(metadataUrl), identity);
+  } catch (error) {
+    failures.push(error instanceof Error ? error.message : "UNSIGNED_STABLE_METADATA_INVALID");
   }
 }
 
@@ -160,8 +189,8 @@ async function verifyMacOSPreviewMetadata() {
 }
 
 async function verifyWindowsAuthenticode(assetName, path, metadataEntry) {
-  if (metadataEntry === undefined && allowUnsignedPrereleaseWindows) {
-    console.warn(`Skipping local Authenticode verification for unsigned prerelease asset ${assetName}.`);
+  if (metadataEntry === undefined && (allowUnsignedPrereleaseWindows || allowUnsignedStableWindows)) {
+    console.warn(`Skipping local Authenticode verification for explicitly allowed unsigned asset ${assetName}.`);
     return;
   }
 
@@ -330,6 +359,8 @@ function parseArgs(values) {
       parsed.maxBytes = values[++index];
     } else if (value === "--allow-unsigned-prerelease-windows") {
       parsed.allowUnsignedPrereleaseWindows = true;
+    } else if (value === "--allow-unsigned-stable-windows") {
+      parsed.allowUnsignedStableWindows = true;
     } else if (value === "--allow-unsigned-prerelease-macos") {
       parsed.allowUnsignedPrereleaseMacos = true;
     } else if (value === "--source-commit") {

@@ -25,6 +25,11 @@ on:
         required: true
         type: boolean
         default: false
+      unsigned_windows_stable:
+        description: "Explicitly allow an unsigned stable Windows release; users will see Unknown Publisher"
+        required: true
+        type: boolean
+        default: false
       unsigned_macos_preview:
         description: "Allow an unsigned macOS artifact only for an explicitly marked prerelease preview"
         required: true
@@ -246,7 +251,9 @@ jobs:
         env:
           DISPATCH_PRERELEASE: ${{ inputs.prerelease }}
           DISPATCH_TAG: ${{ inputs.tag }}
+          DISPATCH_DESKTOP_TARGETS: ${{ inputs.desktop_targets }}
           DISPATCH_UNSIGNED_WINDOWS_PREVIEW: ${{ inputs.unsigned_windows_preview }}
+          DISPATCH_UNSIGNED_WINDOWS_STABLE: ${{ inputs.unsigned_windows_stable }}
         run: |
           $ErrorActionPreference = 'Stop'
           if ($env:WINDOWS_SIGNING_READY -eq 'true') {
@@ -255,12 +262,27 @@ jobs:
 
           $previewAllowed = $env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and
             $env:DISPATCH_PRERELEASE -eq 'true' -and
+            $env:DISPATCH_DESKTOP_TARGETS -ne 'macos' -and
             $env:DISPATCH_UNSIGNED_WINDOWS_PREVIEW -eq 'true' -and
+            $env:DISPATCH_UNSIGNED_WINDOWS_STABLE -ne 'true' -and
             $env:DISPATCH_TAG -match '^v\d+\.\d+\.\d+-(alpha|beta|rc|preview)(?:[.\-][0-9A-Za-z.\-]+)?$'
 
           if ($previewAllowed) {
             'MONEYSIREN_UNSIGNED_WINDOWS_PREVIEW=true' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             Write-Warning 'Continuing with an explicitly requested unsigned Windows prerelease preview. Stable releases still require signing.'
+            exit 0
+          }
+
+          $stableAllowed = $env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and
+            $env:DISPATCH_PRERELEASE -ne 'true' -and
+            $env:DISPATCH_DESKTOP_TARGETS -eq 'windows' -and
+            $env:DISPATCH_UNSIGNED_WINDOWS_PREVIEW -ne 'true' -and
+            $env:DISPATCH_UNSIGNED_WINDOWS_STABLE -eq 'true' -and
+            $env:DISPATCH_TAG -match '^v\d+\.\d+\.\d+$'
+
+          if ($stableAllowed) {
+            'MONEYSIREN_UNSIGNED_WINDOWS_STABLE=true' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            Write-Warning 'Continuing with an explicitly approved unsigned stable Windows release. Windows will report Unknown Publisher.'
             exit 0
           }
 
@@ -363,6 +385,28 @@ jobs:
           $metadata |
             ConvertTo-Json -Depth 5 |
             Set-Content -LiteralPath dist\desktop-release\moneysiren-tray-windows-UNSIGNED-PREVIEW.json
+
+      - name: Write unsigned stable Windows release metadata
+        if: runner.os == 'Windows' && env.MONEYSIREN_UNSIGNED_WINDOWS_STABLE == 'true' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
+        shell: pwsh
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $metadata = [ordered]@{
+            version = 1
+            tag = $env:DISPATCH_TAG
+            sourceCommit = $env:GITHUB_SHA
+            distributionChannel = 'stable'
+            signatureStatus = 'unsigned-stable-opt-in'
+            verifiedPublisher = $false
+            checksumManifest = 'moneysiren-tray-windows-SHA256SUMS.txt'
+            explicitUserOptInRequired = $true
+            warning = 'Unsigned stable Windows release. Windows will show Unknown Publisher and may block execution.'
+          }
+          $metadata |
+            ConvertTo-Json -Depth 5 |
+            Set-Content -LiteralPath dist\desktop-release\moneysiren-tray-windows-UNSIGNED-RELEASE.json
 
       - name: Verify Windows desktop artifact signature
         if: runner.os == 'Windows' && env.WINDOWS_SIGNING_READY == 'true' && (github.event_name != 'workflow_dispatch' || inputs.desktop_targets == 'all' || inputs.desktop_targets == matrix.name)
@@ -550,7 +594,7 @@ jobs:
               --notes-file "$notes_file"
             while IFS= read -r asset_name; do
               case "$asset_name" in
-                moneysiren-web-runtime-*.tar.gz|moneysiren-web-runtime-SHA256SUMS.txt|MoneySiren.Tray*.exe|MoneySiren.Tray*.msi|*macos*|moneysiren-tray-windows-SHA256SUMS.txt|moneysiren-tray-windows-SIGNATURE.json|moneysiren-tray-windows-UNSIGNED-PREVIEW.json|moneysiren-tray-macos-SHA256SUMS.txt|moneysiren-tray-macos-UNSIGNED-PREVIEW.json)
+                moneysiren-web-runtime-*.tar.gz|moneysiren-web-runtime-SHA256SUMS.txt|MoneySiren.Tray*.exe|MoneySiren.Tray*.msi|*macos*|moneysiren-tray-windows-SHA256SUMS.txt|moneysiren-tray-windows-SIGNATURE.json|moneysiren-tray-windows-UNSIGNED-PREVIEW.json|moneysiren-tray-windows-UNSIGNED-RELEASE.json|moneysiren-tray-macos-SHA256SUMS.txt|moneysiren-tray-macos-UNSIGNED-PREVIEW.json)
                   gh release delete-asset "$tag" "$asset_name" -y || true
                   ;;
               esac
@@ -660,6 +704,7 @@ jobs:
         env:
           DISPATCH_TAG: ${{ inputs.tag }}
           DISPATCH_UNSIGNED_WINDOWS_PREVIEW: ${{ inputs.unsigned_windows_preview }}
+          DISPATCH_UNSIGNED_WINDOWS_STABLE: ${{ inputs.unsigned_windows_stable }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $ErrorActionPreference = 'Stop'
@@ -674,6 +719,9 @@ jobs:
           $previewArgs = @()
           if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and $env:DISPATCH_UNSIGNED_WINDOWS_PREVIEW -eq 'true') {
             $previewArgs = @('--allow-unsigned-preview')
+          }
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and $env:DISPATCH_UNSIGNED_WINDOWS_STABLE -eq 'true') {
+            $previewArgs = @('--allow-unsigned-stable')
           }
           node tools/scripts/smoke-installed-package.mjs `
             --package $packages[0].FullName `

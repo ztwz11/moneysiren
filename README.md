@@ -59,7 +59,7 @@ See [docs/data-we-never-store.md](docs/data-we-never-store.md), [docs/security-m
 
 ## Current Status
 
-MoneySiren `v0.1.7-beta.9` is the current unsigned Windows preview; `v0.1.5` remains the latest stable public release.
+See [GitHub Releases](https://github.com/ztwz11/moneysiren/releases) for the current stable and preview versions.
 
 It provides source-free local installation through `@moneysiren/app`, a CLI-first setup flow, local SQLite snapshots, a local Next.js dashboard, and a Tauri tray/HUD desktop surface. MoneySiren remains early and local-first: provider connectors are read-only, telemetry is off by default, and raw provider payloads or credential material must not be persisted.
 
@@ -404,7 +404,7 @@ node tools/scripts/check-release-readiness.mjs --tag v0.1.7-beta.9 --allow-unsig
 
 The encode helper writes the base64 certificate payload to `.tmp/codesign/windows-certificate.base64.txt` so maintainers can set the `WINDOWS_CERTIFICATE` repository secret without printing the private certificate to the terminal. Set `WINDOWS_CERTIFICATE_PASSWORD` to the PFX/P12 password in GitHub Secrets and in the local shell before running the signing readiness check. The signing check verifies local/CI signing inputs before a release run. The release check downloads the published assets, verifies SHA256 entries, requires Windows signature metadata, and validates Windows Authenticode signatures when run on Windows. If only one desktop signing identity is ready, run the `desktop-release` workflow with `desktop_targets=windows` or `desktop_targets=macos`; the publish step removes stale desktop assets for the skipped OS. Self-signed certificates are acceptable only for local smoke tests and do not fix public Windows publisher trust warnings.
 
-Unsigned Windows HUD artifacts are allowed only for explicit prerelease or local smoke review paths. Keep that path out of the public release validation:
+Unsigned Windows HUD artifacts remain fail-closed by default. The prerelease path must be selected explicitly:
 
 ```bash
 npm run release:check -- v0.1.0-rc.1 --allow-unsigned-prerelease-windows
@@ -417,11 +417,11 @@ msiren install --hud --allow-unsigned-hud
 msiren hud
 ```
 
-This does not change public release validation and does not remove Windows publisher warnings. Without the explicit flag, public release HUD installs still require Windows signature metadata. `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for advanced npm postinstall or CI smoke paths. For prerelease tags such as `alpha`, `beta`, or `rc`, set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
+This does not remove Windows publisher warnings. Without the explicit installer flag, HUD installs still require Windows signature metadata. `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for advanced npm postinstall or CI smoke paths. For prerelease tags such as `alpha`, `beta`, or `rc`, set `MONEYSIREN_ALLOW_UNSIGNED_HUD=false` to require signed HUD metadata even for prerelease builds.
 
 ### Unsigned Windows preview channel
 
-Until trusted Windows signing is available, maintainers may publish an explicitly marked prerelease preview. The release workflow permits this only for a manual dispatch where `prerelease` and `unsigned_windows_preview` are both enabled and the tag is a prerelease such as `v0.1.7-beta.9`. Stable tag pushes still fail when signing is unavailable. Preview assets include SHA256 checksums and `moneysiren-tray-windows-UNSIGNED-PREVIEW.json`, are published to the npm `next` channel, and never claim a verified publisher.
+Until trusted Windows signing is available, maintainers may publish an explicitly marked prerelease preview. The release workflow permits this only for a manual dispatch where `prerelease` and `unsigned_windows_preview` are both enabled and the tag is a prerelease such as `v0.1.7-beta.9`. Preview assets include SHA256 checksums and `moneysiren-tray-windows-UNSIGNED-PREVIEW.json`, are published to the npm `next` channel, and never claim a verified publisher.
 
 Preview users must opt into the non-stable channel and should expect Windows Unknown Publisher or SmartScreen warnings:
 
@@ -431,6 +431,28 @@ msiren install --hud --allow-unsigned-hud --tag v0.1.7-beta.9
 ```
 
 Do not disable Windows security controls globally. If Windows policy blocks unsigned applications, use the web dashboard or wait for a signed release.
+
+### Explicit unsigned stable Windows channel
+
+When a maintainer has approved an unsigned stable Windows release, it may be created only by manually dispatching `desktop-release` with all of these settings:
+
+- an exact stable tag such as `v0.1.7`;
+- `prerelease=false`;
+- `desktop_targets=windows`;
+- `unsigned_windows_preview=false`;
+- `unsigned_windows_stable=true`.
+
+Normal stable tag pushes, macOS stable releases, and manual dispatches without every condition still fail when signing is unavailable. The release publishes SHA256 checksums and `moneysiren-tray-windows-UNSIGNED-RELEASE.json`, never publishes Windows signature metadata, and never claims a verified publisher.
+
+Users must explicitly accept the unsigned HUD even though the npm package is on the stable channel:
+
+```powershell
+npm install -g @moneysiren/app@latest
+msiren install --all --allow-unsigned-hud --tag v0.1.7
+msiren hud
+```
+
+Windows may show Unknown Publisher or SmartScreen warnings, and managed policy may block execution. Do not disable Defender, SmartScreen, or Smart App Control globally.
 
 ### Unsigned macOS preview channel
 

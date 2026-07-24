@@ -381,7 +381,7 @@ msiren stop
 To install the web runtime from a specific release tag or into a custom directory:
 
 ```bash
-msiren install --web --tag v0.1.7-beta.9 --dir ./moneysiren-release
+msiren install --web --tag v0.1.7 --dir ./moneysiren-release
 ```
 
 If the desktop installer was installed to a non-default location, point the CLI at it before opening HUD:

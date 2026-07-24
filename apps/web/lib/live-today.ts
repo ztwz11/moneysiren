@@ -779,7 +779,11 @@ async function collectLocalAiCliLiveToday(context: LiveTodayCollectionContext): 
 
   const usageSummary = summarizeLocalAiCliUsage(
     provider,
-    isCodexLocalAiProviderKey(providerKey) && context.scope !== "hud"
+    shouldReadCodexResetCreditFallback(
+      providerKey,
+      context.scope,
+      provider.usage.statusLine.usageResetCredits,
+    )
       ? await readCodexResetCreditMetrics(context)
       : [],
   );
@@ -824,6 +828,16 @@ export function summarizeLocalAiCliUsage(
 
 function isCodexLocalAiProviderKey(providerKey: LocalAiCliProviderKey): boolean {
   return providerKey === "codex-cli" || providerKey === "codex-app";
+}
+
+export function shouldReadCodexResetCreditFallback(
+  providerKey: LocalAiCliProviderKey,
+  scope: RefreshScope,
+  credits: LocalAiCliProviderStatus["usage"]["statusLine"]["usageResetCredits"],
+): boolean {
+  return isCodexLocalAiProviderKey(providerKey) &&
+    scope !== "hud" &&
+    !credits.some((credit) => credit.expiresAt !== null && credit.isExact !== false);
 }
 
 export async function readCodexResetCreditMetrics(

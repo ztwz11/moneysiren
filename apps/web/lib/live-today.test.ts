@@ -5,6 +5,7 @@ import {
   clearLiveTodayCache,
   readLiveTodaySnapshot,
   refreshLiveToday,
+  shouldReadCodexResetCreditFallback,
   summarizeLocalAiCliUsage,
   type LiveTodayProviderCollector,
 } from "./live-today";
@@ -300,6 +301,22 @@ describe("live today cache", () => {
     });
 
     expect(observedScope).toBe("hud");
+  });
+
+  it("uses the undocumented reset-credit endpoint only as a non-HUD fallback", () => {
+    expect(shouldReadCodexResetCreditFallback("codex-app", "hud", [])).toBe(false);
+    expect(shouldReadCodexResetCreditFallback("codex-app", "all", [
+      {
+        label: "Full reset",
+        expiresAt: "2026-07-17T00:00:00.000Z",
+      },
+    ])).toBe(false);
+    expect(shouldReadCodexResetCreditFallback("codex-app", "all", [
+      {
+        label: null,
+        expiresAt: null,
+      },
+    ])).toBe(true);
   });
 
   it("refreshes stale local AI CLI usage on read without refreshing external providers", async () => {

@@ -44,7 +44,7 @@ MoneySiren supports both exact and estimated reset-credit records:
 - If exact and estimated records exist for the same provider, exact records win for that provider.
 - Estimated records must preserve `itemKey`, `accuracy`, `source`, `resetAt`, and `resetAtLatest`.
 
-The undocumented ChatGPT reset-credit API is not polled every 5 seconds. HUD data comes from local session/statusline sources and safe local observations.
+The HUD reads reset-credit detail from the official local Codex app-server `account/rateLimits/read` snapshot. Exact app-server expiry rows take precedence over safe count-observation estimates. The undocumented ChatGPT reset-credit fallback is not polled every 5 seconds.
 
 ## Local API Security
 

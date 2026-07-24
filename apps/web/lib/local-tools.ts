@@ -1143,6 +1143,7 @@ async function applyCodexResetCreditObservationEstimates(
     return;
   }
 
+  const reportedCredits = accumulator.statusLine.usageResetCredits;
   const path = codexResetCreditObservationPath(context.env);
   const store = await readCodexResetCreditObservationStore(path);
   const nextStore = reconcileCodexResetCreditObservations(store, currentCount, context.now.toISOString(), {
@@ -1152,7 +1153,21 @@ async function applyCodexResetCreditObservationEstimates(
 
   const estimatedCredits = codexResetCreditsFromObservationStore(nextStore, currentCount);
 
-  accumulator.statusLine.usageResetCredits = estimatedCredits;
+  accumulator.statusLine.usageResetCredits = preferReportedCodexResetCreditDetails(
+    reportedCredits,
+    estimatedCredits,
+  );
+}
+
+export function preferReportedCodexResetCreditDetails(
+  reportedCredits: readonly LocalCliUsageResetCredit[],
+  estimatedCredits: readonly LocalCliUsageResetCredit[],
+): readonly LocalCliUsageResetCredit[] {
+  return reportedCredits.some((credit) => credit.expiresAt !== null)
+    ? reportedCredits
+    : estimatedCredits.length > 0
+      ? estimatedCredits
+      : reportedCredits;
 }
 
 function readCodexResetCreditCount(value: unknown): number | null {
@@ -2401,7 +2416,7 @@ function applyUsageResetCredits(
   accumulator: UsageAccumulator,
   observedAt: number | null,
 ): void {
-  const credits = readUsageResetCredits(value);
+  const credits = normalizeCodexAppServerResetCredits(value);
 
   if (credits.length === 0 || !shouldApplyUsageResetCreditMetadata(accumulator, observedAt)) {
     return;
@@ -2409,6 +2424,10 @@ function applyUsageResetCredits(
 
   accumulator.statusLine.usageResetCredits = credits;
   noteUsageResetCreditMetadata(accumulator, observedAt);
+}
+
+export function normalizeCodexAppServerResetCredits(value: unknown): LocalCliUsageResetCredit[] {
+  return readUsageResetCredits(value);
 }
 
 function readUsageResetCredits(value: unknown, depth = 0): LocalCliUsageResetCredit[] {
@@ -2436,22 +2455,23 @@ function readUsageResetCredits(value: unknown, depth = 0): LocalCliUsageResetCre
   ].flatMap((item) => readUsageResetCredits(item, depth + 1));
 
   if (nestedCredits.length > 0) {
-    return nestedCredits;
+    const declaredCount = readUsageResetCreditCount(record);
+    const unresolvedCount = Math.max(0, (declaredCount ?? nestedCredits.length) - nestedCredits.length);
+
+    return [
+      ...nestedCredits,
+      ...Array.from({ length: unresolvedCount }, () => ({
+        label: null,
+        expiresAt: null,
+      })),
+    ];
   }
 
   if (readBoolean(record.unlimited) === true || readBoolean(record.has_credits) === false || readBoolean(record.hasCredits) === false) {
     return [];
   }
 
-  const count = Math.floor(readNumber(
-    record.available_count ??
-      record.availableCount ??
-      record.count ??
-      record.quantity ??
-      record.balance ??
-      record.remaining ??
-      record.available,
-  ) ?? 0);
+  const count = readUsageResetCreditCount(record) ?? 0;
   const expiresAt = readUsageResetCreditExpiry(record);
 
   if (count <= 0) {
@@ -2493,7 +2513,29 @@ function readUsageResetCreditItem(value: unknown, depth: number): LocalCliUsageR
 }
 
 function readUsageResetCreditLabel(record: Record<string, unknown>): string | null {
-  return trimToNull(stringValue(record.label ?? record.name ?? record.type ?? record.id) ?? undefined);
+  return trimToNull(stringValue(
+    record.label ??
+      record.title ??
+      record.name ??
+      record.resetType ??
+      record.reset_type ??
+      record.type ??
+      record.id,
+  ) ?? undefined);
+}
+
+function readUsageResetCreditCount(record: Record<string, unknown>): number | null {
+  const count = readNumber(
+    record.available_count ??
+      record.availableCount ??
+      record.count ??
+      record.quantity ??
+      record.balance ??
+      record.remaining ??
+      record.available,
+  );
+
+  return count === null || count < 0 ? null : Math.floor(count);
 }
 
 function readUsageResetCreditExpiry(record: Record<string, unknown>): string | null {

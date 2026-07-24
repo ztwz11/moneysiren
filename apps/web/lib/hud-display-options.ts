@@ -76,7 +76,7 @@ export const HUD_WIDGET_DISPLAY_EXAMPLES = {
   },
   codex_reset_credit_expiry: {
     shortLabel: "Codex reset expiry",
-    example: "Codex reset expiry 18d",
+    example: "2026-08-11",
   },
   supabase_usage_health: {
     shortLabel: "Supabase health",
@@ -133,13 +133,55 @@ export function getHudWidgetDisplayExample(
   const labelMode = options.labelMode ?? "text";
   const percentMode = options.percentMode ?? "usage";
   const label = widgetPreviewLabel(widgetKey, labels);
-  const value = widgetPreviewValue(widgetKey, percentMode, labels);
+  const value = widgetPreviewValue(widgetKey, percentMode);
+  if (widgetKey === "codex_reset_credit_expiry") {
+    return {
+      shortLabel: label,
+      example: value,
+    };
+  }
+
   const visibleLabel = labelMode === "icon" ? labels.iconOnly : label;
 
   return {
     shortLabel: label,
     example: `${visibleLabel} ${value}`,
   };
+}
+
+export function formatHudDateOnly(value: string, timeZone = "Asia/Seoul"): string | null {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone,
+    year: "numeric",
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
+export function calculateHudSummaryScale(availableWidth: number, naturalWidth: number): number {
+  if (availableWidth <= 0 || naturalWidth <= 0) {
+    return 1;
+  }
+
+  return Math.min(1, availableWidth / naturalWidth);
+}
+
+export function shouldUseCompactHudIcons(
+  availableWidth: number,
+  fullLabelWidth: number,
+  minimumReadableScale = 0.72,
+): boolean {
+  return calculateHudSummaryScale(availableWidth, fullLabelWidth) < minimumReadableScale;
 }
 
 interface HudPreviewLabels {
@@ -266,7 +308,6 @@ function widgetPreviewLabel(widgetKey: NotificationWidgetKey, labels: HudPreview
 function widgetPreviewValue(
   widgetKey: NotificationWidgetKey,
   percentMode: HudPercentPreviewMode,
-  labels: HudPreviewLabels,
 ): string {
   const codexFiveHourPercent = percentMode === "remaining" ? "78%" : "22%";
   const codexWeeklyPercent = percentMode === "remaining" ? "69%" : "31%";
@@ -279,7 +320,7 @@ function widgetPreviewValue(
     codex_five_hour_percent: codexFiveHourPercent,
     codex_total_tokens: "1.9m",
     codex_reset_credit_count: "2",
-    codex_reset_credit_expiry: labels.remaining === "남음" ? "18일 후" : "18d",
+    codex_reset_credit_expiry: "2026-08-11",
     codex_weekly_percent: codexWeeklyPercent,
     month_forecast: "US$14.7",
     openai_today_cost: "US$0.42",

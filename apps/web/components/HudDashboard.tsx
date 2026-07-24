@@ -18,6 +18,11 @@ import {
 import type { CreditAccuracy, HudItemView, HudViewModel, QuotaItemView } from "../../../packages/view-model/src/hud-model";
 import type { Locale } from "../lib/i18n";
 import type { NotificationPreferences } from "./NotificationSettingsModel";
+import {
+  calculateHudSummaryScale,
+  formatHudDateOnly,
+  shouldUseCompactHudIcons,
+} from "../lib/hud-display-options";
 import { refreshLocalLive } from "../lib/local-client";
 import { openHudDashboardRoute } from "../lib/hud-navigation";
 import { HudWindowControls } from "./HudWindowControls";
@@ -102,6 +107,7 @@ interface HudSummaryPart {
   id: string;
   label: string;
   value: string;
+  valueOnly?: boolean;
 }
 
 export function HudDashboard({
@@ -350,7 +356,65 @@ function HudSummaryCard({
   wasRecentDrag: () => boolean;
 }) {
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [compactLabels, setCompactLabels] = useState(false);
+  const [summaryScale, setSummaryScale] = useState(1);
+  const fullLabelNaturalWidthRef = useRef(0);
+  const summaryLineRef = useRef<HTMLSpanElement>(null);
+  const summaryViewportRef = useRef<HTMLSpanElement>(null);
   const summaryParts = hudSummaryParts(items, hudPreferences, labels, locale, modelGeneratedAt);
+  const summaryContentKey = summaryParts
+    .map((part) => `${part.id}:${part.value}:${part.valueOnly === true ? "value" : "label"}`)
+    .join("|");
+  const showCompactIcons = hudPreferences.labelMode === "icon" || compactLabels;
+  const summaryLayoutKey = `${summaryContentKey}:${showCompactIcons ? "icon" : "text"}`;
+
+  useEffect(() => {
+    fullLabelNaturalWidthRef.current = 0;
+    setCompactLabels(false);
+  }, [hudPreferences.labelMode, summaryContentKey]);
+
+  useEffect(() => {
+    const viewport = summaryViewportRef.current;
+    const line = summaryLineRef.current;
+    if (!viewport || !line) {
+      return;
+    }
+
+    let frameId = 0;
+    const fitSummary = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        const availableWidth = viewport.clientWidth;
+        const naturalWidth = line.scrollWidth;
+        if (hudPreferences.labelMode === "text") {
+          if (!compactLabels) {
+            fullLabelNaturalWidthRef.current = naturalWidth;
+          }
+
+          const fullLabelWidth = fullLabelNaturalWidthRef.current || naturalWidth;
+          setCompactLabels(shouldUseCompactHudIcons(availableWidth, fullLabelWidth));
+        }
+
+        const nextScale = calculateHudSummaryScale(availableWidth, naturalWidth);
+
+        setSummaryScale((current) => Math.abs(current - nextScale) < 0.001 ? current : nextScale);
+      });
+    };
+    const resizeObserver = typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(fitSummary);
+
+    resizeObserver?.observe(viewport);
+    resizeObserver?.observe(line);
+    window.addEventListener("resize", fitSummary);
+    fitSummary();
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", fitSummary);
+    };
+  }, [compactLabels, hudPreferences.labelMode, summaryLayoutKey]);
 
   return (
     <div className={popoverOpen ? "hud-item-shell hud-item-shell-open" : "hud-item-shell"}>
@@ -374,27 +438,33 @@ function HudSummaryCard({
         {summaryParts.length === 0 ? (
           <span>{labels.empty}</span>
         ) : (
-          <span className={hudPreferences.labelMode === "icon" ? "hud-summary-line hud-summary-line-icons" : "hud-summary-line"}>
-            {summaryParts.map((part, index) => (
-              <span
-                aria-label={`${part.label} ${part.value}`}
-                className="hud-summary-token"
-                key={part.id}
-                title={`${part.label} ${part.value}`}
-              >
-                {index > 0 ? (
-                  <span aria-hidden="true" className="hud-summary-separator">
-                    {HUD_DETAIL_SEPARATOR}
-                  </span>
-                ) : null}
-                {hudPreferences.labelMode === "icon" ? (
-                  <HudItemIcon kind={part.icon} />
-                ) : (
-                  <span className="hud-summary-label">{part.label}</span>
-                )}
-                <span className="hud-summary-value">{part.value}</span>
-              </span>
-            ))}
+          <span className="hud-summary-viewport" ref={summaryViewportRef}>
+            <span
+              className={showCompactIcons ? "hud-summary-line hud-summary-line-icons" : "hud-summary-line"}
+              ref={summaryLineRef}
+              style={{ transform: `scale(${summaryScale})` }}
+            >
+              {summaryParts.map((part, index) => (
+                <span
+                  aria-label={`${part.label} ${part.value}`}
+                  className={part.valueOnly ? "hud-summary-token hud-summary-token-value-only" : "hud-summary-token"}
+                  key={part.id}
+                  title={`${part.label} ${part.value}`}
+                >
+                  {index > 0 ? (
+                    <span aria-hidden="true" className="hud-summary-separator">
+                      {HUD_DETAIL_SEPARATOR}
+                    </span>
+                  ) : null}
+                  {part.valueOnly ? null : showCompactIcons ? (
+                    <HudItemIcon kind={part.icon} />
+                  ) : (
+                    <span className="hud-summary-label">{part.label}</span>
+                  )}
+                  <span className="hud-summary-value">{part.value}</span>
+                </span>
+              ))}
+            </span>
           </span>
         )}
       </button>
@@ -974,7 +1044,10 @@ function hudSummaryParts(
         icon: "reset",
         id: item.id,
         label: `${providerLabel(item.providerKey)} ${labels.resetCreditExpiry}`,
-        value: item.nearestExpiryAt === null ? labels.noExpiry : formatRelative(item.nearestExpiryAt, modelGeneratedAt, locale),
+        value: item.nearestExpiryAt === null
+          ? "N/A"
+          : formatHudDateOnly(item.nearestExpiryAt, HUD_TIME_ZONE) ?? "N/A",
+        valueOnly: true,
       };
     }
 

@@ -1,6 +1,6 @@
 # Codex Reset-Credit Expiry
 
-Status: experimental, local-only, unofficial.
+Status: local-only. The primary Codex app-server integration is official; the direct ChatGPT fallback is experimental and unofficial.
 
 This integration is not required for OpenAI Usage/Costs sync, provider billing snapshots, local dashboard usage, or the core MoneySiren security model.
 
@@ -8,17 +8,27 @@ This integration is not required for OpenAI Usage/Costs sync, provider billing s
 
 The feature can show local Codex reset-credit expiry information when the user has a local Codex installation and authentication state on the same machine running MoneySiren.
 
+MoneySiren first reads the stable local Codex app-server method:
+
+```text
+account/rateLimits/read
+```
+
+Codex CLI `0.144.0` and newer can return `rateLimitResetCredits.credits` detail rows with each available credit's ID, reset type, status, grant time, and expiry time. MoneySiren keeps only normalized display fields and never returns the Codex auth token or raw app-server response.
+
+`rateLimitResetCredits.availableCount` is authoritative. The backend may return fewer detail rows than that count, so MoneySiren displays known expiry dates while keeping unresolved credits visible without inventing dates.
+
 ## Stability warning
 
-This integration depends on upstream behavior that may change without notice. It should be treated as best-effort and should fail safely.
+The local app-server protocol is the preferred integration and should fail safely when Codex is unavailable or too old to return detail rows.
 
-It currently uses an undocumented ChatGPT internal API:
+When the local app-server does not provide exact expiry details, explicit non-HUD refreshes and the dedicated reset-credit route can fall back to an undocumented ChatGPT internal API:
 
 ```text
 GET https://chatgpt.com/backend-api/wham/rate-limit-reset-credits
 ```
 
-The endpoint may change without notice. MoneySiren keeps this integration isolated, returns only normalized fields, and marks API responses as `unofficial: true`.
+The fallback endpoint may change without notice. MoneySiren keeps it isolated, returns only normalized fields, and marks direct API responses as `unofficial: true`. The 5-second HUD poll does not call this endpoint.
 
 ## Local dashboard
 
@@ -31,6 +41,7 @@ http://127.0.0.1:3000/codex-reset-credits
 ## Requirements
 
 - Codex CLI or Codex App must be installed and logged in on the same computer running the local Node.js server.
+- Codex CLI `0.144.0` or newer is recommended for official reset-credit detail and expiry fields.
 - Run `codex login` again if the API returns `UPSTREAM_UNAUTHORIZED`.
 - Do not upload `~/.codex/auth.json` to Vercel, GitHub, or any remote server.
 - Vercel and other remote hosts cannot read your local Codex auth file. This feature is for local Node.js or self-hosted machines that already have Codex installed.

@@ -8,6 +8,8 @@ import {
   readGcpLocalSetupStatus,
   readLocalAiCliStatus,
   readLocalAiUsageDaily,
+  normalizeCodexAppServerResetCredits,
+  preferReportedCodexResetCreditDetails,
   reconcileCodexResetCreditObservations,
   setAwsProfileGlobally,
   setProviderEnvGlobally,
@@ -640,6 +642,66 @@ describe("local tool status", () => {
         { label: null, expiresAt: null },
       ],
     });
+  });
+
+  it("preserves official Codex app-server expiry details over observation estimates", () => {
+    const reportedCredits = normalizeCodexAppServerResetCredits({
+      availableCount: 3,
+      credits: [
+        {
+          id: "FAKE_RESET_CREDIT_1",
+          resetType: "codexRateLimits",
+          status: "available",
+          grantedAt: 1781654400,
+          expiresAt: 1784246400,
+          title: "Full reset",
+        },
+      ],
+    });
+    const estimatedCredits = [
+      {
+        label: "estimated",
+        expiresAt: "2026-07-19T01:00:00.000Z",
+        isExact: false,
+      },
+    ];
+
+    expect(reportedCredits).toEqual([
+      {
+        label: "Full reset",
+        expiresAt: "2026-07-17T00:00:00.000Z",
+      },
+      {
+        label: null,
+        expiresAt: null,
+      },
+      {
+        label: null,
+        expiresAt: null,
+      },
+    ]);
+    expect(preferReportedCodexResetCreditDetails(reportedCredits, estimatedCredits)).toBe(reportedCredits);
+  });
+
+  it("uses observation estimates only when app-server omits expiry details", () => {
+    const reportedCredits = normalizeCodexAppServerResetCredits({
+      availableCount: 2,
+      credits: null,
+    });
+    const estimatedCredits = [
+      {
+        label: "estimated",
+        expiresAt: "2026-07-19T01:00:00.000Z",
+        isExact: false,
+      },
+      {
+        label: "estimated",
+        expiresAt: "2026-07-19T01:10:00.000Z",
+        isExact: false,
+      },
+    ];
+
+    expect(preferReportedCodexResetCreditDetails(reportedCredits, estimatedCredits)).toBe(estimatedCredits);
   });
 
   it("estimates Codex reset credit expiry ranges from observed count increases", () => {

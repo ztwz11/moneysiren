@@ -494,7 +494,7 @@ describe("shared view model", () => {
       "Codex 5h remaining: 87.5%",
       "Codex weekly remaining: 87%",
       "Codex total tokens: 1,918,539",
-      "OpenAI tokens: 4,200",
+      "OpenAI API TK: 4,200",
     ]);
   });
 

@@ -971,7 +971,7 @@ function buildDigestItems(
       widgetKey: "openai_today_tokens",
       kind: "usage",
       severity: "info",
-      label: "OpenAI tokens",
+      label: "OpenAI API TK",
       value: openAiTokens === null ? "Not available" : formatTokens(openAiTokens),
       ...(openAiTokens === null ? {} : {
         numericValue: openAiTokens,

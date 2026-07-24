@@ -51,7 +51,7 @@ describe("web local notification model", () => {
     expect(tray.items.filter((item) => item.id.startsWith("widget-")).map((item) => item.label)).toEqual([
       "Codex 5h remaining: 100%",
       "Codex weekly remaining: 87%",
-      "OpenAI tokens: 12,345",
+      "OpenAI API TK: 12,345",
     ]);
     expect(JSON.stringify({ digest, tray })).not.toContain("FAKE_SECRET");
   });

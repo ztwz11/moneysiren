@@ -3120,9 +3120,17 @@ body:has(.hud-page)::-webkit-scrollbar {
   vertical-align: middle;
 }
 
+.hud-icon-pair {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+}
+
 .hud-provider-icon {
-  height: 16px;
-  width: 16px;
+  border-radius: 3px;
+  height: 14px;
+  width: 14px;
 }
 
 .hud-item-icon {

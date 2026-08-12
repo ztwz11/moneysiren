@@ -1,6 +1,6 @@
 {
   "name": "@moneysiren/connector-mock",
-  "version": "0.1.7",
+  "version": "0.1.8-beta.1",
   "private": true,
   "type": "module",
   "main": "dist/index.js",

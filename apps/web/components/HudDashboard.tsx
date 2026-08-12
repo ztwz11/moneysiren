@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
+  CalendarClock,
   CalendarDays,
   Clock,
   Cloud,
@@ -10,13 +11,19 @@ import {
   DollarSign,
   ExternalLink,
   Gauge,
-  KeyRound,
   RotateCw,
   Server,
+  TicketCheck,
   Zap,
 } from "lucide-react";
 import type { CreditAccuracy, HudItemView, HudViewModel, QuotaItemView } from "../../../packages/view-model/src/hud-model";
 import type { Locale } from "../lib/i18n";
+import {
+  hudIconKindForCreditPool,
+  hudIconKindForWidget,
+  hudProviderKeyForWidget,
+  type HudIconKind,
+} from "../lib/hud-icon-kind";
 import type { NotificationPreferences } from "./NotificationSettingsModel";
 import {
   calculateHudSummaryScale,
@@ -100,12 +107,12 @@ interface HudDashboardProps {
 }
 
 type HudLabelMode = NotificationPreferences["hud"]["labelMode"];
-type HudIconKind = "cost" | "live" | "risk" | "stale" | "tokens" | "quota" | "reset" | "health" | "cloud";
 
 interface HudSummaryPart {
   icon: HudIconKind;
   id: string;
   label: string;
+  providerKey: string | null;
   value: string;
   valueOnly?: boolean;
 }
@@ -457,7 +464,7 @@ function HudSummaryCard({
                     </span>
                   ) : null}
                   {part.valueOnly ? null : showCompactIcons ? (
-                    <HudItemIcon kind={part.icon} />
+                    <HudIconPair icon={part.icon} providerKey={part.providerKey} />
                   ) : (
                     <span className="hud-summary-label">{part.label}</span>
                   )}
@@ -569,10 +576,10 @@ function HudItemCard({
         <span className="hud-item-copy">
             <strong>
               <HudItemTitle
-                icon={widgetIconKind(item.widgetKey)}
+                icon={hudIconKindForWidget(item.widgetKey)}
                 label={item.label}
                 labelMode={hudPreferences.labelMode}
-                providerKey={item.providerKey}
+                providerKey={hudProviderKeyForWidget(item.widgetKey, item.providerKey)}
               />
             </strong>
           </span>
@@ -612,7 +619,7 @@ function HudItemCard({
         <span className="hud-item-copy">
           <strong>
             <HudItemTitle
-              icon="reset"
+              icon={hudIconKindForCreditPool(item.variant)}
               label={`${providerLabel(item.providerKey)} ${HUD_DETAIL_SEPARATOR} ${title}`}
               labelMode={hudPreferences.labelMode}
               providerKey={item.providerKey}
@@ -655,25 +662,35 @@ function HudItemTitle({
   icon: HudIconKind;
   label: string;
   labelMode: HudLabelMode;
-  providerKey?: string | null;
+  providerKey: string | null;
 }) {
   if (labelMode === "icon") {
     return (
       <span aria-label={label} className="hud-icon-title" title={label}>
-        {providerKey === null || providerKey === undefined ? (
-          <HudItemIcon kind={icon} />
-        ) : (
-          <ProviderIcon
-            className={`hud-provider-icon provider-mark provider-mark-${providerKey}`}
-            providerKey={providerKey}
-          />
-        )}
+        <HudIconPair icon={icon} providerKey={providerKey} />
         <span className="hud-sr-only">{label}</span>
       </span>
     );
   }
 
   return <>{label}</>;
+}
+
+function HudIconPair({
+  icon,
+  providerKey,
+}: {
+  icon: HudIconKind;
+  providerKey: string | null;
+}) {
+  return (
+    <span aria-hidden="true" className="hud-icon-pair">
+      {providerKey === null ? null : (
+        <ProviderIcon className="hud-provider-icon provider-mark" providerKey={providerKey} />
+      )}
+      <HudItemIcon kind={icon} />
+    </span>
+  );
 }
 
 function HudItemIcon({ kind }: { kind: HudIconKind }) {
@@ -708,8 +725,12 @@ function HudItemIcon({ kind }: { kind: HudIconKind }) {
     return <Gauge {...props} />;
   }
 
-  if (kind === "reset") {
-    return <KeyRound {...props} />;
+  if (kind === "credit") {
+    return <TicketCheck {...props} />;
+  }
+
+  if (kind === "expiry") {
+    return <CalendarClock {...props} />;
   }
 
   if (kind === "health") {
@@ -1026,6 +1047,7 @@ function hudSummaryParts(
         icon: "quota",
         id: item.id,
         label: `${providerLabel(item.providerKey)} ${quotaWindowLabel(item.window, labels)}`,
+        providerKey: item.providerKey,
         value: percent === null ? labels.unknown : formatPercent(percent, locale),
       };
     }
@@ -1033,17 +1055,19 @@ function hudSummaryParts(
     if (item.kind === "credit_pool") {
       if (item.variant === "count") {
         return {
-          icon: "reset",
+          icon: hudIconKindForCreditPool(item.variant),
           id: item.id,
           label: `${providerLabel(item.providerKey)} ${labels.resetCredits}`,
+          providerKey: item.providerKey,
           value: item.availableCount === null ? labels.unknown : new Intl.NumberFormat(locale).format(item.availableCount),
         };
       }
 
       return {
-        icon: "reset",
+        icon: hudIconKindForCreditPool(item.variant),
         id: item.id,
         label: `${providerLabel(item.providerKey)} ${labels.resetCreditExpiry}`,
+        providerKey: item.providerKey,
         value: item.nearestExpiryAt === null
           ? "N/A"
           : formatHudDateOnly(item.nearestExpiryAt, HUD_TIME_ZONE) ?? "N/A",
@@ -1052,48 +1076,13 @@ function hudSummaryParts(
     }
 
     return {
-      icon: widgetIconKind(item.widgetKey),
+      icon: hudIconKindForWidget(item.widgetKey),
       id: item.id,
       label: item.label,
+      providerKey: hudProviderKeyForWidget(item.widgetKey, item.providerKey),
       value: compactWidgetValue(item, locale),
     };
   });
-}
-
-function widgetIconKind(widgetKey: Extract<HudItemView, { kind: "widget" }>["widgetKey"]): HudIconKind {
-  if (widgetKey === "month_forecast" || widgetKey === "aws_month_forecast" || widgetKey === "openai_today_cost" || widgetKey === "cloudflare_month_to_date") {
-    return "cost";
-  }
-
-  if (widgetKey === "today_live_cost") {
-    return "live";
-  }
-
-  if (widgetKey === "risk_high_count") {
-    return "risk";
-  }
-
-  if (widgetKey === "stale_connection_count") {
-    return "stale";
-  }
-
-  if (widgetKey === "openai_today_tokens" || widgetKey === "codex_total_tokens") {
-    return "tokens";
-  }
-
-  if (widgetKey === "codex_five_hour_percent" || widgetKey === "codex_weekly_percent" || widgetKey === "claude_five_hour_percent" || widgetKey === "claude_weekly_percent") {
-    return "quota";
-  }
-
-  if (widgetKey === "codex_reset_credit_count" || widgetKey === "codex_reset_credit_expiry") {
-    return "reset";
-  }
-
-  if (widgetKey === "supabase_usage_health") {
-    return "health";
-  }
-
-  return "cloud";
 }
 
 function compactWidgetValue(

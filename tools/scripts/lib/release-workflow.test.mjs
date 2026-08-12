@@ -28,7 +28,7 @@ test("npm publication is reusable-only", async () => {
 test("Windows and macOS candidate and public HUD smokes gate npm publication", async () => {
   const source = await readFile(resolve(workflows, "desktop-release.yml"), "utf8");
   const candidate = source.indexOf("candidate-smoke:");
-  const publish = source.indexOf("publish:\n");
+  const publish = source.search(/^  publish:\r?$/m);
   const publicSmoke = source.indexOf("public-smoke:");
   const npm = source.indexOf("publish-npm:");
 

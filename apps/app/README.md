@@ -7,11 +7,14 @@ This is the recommended npm package for users who want all three local MoneySire
 ## Install
 
 ```bash
+node --version
 npm install -g @moneysiren/app
 msiren --version
+msiren install --status
 msiren start
-msiren hud
 ```
+
+Node.js 22.13 or newer is required. If npm prints `EBADENGINE`, upgrade the active Node.js version before treating the installation as supported.
 
 Use the unqualified package name for the public local release.
 
@@ -38,11 +41,27 @@ msiren install --status
 
 ## What It Installs
 
-- CLI command surface.
-- Local web dashboard runtime.
-- HUD desktop artifact.
+- CLI command surface and the `moneysiren` / `msiren` aliases.
+- Local web dashboard runtime during a normal global install.
+- HUD desktop artifact only when a signed artifact is available or the user explicitly accepts an unsigned preview.
 
 The Web/HUD artifacts are verified against published SHA256 checksums. Public release Windows HUD artifacts should include signature metadata; unsigned artifacts are for local smoke or prerelease review only.
+
+## Install And Open The HUD
+
+The native HUD executable is separate from the web dashboard. `msiren start` can work while `msiren hud` still reports:
+
+```text
+MoneySiren HUD: unavailable
+No installed HUD desktop artifact was found.
+```
+
+For a release with signed Windows HUD metadata:
+
+```powershell
+msiren install --hud
+msiren hud
+```
 
 Temporary Windows HUD smoke testing before release signing is ready requires an explicit command opt-in:
 
@@ -51,7 +70,15 @@ msiren install --hud --allow-unsigned-hud
 msiren hud
 ```
 
-This does not remove Windows publisher warnings and does not change public release validation. `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for advanced npm postinstall or CI smoke paths.
+This downloads and runs an executable without trusted publisher signing. It may trigger a Windows warning. The opt-in applies only to that installation command; it does not remove publisher warnings or change public release validation. `MONEYSIREN_ALLOW_UNSIGNED_HUD=true` remains available for advanced npm postinstall or CI smoke paths.
+
+Important status details:
+
+- `msiren install --status` reports the selected component profile; it does not guarantee that a HUD executable exists.
+- `msiren status` reports whether the web and HUD processes are actually running.
+- `msiren install --web` selects and installs Web-only. It does not add HUD and changes the saved profile to Web-only.
+- Use `msiren install --all` for all signed release assets, or `msiren install --all --allow-unsigned-hud` only when intentionally accepting an unsigned HUD preview.
+- If the desktop app is already installed elsewhere, set `MONEYSIREN_DESKTOP_APP` to its executable path before running `msiren hud`.
 
 For CLI-only automation, install `@moneysiren/cli` instead.
 

@@ -309,16 +309,43 @@ Home/help never creates `.env`, prints secret values, calls provider APIs, or en
 
 ## NPM App Install
 
-For normal source-free installs, use the app package from the `latest` npm channel:
+For normal source-free installs, use the app package from the `latest` npm channel. Node.js 22.13 or newer is required; an npm `EBADENGINE` warning means the active Node.js version must be upgraded before MoneySiren is considered supported.
 
 ```bash
+node --version
 npm install -g @moneysiren/app
 msiren --version
+msiren install --status
 msiren start
+```
+
+`@moneysiren/app` creates the `moneysiren` and shorter `msiren` global command shims during postinstall, then downloads the matching GitHub Release web runtime. `msiren start` starts that web runtime; it does not install the native HUD executable.
+
+### Install The Native HUD
+
+The HUD is a separate native desktop artifact. A profile that lists `HUD` only records the selected component; it does not prove that a runnable HUD executable is installed. `msiren install --status` reports the selection profile, while `msiren status` reports whether the web and HUD processes are actually running.
+
+For a release with signed Windows HUD metadata:
+
+```powershell
+msiren install --hud
 msiren hud
 ```
 
-`@moneysiren/app` is the all-in-one package for the CLI, local web dashboard, and HUD. It creates the `moneysiren` and shorter `msiren` global command shims during postinstall, then downloads the matching GitHub Release web runtime. Until Windows HUD signing is ready, the global postinstall keeps HUD artifact installation behind explicit opt-in; run `msiren install --hud --allow-unsigned-hud` only for temporary local unsigned HUD smoke testing. The current app package no longer uses npm-managed `bin` aliases, which avoids npm's `EEXIST` bin conflict with older prerelease installs.
+If the release only provides an unsigned HUD preview, MoneySiren refuses it by default. Temporary local testing requires explicit opt-in:
+
+```powershell
+msiren install --hud --allow-unsigned-hud
+msiren hud
+```
+
+The unsigned command downloads and runs an executable that lacks trusted publisher signing. It may trigger a Windows publisher warning and should be used only when the user intentionally accepts that risk. It does not weaken public release validation or permanently enable unsigned installs.
+
+If `msiren hud` prints `No installed HUD desktop artifact was found`, the web dashboard may still be healthy; install the HUD artifact with one of the commands above and retry. If MoneySiren is already installed elsewhere, set `MONEYSIREN_DESKTOP_APP` to that executable instead.
+
+Component flags select the exact profile for that invocation. In particular, `msiren install --web` changes the profile to Web-only and does not add HUD. To select and install every component from a signed release, use `msiren install --all`; for an explicitly accepted unsigned preview, use `msiren install --all --allow-unsigned-hud`.
+
+The current app package no longer uses npm-managed `bin` aliases, which avoids npm's `EEXIST` bin conflict with older prerelease installs.
 
 If release asset download cannot complete during postinstall, npm still leaves the command installed. Rerun the web asset installer after network or release access is fixed:
 
@@ -358,7 +385,7 @@ During an interactive PowerShell, cmd, or shell install, the package asks which 
 - Web dashboard
 - HUD
 
-Press Enter to accept the recommended default, which selects all three. In CI or non-interactive npm installs, MoneySiren writes that same all-selected profile automatically. The npm package installs both `moneysiren` and the shorter `msiren` command. Run `msiren install --all` to download the matching GitHub Release assets for the web runtime and HUD desktop shell, or `msiren install --profile-only` to only change the local profile.
+Press Enter to accept the recommended default, which selects all three. In CI or non-interactive npm installs, MoneySiren writes that same all-selected profile automatically. Selection is not an installation guarantee: a signed HUD artifact must still be available, or unsigned testing must be explicitly accepted. The npm package installs both `moneysiren` and the shorter `msiren` command. Run `msiren install --all` to download signed matching release assets, `msiren install --all --allow-unsigned-hud` for an intentionally accepted unsigned preview, or `msiren install --profile-only` to change only the local profile.
 
 The same source tree supports Windows and macOS. Local config paths and native desktop artifacts are selected per OS. The shared runtime lock defaults to `%APPDATA%\MoneySiren\runtime.json` on Windows and `~/Library/Application Support/MoneySiren/runtime.json` on macOS so the npm CLI and native tray can discover the same local runtime.
 
@@ -371,12 +398,13 @@ npm install -g @moneysiren/app
 msiren install --status
 msiren sync --provider mock
 msiren start
-msiren hud
 msiren status
 msiren stop
 ```
 
-`msiren install --all` stores the selected release assets under the MoneySiren local application data directory by default. `msiren start` extracts and starts the installed web runtime, then opens the local dashboard. `msiren hud` ensures the web runtime is running and opens the desktop HUD shell when a runnable desktop app is installed or configured. `msiren status` shows the managed web, HUD, and local API runtime state. `msiren stop` stops managed runtimes; use `msiren stop --web`, `msiren stop --hud`, or `msiren stop --api` when you only want to stop one surface. `msiren restart` stops the managed web/HUD pair and starts the dashboard again.
+The commands above start the web dashboard. Install the native HUD separately using the signed or explicit unsigned procedure in [Install The Native HUD](#install-the-native-hud), then run `msiren hud`.
+
+`msiren install --all` stores the selected signed release assets under the MoneySiren local application data directory by default. `msiren start` extracts and starts the installed web runtime, then opens the local dashboard. `msiren hud` ensures the web runtime is running and opens the desktop HUD shell only when a runnable desktop app is installed or configured. `msiren status` shows the managed web, HUD, and local API runtime state. `msiren stop` stops managed runtimes; use `msiren stop --web`, `msiren stop --hud`, or `msiren stop --api` when you only want to stop one surface. `msiren restart` stops the managed web/HUD pair and starts the dashboard again.
 
 To install the web runtime from a specific release tag or into a custom directory:
 

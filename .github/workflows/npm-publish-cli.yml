@@ -40,7 +40,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.source_commit }}
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.9
         with:
           version: 11.5.0
 
